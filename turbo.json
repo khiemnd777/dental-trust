@@ -1,0 +1,92 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalPassThroughEnv": [
+    "API_URL",
+    "APP_URL",
+    "AUTH_AUDIENCE",
+    "AUTH_ISSUER",
+    "AUTH_SECRET",
+    "BUILD_VERSION",
+    "CI",
+    "CLAMAV_HOST",
+    "CLAMAV_PORT",
+    "CORS_ORIGINS",
+    "DATABASE_URL",
+    "DENTAL_TRUST_ENV_FILE",
+    "DIRECT_DATABASE_URL",
+    "ERROR_TRACKING_DSN",
+    "E2E_REAL_API",
+    "FIELD_ENCRYPTION_KEY",
+    "LOG_LEVEL",
+    "MEETING_ADAPTER",
+    "MEETING_ALLOWED_HOSTS",
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_BUILD_VERSION",
+    "NEXT_PUBLIC_DEFAULT_LOCALE",
+    "NODE_ENV",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "PAYMENT_ADAPTER",
+    "PORT",
+    "PRISMA_QUERY_ENGINE_LIBRARY",
+    "PRISMA_SCHEMA_ENGINE_BINARY",
+    "REDIS_URL",
+    "S3_ACCESS_KEY",
+    "S3_BUCKET",
+    "S3_ENDPOINT",
+    "S3_FORCE_PATH_STYLE",
+    "S3_REGION",
+    "S3_SECRET_KEY",
+    "SMTP_FROM",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "WEB_AUTH_ADAPTER",
+    "WORKER_HEALTH_PORT",
+    "XDG_CACHE_HOME"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "outputs": ["playwright-report/**", "test-results/**"]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

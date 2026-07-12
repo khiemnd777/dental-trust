@@ -1,0 +1,3099 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum SystemRole {
+  PATIENT
+  CAREGIVER
+  DENTIST
+  CLINIC_STAFF
+  CLINIC_ADMIN
+  CONCIERGE_AGENT
+  VERIFICATION_OFFICER
+  SUPPORT_AGENT
+  FINANCE_ADMIN
+  CONTENT_ADMIN
+  PLATFORM_ADMIN
+  SUPER_ADMIN
+}
+
+enum AccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  LOCKED
+  SUSPENDED
+  DELETION_REQUESTED
+  DELETED
+}
+
+enum AccountLifecycleTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum OrganizationType {
+  CLINIC
+  CONCIERGE
+  PLATFORM
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum CaregiverPermission {
+  VIEW_CASE_SUMMARY
+  VIEW_APPOINTMENTS
+  VIEW_TREATMENT_PLANS
+  VIEW_FINANCIAL_INFORMATION
+  VIEW_DOCUMENTS
+  UPLOAD_DOCUMENTS
+  PARTICIPATE_IN_MESSAGES
+  APPROVE_NON_CLINICAL_ARRANGEMENTS
+  RECEIVE_NOTIFICATIONS
+}
+
+enum DentalCaseStatus {
+  DRAFT
+  RECORDS_PENDING
+  INTAKE_REVIEW
+  ADDITIONAL_INFORMATION_REQUESTED
+  MATCHING_IN_PROGRESS
+  CLINICS_SHORTLISTED
+  TREATMENT_PLANS_PENDING
+  TREATMENT_PLANS_READY
+  CONSULTATION_SCHEDULED
+  CONSULTATION_COMPLETED
+  PATIENT_DECISION_PENDING
+  BOOKING_PENDING
+  BOOKED
+  IN_TREATMENT
+  TREATMENT_COMPLETED
+  AFTERCARE_ACTIVE
+  WARRANTY_CASE_ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum AssignmentKind {
+  CLINIC
+  DENTIST
+  CONCIERGE
+  SUPPORT
+}
+
+enum Currency {
+  VND
+  USD
+}
+
+enum FileAssetStatus {
+  QUARANTINED
+  SCANNING
+  AVAILABLE
+  REJECTED
+  DELETION_PENDING
+  DELETED
+}
+
+enum MalwareScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  ERROR
+}
+
+enum TreatmentPlanVersionStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+  EXPIRED
+}
+
+enum AppointmentStatus {
+  TENTATIVE
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentKind {
+  CONSULTATION
+  CLINICAL_VISIT
+}
+
+enum BookingStatus {
+  PENDING_DEPOSIT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  REQUIRES_PAYMENT_METHOD
+  REQUIRES_ACTION
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  CANCELLED
+}
+
+enum RefundStatus {
+  REQUESTED
+  UNDER_REVIEW
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REJECTED
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  VOID
+}
+
+enum ReceiptStatus {
+  ISSUED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  PROVIDER
+}
+
+enum VerificationStatus {
+  NOT_SUBMITTED
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ADDITIONAL_INFORMATION_REQUIRED
+  SITE_AUDIT_REQUIRED
+  APPROVED
+  VERIFIED
+  VERIFICATION_EXPIRING
+  EXPIRED
+  SUSPENDED
+  REJECTED
+}
+
+enum VerificationSubjectType {
+  CLINIC
+  DENTIST
+}
+
+enum VerificationRiskLevel {
+  STANDARD
+  HIGH
+}
+
+enum VerificationRequirementStatus {
+  NOT_PROVIDED
+  PROVIDED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WAIVED
+}
+
+enum VerificationReviewStatus {
+  PENDING_SECOND_APPROVAL
+  APPLIED
+  REJECTED
+}
+
+enum SiteAuditStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FINDINGS_ISSUED
+  COMPLETED
+  CANCELLED
+}
+
+enum CorrectiveActionStatus {
+  OPEN
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  CLOSED
+}
+
+enum ReviewModerationStatus {
+  PENDING
+  PUBLISHED
+  HIDDEN
+  REJECTED
+}
+
+enum ReviewReportStatus {
+  OPEN
+  UNDER_REVIEW
+  ACTIONED
+  DISMISSED
+}
+
+enum EscalationStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+  DEAD_LETTER
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum MessageVisibility {
+  PARTICIPANTS
+  STAFF_INTERNAL
+}
+
+enum JourneyMilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
+enum TreatmentInstructionType {
+  MEDICATION
+  DISCHARGE
+  FOLLOW_UP
+}
+
+enum PlanChangeKind {
+  TREATMENT
+  PRICE
+  TREATMENT_AND_PRICE
+}
+
+enum PassportVersionStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+  REVOKED
+}
+
+enum SecureShareAccessOutcome {
+  GRANTED
+  DENIED_EXPIRED
+  DENIED_REVOKED
+  DENIED_ACCESS_LIMIT
+}
+
+enum IncidentStatus {
+  OPEN
+  TRIAGED
+  IN_PROGRESS
+  AWAITING_CLINIC
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum WarrantyClaimStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  REMEDIATION_IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  MESSAGING
+}
+
+enum NotificationStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  SUPPRESSED
+}
+
+enum PrivacyRequestType {
+  EXPORT
+  DELETE
+  RECTIFY
+  RESTRICT_PROCESSING
+  WITHDRAW_CONSENT
+}
+
+enum PrivacyRequestStatus {
+  SUBMITTED
+  IDENTITY_VERIFICATION_REQUIRED
+  IN_REVIEW
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum PrivacyExecutionStatus {
+  PENDING
+  PROCESSING
+  NOTICE_PENDING
+  SUCCEEDED
+  FAILED
+  BLOCKED
+}
+
+enum PrivacyExecutionOutcome {
+  EXPORT_READY
+  DEIDENTIFIED_WITH_RETENTION
+  RETAINED_LEGAL_HOLD
+}
+
+enum PrivacyIdentityVerificationMethod {
+  ACCOUNT_MFA
+  VERIFIED_COMMUNICATION
+  DOCUMENT_REVIEW
+}
+
+enum PrivacyLegalHoldScope {
+  ALL
+  IDENTITY
+  CLINICAL
+  FINANCIAL
+  TRUST_SAFETY
+  AUDIT_SECURITY
+  FILES
+}
+
+enum SupportElevationStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum QuestionnaireVersionStatus {
+  DRAFT
+  SUBMITTED
+  SUPERSEDED
+}
+
+enum SmokingStatus {
+  NEVER
+  FORMER
+  CURRENT
+  PREFER_NOT_TO_SAY
+}
+
+enum PregnancyStatus {
+  NOT_APPLICABLE
+  NOT_PREGNANT
+  PREGNANT
+  UNSURE
+  PREFER_NOT_TO_SAY
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum PayoutOnboardingStatus {
+  NOT_STARTED
+  INCOMPLETE
+  PENDING_REVIEW
+  ACTIVE
+  RESTRICTED
+}
+
+enum ClinicDeclarationKind {
+  EQUIPMENT
+  SERVICE_CAPABILITY
+  WARRANTY
+  AFTERCARE
+}
+
+enum ClinicOnboardingDocumentKind {
+  OPERATING_LICENSE
+  PROFESSIONAL_LICENSE
+  INSURANCE
+  EQUIPMENT_CERTIFICATE
+}
+
+enum ClinicInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum ClinicOpportunityStatus {
+  ASSIGNED
+  ACCEPTED
+  DECLINED
+  ADDITIONAL_RECORDS_REQUESTED
+}
+
+enum AvailabilitySlotKind {
+  CONSULTATION
+  TREATMENT
+  BOTH
+}
+
+enum AvailabilityBlockKind {
+  BLOCK
+  TIME_OFF
+}
+
+enum CalendarConnectionStatus {
+  DISCONNECTED
+  PENDING
+  ACTIVE
+  ERROR
+}
+
+enum GovernancePublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ConfigurationValueType {
+  STRING
+  BOOLEAN
+  INTEGER
+  DECIMAL
+}
+
+model User {
+  id                           String                        @id @default(uuid()) @db.Uuid
+  email                        String                        @unique @db.Citext
+  passwordHash                 String                        @map("password_hash")
+  emailVerifiedAt              DateTime?                     @map("email_verified_at") @db.Timestamptz(6)
+  preferredLocale              String                        @default("vi-VN") @map("preferred_locale")
+  accountStatus                AccountStatus                 @default(PENDING_VERIFICATION) @map("account_status")
+  failedLoginCount             Int                           @default(0) @map("failed_login_count")
+  lockedUntil                  DateTime?                     @map("locked_until") @db.Timestamptz(6)
+  deletedAt                    DateTime?                     @map("deleted_at") @db.Timestamptz(6)
+  createdAt                    DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roles                        UserRole[]
+  sessions                     Session[]
+  mfaConfigurations            MfaConfiguration[]
+  accountLifecycleTokens       AccountLifecycleToken[]
+  memberships                  OrganizationMembership[]
+  patientProfile               PatientProfile?
+  caregiverGrants              CaregiverGrant[]              @relation("CaregiverUser")
+  caseAssignments              CaseAssignment[]              @relation("AssignedUser")
+  statusChanges                CaseStatusHistory[]           @relation("CaseStatusActor")
+  auditLogs                    AuditLog[]                    @relation("AuditActor")
+  impersonatedAudits           AuditLog[]                    @relation("AuditImpersonator")
+  consentRecords               ConsentRecord[]
+  authoredMessages             Message[]                     @relation("MessageAuthor")
+  internalNotes                InternalNote[]                @relation("InternalNoteAuthor")
+  notifications                Notification[]
+  notificationPreferences      NotificationPreference[]
+  privacyRequests              PrivacyRequest[]              @relation("PrivacyRequester")
+  handledPrivacyRequests       PrivacyRequest[]              @relation("PrivacyHandler")
+  privacyExecutionsVerified    PrivacyRequestExecution[]     @relation("PrivacyExecutionVerifier")
+  privacyLegalHolds            PrivacyLegalHold[]            @relation("PrivacyHoldSubject")
+  privacyLegalHoldsPlaced      PrivacyLegalHold[]            @relation("PrivacyHoldPlacer")
+  privacyLegalHoldsReleased    PrivacyLegalHold[]            @relation("PrivacyHoldReleaser")
+  requestedElevations          SupportElevation[]            @relation("ElevationActor")
+  elevationSubjects            SupportElevation[]            @relation("ElevationSubject")
+  approvedElevations           SupportElevation[]            @relation("ElevationApprover")
+  treatmentEvents              TreatmentEvent[]              @relation("TreatmentEventActor")
+  completedMilestones          TreatmentMilestone[]          @relation("MilestoneCompleter")
+  treatmentInstructions        TreatmentInstruction[]        @relation("TreatmentInstructionAuthor")
+  planChangeRequests           PlanChangeRequest[]           @relation("PlanChangeAuthor")
+  planChangeAcknowledgements   PlanChangeAcknowledgement[]   @relation("PlanChangePatient")
+  passportVersionsAuthored     DentalPassportVersion[]       @relation("PassportAuthor")
+  passportVersionsPublished    DentalPassportVersion[]       @relation("PassportPublisher")
+  secureSharesCreated          SecureShare[]                 @relation("SecureShareCreator")
+  secureSharesRevoked          SecureShare[]                 @relation("SecureShareRevoker")
+  incidentEvents               IncidentEvent[]               @relation("IncidentEventActor")
+  createdIncidents             Incident[]                    @relation("IncidentCreator")
+  ownedIncidents               Incident[]                    @relation("IncidentOwner")
+  dentistProfile               Dentist?
+  clinicStaffRecords           ClinicStaff[]
+  idempotencyRecords           IdempotencyRecord[]
+  fileAssets                   FileAsset[]
+  treatmentAcceptances         TreatmentPlanAcceptance[]
+  authoredReviews              Review[]                      @relation("ReviewPatient")
+  reviewResponses              ReviewResponse[]              @relation("ReviewResponseAuthor")
+  reviewAbuseReports           ReviewAbuseReport[]           @relation("ReviewReportAuthor")
+  requestedRefunds             Refund[]                      @relation("RefundRequester")
+  verificationCasesSubmitted   VerificationCase[]            @relation("VerificationCaseSubmitter")
+  verificationCasesAssigned    VerificationCase[]            @relation("VerificationCaseReviewer")
+  verificationEvidence         VerificationEvidence[]        @relation("VerificationEvidenceSubmitter")
+  verificationApprovals        VerificationEvidence[]        @relation("VerificationEvidenceApprover")
+  verificationReviews          VerificationReview[]          @relation("VerificationPrimaryReviewer")
+  verificationSecondReviews    VerificationReview[]          @relation("VerificationSecondApprover")
+  siteAuditsScheduled          SiteAudit[]                   @relation("SiteAuditScheduler")
+  siteAuditsAssigned           SiteAudit[]                   @relation("SiteAuditAuditor")
+  correctiveActionsRequested   CorrectiveAction[]            @relation("CorrectiveActionRequester")
+  savedClinics                 SavedClinic[]
+  matchingCriteriaAuthored     CaseMatchingCriteria[]        @relation("MatchingCriteriaAuthor")
+  shortlistOverrides           CaseShortlistEntry[]          @relation("ShortlistOverrideAuthor")
+  introductionRequests         IntroductionRequest[]         @relation("IntroductionPatient")
+  introductionsHandled         IntroductionRequest[]         @relation("IntroductionHandler")
+  conciergeAssignments         ConciergeCaseWorkspace[]      @relation("ConciergeAssignedAgent")
+  conciergeSupervisions        ConciergeCaseWorkspace[]      @relation("ConciergeSupervisor")
+  conciergeInternalNotes       ConciergeInternalNote[]       @relation("ConciergeNoteAuthor")
+  conciergeTravelNotes         ConciergeTravelNote[]         @relation("ConciergeTravelNoteAuthor")
+  conciergeCommunications      ConciergeCommunicationEvent[] @relation("ConciergeCommunicationActor")
+  conciergeTasksAssigned       ConciergeTask[]               @relation("ConciergeTaskAssignee")
+  conciergeTasksCreated        ConciergeTask[]               @relation("ConciergeTaskCreator")
+  conciergeHandoffsFrom        ConciergeHandoff[]            @relation("ConciergeHandoffFrom")
+  conciergeHandoffsTo          ConciergeHandoff[]            @relation("ConciergeHandoffTo")
+  conciergeReviews             ConciergeSupervisorReview[]   @relation("ConciergeReviewAuthor")
+  featureFlagVersions          FeatureFlagVersion[]          @relation("FeatureFlagVersionAuthor")
+  notificationTemplateVersions NotificationTemplateVersion[] @relation("NotificationTemplateVersionAuthor")
+  systemConfigurationVersions  SystemConfigurationVersion[]  @relation("SystemConfigurationVersionAuthor")
+  contentPagesAuthored         ContentPage[]                 @relation("ContentPageAuthor")
+  countryConfigurationsUpdated CountryConfiguration[]        @relation("CountryConfigurationUpdater")
+  cityConfigurationsUpdated    CityConfiguration[]           @relation("CityConfigurationUpdater")
+  localeConfigurationsUpdated  LocaleConfiguration[]         @relation("LocaleConfigurationUpdater")
+
+  @@index([accountStatus, deletedAt])
+  @@map("users")
+}
+
+model RoleDefinition {
+  id           String                   @id @default(uuid()) @db.Uuid
+  code         SystemRole               @unique
+  displayName  String                   @map("display_name")
+  isPrivileged Boolean                  @default(false) @map("is_privileged")
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  users        UserRole[]
+  memberships  OrganizationMembership[]
+  permissions  RolePermission[]
+
+  @@map("role_definitions")
+}
+
+model PermissionDefinition {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique
+  description String
+  roles       RolePermission[]
+
+  @@map("permission_definitions")
+}
+
+model RolePermission {
+  roleId       String               @map("role_id") @db.Uuid
+  permissionId String               @map("permission_id") @db.Uuid
+  role         RoleDefinition       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   PermissionDefinition @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String         @map("user_id") @db.Uuid
+  roleId    String         @map("role_id") @db.Uuid
+  grantedAt DateTime       @default(now()) @map("granted_at") @db.Timestamptz(6)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      RoleDefinition @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id                         String                      @id @default(uuid()) @db.Uuid
+  userId                     String                      @map("user_id") @db.Uuid
+  tokenHash                  String                      @unique @map("token_hash") @db.Char(64)
+  expiresAt                  DateTime                    @map("expires_at") @db.Timestamptz(6)
+  revokedAt                  DateTime?                   @map("revoked_at") @db.Timestamptz(6)
+  mfaVerifiedAt              DateTime?                   @map("mfa_verified_at") @db.Timestamptz(6)
+  lastSeenAt                 DateTime                    @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  ipAddressHash              String?                     @map("ip_address_hash") @db.Char(64)
+  userAgent                  String?                     @map("user_agent") @db.VarChar(512)
+  createdAt                  DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  user                       User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consentRecords             ConsentRecord[]
+  treatmentAcceptances       TreatmentPlanAcceptance[]
+  planChangeAcknowledgements PlanChangeAcknowledgement[]
+  introductionRequests       IntroductionRequest[]
+
+  @@index([userId, revokedAt, expiresAt])
+  @@map("sessions")
+}
+
+model MfaConfiguration {
+  id                     String            @id @default(uuid()) @db.Uuid
+  userId                 String            @map("user_id") @db.Uuid
+  method                 String
+  encryptedSecret        String?           @map("encrypted_secret")
+  pendingEncryptedSecret String?           @map("pending_encrypted_secret")
+  enabledAt              DateTime?         @map("enabled_at") @db.Timestamptz(6)
+  revokedAt              DateTime?         @map("revoked_at") @db.Timestamptz(6)
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recoveryCodes          MfaRecoveryCode[]
+
+  @@unique([userId, method])
+  @@index([userId, enabledAt, revokedAt])
+  @@map("mfa_configurations")
+}
+
+model MfaRecoveryCode {
+  id                 String           @id @default(uuid()) @db.Uuid
+  mfaConfigurationId String           @map("mfa_configuration_id") @db.Uuid
+  codeHash           String           @unique @map("code_hash") @db.Char(64)
+  consumedAt         DateTime?        @map("consumed_at") @db.Timestamptz(6)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  mfaConfiguration   MfaConfiguration @relation(fields: [mfaConfigurationId], references: [id], onDelete: Cascade)
+
+  @@index([mfaConfigurationId, consumedAt])
+  @@map("mfa_recovery_codes")
+}
+
+model AccountLifecycleToken {
+  id         String                    @id @default(uuid()) @db.Uuid
+  userId     String                    @map("user_id") @db.Uuid
+  type       AccountLifecycleTokenType
+  tokenHash  String                    @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime                  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime?                 @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, consumedAt, expiresAt])
+  @@map("account_lifecycle_tokens")
+}
+
+model Organization {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  type                OrganizationType
+  name                String
+  slug                String                   @unique
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?                @map("deleted_at") @db.Timestamptz(6)
+  memberships         OrganizationMembership[]
+  clinic              Clinic?
+  assignments         CaseAssignment[]
+  auditLogs           AuditLog[]
+  conciergeWorkspaces ConciergeCaseWorkspace[]
+
+  @@index([type, deletedAt])
+  @@map("organizations")
+}
+
+model OrganizationMembership {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  roleId         String           @map("role_id") @db.Uuid
+  status         MembershipStatus @default(INVITED)
+  invitedAt      DateTime         @default(now()) @map("invited_at") @db.Timestamptz(6)
+  acceptedAt     DateTime?        @map("accepted_at") @db.Timestamptz(6)
+  suspendedAt    DateTime?        @map("suspended_at") @db.Timestamptz(6)
+  removedAt      DateTime?        @map("removed_at") @db.Timestamptz(6)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           RoleDefinition   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  clinicStaff    ClinicStaff?
+
+  @@unique([organizationId, userId, roleId])
+  @@index([userId, status])
+  @@index([organizationId, status])
+  @@map("organization_memberships")
+}
+
+model Clinic {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  organizationId     String                     @unique @map("organization_id") @db.Uuid
+  name               String
+  slug               String                     @unique
+  legalEntityName    String                     @map("legal_entity_name")
+  verificationStatus VerificationStatus         @default(NOT_SUBMITTED) @map("verification_status")
+  verifiedAt         DateTime?                  @map("verified_at") @db.Timestamptz(6)
+  deletedAt          DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization       Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  locations          ClinicLocation[]
+  affiliations       DentistClinicAffiliation[]
+  treatmentPlans     TreatmentPlan[]
+  matchingResults    MatchingResult[]
+  verificationCases  VerificationCase[]
+  appointments       Appointment[]
+  reviews            Review[]
+  incidents          Incident[]
+  warrantyClaims     WarrantyClaim[]
+  staff              ClinicStaff[]
+  licenses           ProfessionalLicense[]
+  services           ClinicService[]
+  warrantyPolicies   WarrantyPolicy[]
+  passportVersions   DentalPassportVersion[]
+  siteAudits         SiteAudit[]
+  discoveryProfile   ClinicDiscoveryProfile?
+  savedByPatients    SavedClinic[]
+  shortlistEntries   CaseShortlistEntry[]
+
+  @@index([verificationStatus, verifiedAt])
+  @@map("clinics")
+}
+
+model ClinicLocation {
+  id                       String        @id @default(uuid()) @db.Uuid
+  clinicId                 String        @map("clinic_id") @db.Uuid
+  name                     String
+  address                  String
+  city                     String
+  district                 String?
+  timezone                 String
+  encryptedBusinessContact String?       @map("encrypted_business_contact")
+  active                   Boolean       @default(true)
+  createdAt                DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  clinic                   Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  staff                    ClinicStaff[]
+  siteAudits               SiteAudit[]
+
+  @@index([clinicId, active])
+  @@index([city, district])
+  @@map("clinic_locations")
+}
+
+model Dentist {
+  id                String                     @id @default(uuid()) @db.Uuid
+  userId            String?                    @unique @map("user_id") @db.Uuid
+  slug              String                     @unique
+  fullName          String                     @map("full_name")
+  licenseNumber     String                     @unique @map("license_number")
+  licenseStatus     VerificationStatus         @default(NOT_SUBMITTED) @map("license_status")
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  affiliations      DentistClinicAffiliation[]
+  planVersions      TreatmentPlanVersion[]
+  appointments      Appointment[]
+  user              User?                      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  licenses          ProfessionalLicense[]
+  passportVersions  DentalPassportVersion[]
+  verificationCases VerificationCase[]
+
+  @@index([licenseStatus])
+  @@map("dentists")
+}
+
+model DentistClinicAffiliation {
+  id        String    @id @default(uuid()) @db.Uuid
+  dentistId String    @map("dentist_id") @db.Uuid
+  clinicId  String    @map("clinic_id") @db.Uuid
+  active    Boolean   @default(true)
+  startedAt DateTime  @map("started_at") @db.Timestamptz(6)
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(6)
+  dentist   Dentist   @relation(fields: [dentistId], references: [id], onDelete: Restrict)
+  clinic    Clinic    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, active])
+  @@index([dentistId, active])
+  @@map("dentist_clinic_affiliations")
+}
+
+model PatientProfile {
+  id                    String             @id @default(uuid()) @db.Uuid
+  userId                String             @unique @map("user_id") @db.Uuid
+  preferredCurrency     Currency           @default(USD) @map("preferred_currency")
+  currentCountry        String?            @map("current_country")
+  currentCity           String?            @map("current_city")
+  timezone              String             @default("UTC")
+  encryptedIdentityData String?            @map("encrypted_identity_data")
+  encryptedContactData  String?            @map("encrypted_contact_data")
+  encryptedPreferences  String?            @map("encrypted_preferences")
+  encryptedMedicalData  String?            @map("encrypted_medical_data")
+  onboardingCompletedAt DateTime?          @map("onboarding_completed_at") @db.Timestamptz(6)
+  version               Int                @default(1)
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  cases                 DentalCase[]
+  caregiverGrants       CaregiverGrant[]
+  emergencyContacts     EmergencyContact[]
+
+  @@index([onboardingCompletedAt])
+  @@map("patient_profiles")
+}
+
+model EmergencyContact {
+  id             String         @id @default(uuid()) @db.Uuid
+  patientId      String         @map("patient_id") @db.Uuid
+  encryptedName  String         @map("encrypted_name")
+  encryptedPhone String         @map("encrypted_phone")
+  relationship   String
+  version        Int            @default(1)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  patient        PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@map("emergency_contacts")
+}
+
+model ConsentTextVersion {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  purpose              String
+  version              String
+  locale               String
+  contentHash          String                    @map("content_hash") @db.Char(64)
+  publishedAt          DateTime                  @map("published_at") @db.Timestamptz(6)
+  records              ConsentRecord[]
+  treatmentAcceptances TreatmentPlanAcceptance[]
+
+  @@unique([purpose, version, locale])
+  @@map("consent_text_versions")
+}
+
+model ConsentRecord {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  userId                String                 @map("user_id") @db.Uuid
+  consentTextVersionId  String                 @map("consent_text_version_id") @db.Uuid
+  grantedAt             DateTime               @default(now()) @map("granted_at") @db.Timestamptz(6)
+  withdrawnAt           DateTime?              @map("withdrawn_at") @db.Timestamptz(6)
+  requestId             String                 @map("request_id")
+  sessionId             String?                @map("session_id") @db.Uuid
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  consentTextVersion    ConsentTextVersion     @relation(fields: [consentTextVersionId], references: [id], onDelete: Restrict)
+  questionnaireConsents QuestionnaireConsent[]
+  session               Session?               @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  introductionRequests  IntroductionRequest[]
+
+  @@index([userId, grantedAt])
+  @@map("consent_records")
+}
+
+model DentalCase {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  caseNumber            String                  @unique @map("case_number")
+  patientProfileId      String                  @map("patient_profile_id") @db.Uuid
+  title                 String
+  desiredProcedureCode  String                  @map("desired_procedure_code")
+  preferredLocation     String?                 @map("preferred_location")
+  expectedArrivalDate   DateTime?               @map("expected_arrival_date") @db.Date
+  expectedDepartureDate DateTime?               @map("expected_departure_date") @db.Date
+  preferredCurrency     Currency                @default(USD) @map("preferred_currency")
+  status                DentalCaseStatus        @default(DRAFT)
+  version               Int                     @default(1)
+  closedAt              DateTime?               @map("closed_at") @db.Timestamptz(6)
+  cancelledAt           DateTime?               @map("cancelled_at") @db.Timestamptz(6)
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  patientProfile        PatientProfile          @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  statusHistory         CaseStatusHistory[]
+  assignments           CaseAssignment[]
+  caregiverGrants       CaregiverGrant[]
+  matchingResults       MatchingResult[]
+  treatmentPlans        TreatmentPlan[]
+  appointments          Appointment[]
+  bookings              Booking[]
+  documents             CaseDocument[]
+  secureShares          SecureShare[]
+  aftercarePlans        AftercarePlan[]
+  reviews               Review[]
+  messageThreads        MessageThread[]
+  treatmentMilestones   TreatmentMilestone[]
+  treatmentEvents       TreatmentEvent[]
+  planChangeRequests    PlanChangeRequest[]
+  dentalPassport        DentalPassport?
+  incidents             Incident[]
+  intakeQuestionnaire   IntakeQuestionnaire?
+  treatmentInstructions TreatmentInstruction[]
+  matchingCriteria      CaseMatchingCriteria[]
+  shortlistEntries      CaseShortlistEntry[]
+  conciergeWorkspace    ConciergeCaseWorkspace?
+
+  @@index([patientProfileId, status, updatedAt])
+  @@index([status, updatedAt])
+  @@map("dental_cases")
+}
+
+model CaseStatusHistory {
+  id          String            @id @default(uuid()) @db.Uuid
+  caseId      String            @map("case_id") @db.Uuid
+  fromStatus  DentalCaseStatus? @map("from_status")
+  toStatus    DentalCaseStatus  @map("to_status")
+  actorUserId String            @map("actor_user_id") @db.Uuid
+  reason      String
+  requestId   String            @map("request_id")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase  DentalCase        @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  actor       User              @relation("CaseStatusActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+  @@map("case_status_history")
+}
+
+model CaseAssignment {
+  id             String         @id @default(uuid()) @db.Uuid
+  caseId         String         @map("case_id") @db.Uuid
+  kind           AssignmentKind
+  organizationId String?        @map("organization_id") @db.Uuid
+  assignedUserId String?        @map("assigned_user_id") @db.Uuid
+  assignedAt     DateTime       @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  endedAt        DateTime?      @map("ended_at") @db.Timestamptz(6)
+  dentalCase     DentalCase     @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignedUser   User?          @relation("AssignedUser", fields: [assignedUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, endedAt])
+  @@index([organizationId, endedAt])
+  @@index([assignedUserId, endedAt])
+  @@map("case_assignments")
+}
+
+model CaregiverGrant {
+  id               String                @id @default(uuid()) @db.Uuid
+  caseId           String                @map("case_id") @db.Uuid
+  patientProfileId String                @map("patient_profile_id") @db.Uuid
+  caregiverUserId  String                @map("caregiver_user_id") @db.Uuid
+  permissions      CaregiverPermission[]
+  grantedAt        DateTime              @default(now()) @map("granted_at") @db.Timestamptz(6)
+  expiresAt        DateTime?             @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime?             @map("revoked_at") @db.Timestamptz(6)
+  lastAccessedAt   DateTime?             @map("last_accessed_at") @db.Timestamptz(6)
+  dentalCase       DentalCase            @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  patientProfile   PatientProfile        @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+  caregiver        User                  @relation("CaregiverUser", fields: [caregiverUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, caregiverUserId, revokedAt])
+  @@map("caregiver_grants")
+}
+
+model MatchingResult {
+  id                String                @id @default(uuid()) @db.Uuid
+  caseId            String                @map("case_id") @db.Uuid
+  clinicId          String                @map("clinic_id") @db.Uuid
+  criteriaVersionId String?               @map("criteria_version_id") @db.Uuid
+  organicRank       Int?                  @map("organic_rank")
+  fitScore          Int                   @map("fit_score")
+  reasons           Json
+  limitations       Json
+  evidenceIds       Json                  @map("evidence_ids")
+  algorithmVersion  String                @map("algorithm_version")
+  calculatedAt      DateTime              @default(now()) @map("calculated_at") @db.Timestamptz(6)
+  dentalCase        DentalCase            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  clinic            Clinic                @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  criteriaVersion   CaseMatchingCriteria? @relation(fields: [criteriaVersionId], references: [id], onDelete: Restrict)
+  shortlistEntries  CaseShortlistEntry[]
+
+  @@unique([criteriaVersionId, clinicId])
+  @@index([caseId, fitScore])
+  @@map("matching_results")
+}
+
+model TreatmentPlan {
+  id         String                 @id @default(uuid()) @db.Uuid
+  caseId     String                 @map("case_id") @db.Uuid
+  clinicId   String                 @map("clinic_id") @db.Uuid
+  createdAt  DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase DentalCase             @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  clinic     Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  versions   TreatmentPlanVersion[]
+
+  @@unique([caseId, clinicId])
+  @@map("treatment_plans")
+}
+
+model TreatmentPlanVersion {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  treatmentPlanId       String                     @map("treatment_plan_id") @db.Uuid
+  version               Int
+  status                TreatmentPlanVersionStatus @default(DRAFT)
+  authoringDentistId    String                     @map("authoring_dentist_id") @db.Uuid
+  preliminaryAssessment String                     @map("preliminary_assessment")
+  diagnosisStatement    String                     @map("diagnosis_statement")
+  risks                 String
+  limitations           String
+  warrantyTerms         String                     @map("warranty_terms")
+  exclusions            String
+  currency              Currency
+  totalMinor            BigInt                     @map("total_minor")
+  expiresAt             DateTime                   @map("expires_at") @db.Timestamptz(6)
+  publishedAt           DateTime?                  @map("published_at") @db.Timestamptz(6)
+  contentChecksum       String?                    @map("content_checksum") @db.Char(64)
+  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  treatmentPlan         TreatmentPlan              @relation(fields: [treatmentPlanId], references: [id], onDelete: Restrict)
+  authoringDentist      Dentist                    @relation(fields: [authoringDentistId], references: [id], onDelete: Restrict)
+  items                 TreatmentPlanItem[]
+  acceptances           TreatmentPlanAcceptance[]
+  bookings              Booking[]
+  changeRequests        PlanChangeRequest[]        @relation("ChangeFromPlanVersion")
+
+  @@unique([treatmentPlanId, version])
+  @@index([status, expiresAt])
+  @@map("treatment_plan_versions")
+}
+
+model TreatmentPlanItem {
+  id                     String               @id @default(uuid()) @db.Uuid
+  treatmentPlanVersionId String               @map("treatment_plan_version_id") @db.Uuid
+  procedureCode          String               @map("procedure_code")
+  toothNumbers           Int[]                @map("tooth_numbers")
+  quantity               Int
+  material               String?
+  brand                  String?
+  unitPriceMinor         BigInt               @map("unit_price_minor")
+  totalPriceMinor        BigInt               @map("total_price_minor")
+  sortOrder              Int                  @map("sort_order")
+  treatmentPlanVersion   TreatmentPlanVersion @relation(fields: [treatmentPlanVersionId], references: [id], onDelete: Cascade)
+
+  @@index([treatmentPlanVersionId, sortOrder])
+  @@map("treatment_plan_items")
+}
+
+model TreatmentPlanAcceptance {
+  id                     String               @id @default(uuid()) @db.Uuid
+  treatmentPlanVersionId String               @map("treatment_plan_version_id") @db.Uuid
+  userId                 String               @map("user_id") @db.Uuid
+  consentTextVersionId   String               @map("consent_text_version_id") @db.Uuid
+  sessionId              String               @map("session_id") @db.Uuid
+  requestId              String               @map("request_id")
+  acceptedAt             DateTime             @default(now()) @map("accepted_at") @db.Timestamptz(6)
+  treatmentPlanVersion   TreatmentPlanVersion @relation(fields: [treatmentPlanVersionId], references: [id], onDelete: Restrict)
+  user                   User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  consentTextVersion     ConsentTextVersion   @relation(fields: [consentTextVersionId], references: [id], onDelete: Restrict)
+  session                Session              @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  booking                Booking?
+
+  @@unique([treatmentPlanVersionId, userId])
+  @@map("treatment_plan_acceptances")
+}
+
+model Appointment {
+  id                 String            @id @default(uuid()) @db.Uuid
+  caseId             String            @map("case_id") @db.Uuid
+  clinicId           String            @map("clinic_id") @db.Uuid
+  clinicLocationId   String?           @map("clinic_location_id") @db.Uuid
+  dentistId          String?           @map("dentist_id") @db.Uuid
+  kind               AppointmentKind   @default(CONSULTATION)
+  startsAt           DateTime          @map("starts_at") @db.Timestamptz(6)
+  endsAt             DateTime          @map("ends_at") @db.Timestamptz(6)
+  status             AppointmentStatus @default(TENTATIVE)
+  timezone           String
+  version            Int               @default(1)
+  meetingProvider    String?           @map("meeting_provider")
+  encryptedJoinUrl   String?           @map("encrypted_join_url")
+  cancellationReason String?           @map("cancellation_reason")
+  cancelledAt        DateTime?         @map("cancelled_at") @db.Timestamptz(6)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dentalCase         DentalCase        @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  clinic             Clinic            @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  dentist            Dentist?          @relation(fields: [dentistId], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, startsAt, status])
+  @@index([dentistId, startsAt, status])
+  @@map("appointments")
+}
+
+model Booking {
+  id                         String                  @id @default(uuid()) @db.Uuid
+  caseId                     String                  @map("case_id") @db.Uuid
+  treatmentPlanVersionId     String                  @map("treatment_plan_version_id") @db.Uuid
+  treatmentPlanAcceptanceId  String                  @unique @map("treatment_plan_acceptance_id") @db.Uuid
+  status                     BookingStatus           @default(PENDING_DEPOSIT)
+  planTotalMinor             BigInt                  @map("plan_total_minor")
+  depositMinor               BigInt                  @map("deposit_minor")
+  depositBasisPoints         Int                     @map("deposit_basis_points")
+  currency                   Currency
+  cancellationPolicySnapshot Json                    @map("cancellation_policy_snapshot")
+  version                    Int                     @default(1)
+  confirmedAt                DateTime?               @map("confirmed_at") @db.Timestamptz(6)
+  cancelledAt                DateTime?               @map("cancelled_at") @db.Timestamptz(6)
+  completedAt                DateTime?               @map("completed_at") @db.Timestamptz(6)
+  cancellationReason         String?                 @map("cancellation_reason")
+  createdAt                  DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dentalCase                 DentalCase              @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  treatmentPlanVersion       TreatmentPlanVersion    @relation(fields: [treatmentPlanVersionId], references: [id], onDelete: Restrict)
+  treatmentPlanAcceptance    TreatmentPlanAcceptance @relation(fields: [treatmentPlanAcceptanceId], references: [id], onDelete: Restrict)
+  payment                    Payment?
+  invoice                    Invoice?
+
+  @@index([caseId, status])
+  @@index([status, updatedAt])
+  @@map("bookings")
+}
+
+model Payment {
+  id                      String        @id @default(uuid()) @db.Uuid
+  bookingId               String        @unique @map("booking_id") @db.Uuid
+  provider                String
+  providerPaymentIntentId String?       @unique @map("provider_payment_intent_id")
+  idempotencyKey          String        @unique @map("idempotency_key")
+  amountMinor             BigInt        @map("amount_minor")
+  currency                Currency
+  status                  PaymentStatus @default(REQUIRES_PAYMENT_METHOD)
+  version                 Int           @default(1)
+  providerEventCreatedAt  DateTime?     @map("provider_event_created_at") @db.Timestamptz(6)
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  booking                 Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  refunds                 Refund[]
+  invoice                 Invoice?
+  receipt                 Receipt?
+
+  @@index([bookingId, status])
+  @@map("payments")
+}
+
+model Refund {
+  id                     String       @id @default(uuid()) @db.Uuid
+  paymentId              String       @map("payment_id") @db.Uuid
+  requestedByUserId      String       @map("requested_by_user_id") @db.Uuid
+  providerRefundId       String?      @unique @map("provider_refund_id")
+  idempotencyKey         String       @unique @map("idempotency_key")
+  amountMinor            BigInt       @map("amount_minor")
+  reason                 String
+  status                 RefundStatus @default(REQUESTED)
+  version                Int          @default(1)
+  providerEventCreatedAt DateTime?    @map("provider_event_created_at") @db.Timestamptz(6)
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  payment                Payment      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  requestedBy            User         @relation("RefundRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId, status])
+  @@map("refunds")
+}
+
+model Invoice {
+  id            String        @id @default(uuid()) @db.Uuid
+  bookingId     String        @unique @map("booking_id") @db.Uuid
+  paymentId     String?       @unique @map("payment_id") @db.Uuid
+  invoiceNumber String        @unique @map("invoice_number") @db.VarChar(80)
+  status        InvoiceStatus @default(ISSUED)
+  amountMinor   BigInt        @map("amount_minor")
+  currency      Currency
+  version       Int           @default(1)
+  issuedAt      DateTime      @default(now()) @map("issued_at") @db.Timestamptz(6)
+  paidAt        DateTime?     @map("paid_at") @db.Timestamptz(6)
+  voidedAt      DateTime?     @map("voided_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payment       Payment?      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([status, issuedAt])
+  @@map("invoices")
+}
+
+model Receipt {
+  id            String        @id @default(uuid()) @db.Uuid
+  paymentId     String        @unique @map("payment_id") @db.Uuid
+  receiptNumber String        @unique @map("receipt_number") @db.VarChar(80)
+  status        ReceiptStatus @default(ISSUED)
+  amountMinor   BigInt        @map("amount_minor")
+  currency      Currency
+  version       Int           @default(1)
+  issuedAt      DateTime      @default(now()) @map("issued_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([status, issuedAt])
+  @@map("receipts")
+}
+
+model FileAsset {
+  id                     String                       @id @default(uuid()) @db.Uuid
+  ownerUserId            String                       @map("owner_user_id") @db.Uuid
+  objectKey              String                       @unique @map("object_key")
+  originalFileName       String                       @map("original_file_name")
+  declaredMediaType      String                       @map("declared_media_type")
+  detectedMediaType      String?                      @map("detected_media_type")
+  sizeBytes              BigInt                       @map("size_bytes")
+  checksumSha256         String?                      @map("checksum_sha256") @db.Char(64)
+  status                 FileAssetStatus              @default(QUARANTINED)
+  scanStatus             MalwareScanStatus            @default(PENDING) @map("scan_status")
+  retentionUntil         DateTime?                    @map("retention_until") @db.Timestamptz(6)
+  deletedAt              DateTime?                    @map("deleted_at") @db.Timestamptz(6)
+  createdAt              DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  documents              CaseDocument[]
+  secureShares           SecureShare[]
+  messageAttachments     MessageAttachment[]
+  passportVersions       DentalPassportVersion[]
+  incidentAttachments    IncidentAttachment[]
+  owner                  User                         @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  verificationEvidence   VerificationEvidence[]
+  siteAuditAttachments   SiteAuditAttachment[]
+  correctiveAttachments  CorrectiveActionAttachment[]
+  privacyExportExecution PrivacyRequestExecution?
+
+  @@index([ownerUserId, status])
+  @@index([scanStatus, createdAt])
+  @@map("file_assets")
+}
+
+model CaseDocument {
+  id          String     @id @default(uuid()) @db.Uuid
+  caseId      String     @map("case_id") @db.Uuid
+  fileAssetId String     @map("file_asset_id") @db.Uuid
+  category    String
+  description String?
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase  DentalCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  fileAsset   FileAsset  @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+
+  @@unique([caseId, fileAssetId])
+  @@map("case_documents")
+}
+
+model SecureShare {
+  id                String                 @id @default(uuid()) @db.Uuid
+  caseId            String                 @map("case_id") @db.Uuid
+  fileAssetId       String?                @map("file_asset_id") @db.Uuid
+  passportVersionId String?                @map("passport_version_id") @db.Uuid
+  createdByUserId   String                 @map("created_by_user_id") @db.Uuid
+  revokedByUserId   String?                @map("revoked_by_user_id") @db.Uuid
+  tokenHash         String                 @unique @map("token_hash") @db.Char(64)
+  expiresAt         DateTime               @map("expires_at") @db.Timestamptz(6)
+  revokedAt         DateTime?              @map("revoked_at") @db.Timestamptz(6)
+  maxAccessCount    Int?                   @map("max_access_count")
+  accessCount       Int                    @default(0) @map("access_count")
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase        DentalCase             @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  fileAsset         FileAsset?             @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+  passportVersion   DentalPassportVersion? @relation(fields: [passportVersionId], references: [id], onDelete: Restrict)
+  createdBy         User                   @relation("SecureShareCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  revokedBy         User?                  @relation("SecureShareRevoker", fields: [revokedByUserId], references: [id], onDelete: Restrict)
+  accessLogs        SecureShareAccessLog[]
+
+  @@index([caseId, expiresAt, revokedAt])
+  @@index([passportVersionId, expiresAt, revokedAt])
+  @@map("secure_shares")
+}
+
+model SecureShareAccessLog {
+  id            String                   @id @default(uuid()) @db.Uuid
+  secureShareId String                   @map("secure_share_id") @db.Uuid
+  outcome       SecureShareAccessOutcome
+  ipAddressHash String?                  @map("ip_address_hash") @db.Char(64)
+  userAgentHash String?                  @map("user_agent_hash") @db.Char(64)
+  accessedAt    DateTime                 @default(now()) @map("accessed_at") @db.Timestamptz(6)
+  secureShare   SecureShare              @relation(fields: [secureShareId], references: [id], onDelete: Restrict)
+
+  @@index([secureShareId, accessedAt])
+  @@map("secure_share_access_logs")
+}
+
+model VerificationCase {
+  id                     String                    @id @default(uuid()) @db.Uuid
+  subjectType            VerificationSubjectType   @default(CLINIC) @map("subject_type")
+  clinicId               String?                   @map("clinic_id") @db.Uuid
+  dentistId              String?                   @map("dentist_id") @db.Uuid
+  submittedByUserId      String?                   @map("submitted_by_user_id") @db.Uuid
+  assignedReviewerUserId String?                   @map("assigned_reviewer_user_id") @db.Uuid
+  status                 VerificationStatus        @default(DRAFT)
+  riskLevel              VerificationRiskLevel     @default(STANDARD) @map("risk_level")
+  methodologyVersion     String                    @default("2026-01") @map("methodology_version")
+  encryptedStatusReason  String?                   @map("encrypted_status_reason")
+  version                Int                       @default(1)
+  submittedAt            DateTime?                 @map("submitted_at") @db.Timestamptz(6)
+  decidedAt              DateTime?                 @map("decided_at") @db.Timestamptz(6)
+  expiresAt              DateTime?                 @map("expires_at") @db.Timestamptz(6)
+  createdAt              DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  clinic                 Clinic?                   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  dentist                Dentist?                  @relation(fields: [dentistId], references: [id], onDelete: Restrict)
+  submittedBy            User?                     @relation("VerificationCaseSubmitter", fields: [submittedByUserId], references: [id], onDelete: Restrict)
+  assignedReviewer       User?                     @relation("VerificationCaseReviewer", fields: [assignedReviewerUserId], references: [id], onDelete: Restrict)
+  requirements           VerificationRequirement[]
+  evidence               VerificationEvidence[]
+  reviews                VerificationReview[]
+  siteAudits             SiteAudit[]
+  correctiveActions      CorrectiveAction[]
+
+  @@index([status, expiresAt, id])
+  @@index([subjectType, status, updatedAt, id])
+  @@index([clinicId, createdAt])
+  @@index([dentistId, createdAt])
+  @@index([assignedReviewerUserId, status, updatedAt])
+  @@map("verification_cases")
+}
+
+model VerificationRequirementTemplate {
+  id           String                    @id @default(uuid()) @db.Uuid
+  code         String                    @unique
+  subjectType  VerificationSubjectType   @map("subject_type")
+  category     String
+  names        Json
+  descriptions Json
+  required     Boolean                   @default(true)
+  highRisk     Boolean                   @default(false) @map("high_risk")
+  validityDays Int?                      @map("validity_days")
+  version      Int                       @default(1)
+  active       Boolean                   @default(true)
+  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  requirements VerificationRequirement[]
+
+  @@index([subjectType, active, code])
+  @@map("verification_requirement_templates")
+}
+
+model VerificationRequirement {
+  id                 String                          @id @default(uuid()) @db.Uuid
+  verificationCaseId String                          @map("verification_case_id") @db.Uuid
+  templateId         String                          @map("template_id") @db.Uuid
+  status             VerificationRequirementStatus   @default(NOT_PROVIDED)
+  required           Boolean                         @default(true)
+  highRisk           Boolean                         @default(false) @map("high_risk")
+  createdAt          DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  verificationCase   VerificationCase                @relation(fields: [verificationCaseId], references: [id], onDelete: Restrict)
+  template           VerificationRequirementTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  evidence           VerificationEvidence[]
+  correctiveActions  CorrectiveAction[]
+
+  @@unique([verificationCaseId, templateId])
+  @@index([verificationCaseId, status, required])
+  @@map("verification_requirements")
+}
+
+model VerificationEvidence {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  verificationCaseId String                  @map("verification_case_id") @db.Uuid
+  requirementId      String                  @map("requirement_id") @db.Uuid
+  submittedByUserId  String                  @map("submitted_by_user_id") @db.Uuid
+  approvedByUserId   String?                 @map("approved_by_user_id") @db.Uuid
+  category           String
+  fileAssetId        String?                 @map("file_asset_id") @db.Uuid
+  sourceReference    String?                 @map("source_reference")
+  contentHash        String?                 @map("content_hash") @db.Char(64)
+  issuedAt           DateTime?               @map("issued_at") @db.Date
+  expiresAt          DateTime?               @map("expires_at") @db.Date
+  approvedAt         DateTime?               @map("approved_at") @db.Timestamptz(6)
+  revokedAt          DateTime?               @map("revoked_at") @db.Timestamptz(6)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  verificationCase   VerificationCase        @relation(fields: [verificationCaseId], references: [id], onDelete: Restrict)
+  requirement        VerificationRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+  submittedBy        User                    @relation("VerificationEvidenceSubmitter", fields: [submittedByUserId], references: [id], onDelete: Restrict)
+  approvedBy         User?                   @relation("VerificationEvidenceApprover", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  fileAsset          FileAsset?              @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+
+  @@index([verificationCaseId, category, createdAt])
+  @@index([requirementId, approvedAt, revokedAt, expiresAt])
+  @@index([expiresAt, approvedAt, revokedAt])
+  @@map("verification_evidence")
+}
+
+model VerificationReview {
+  id                           String                   @id @default(uuid()) @db.Uuid
+  verificationCaseId           String                   @map("verification_case_id") @db.Uuid
+  reviewerUserId               String                   @map("reviewer_user_id") @db.Uuid
+  secondApproverUserId         String?                  @map("second_approver_user_id") @db.Uuid
+  caseVersion                  Int                      @map("case_version")
+  fromStatus                   VerificationStatus       @map("from_status")
+  toStatus                     VerificationStatus       @map("to_status")
+  status                       VerificationReviewStatus @default(APPLIED)
+  fourEyesRequired             Boolean                  @default(false) @map("four_eyes_required")
+  encryptedNotes               String                   @map("encrypted_notes")
+  encryptedSecondApprovalNotes String?                  @map("encrypted_second_approval_notes")
+  createdAt                    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  appliedAt                    DateTime?                @map("applied_at") @db.Timestamptz(6)
+  verificationCase             VerificationCase         @relation(fields: [verificationCaseId], references: [id], onDelete: Restrict)
+  reviewer                     User                     @relation("VerificationPrimaryReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  secondApprover               User?                    @relation("VerificationSecondApprover", fields: [secondApproverUserId], references: [id], onDelete: Restrict)
+
+  @@unique([verificationCaseId, caseVersion])
+  @@index([status, createdAt, id])
+  @@index([reviewerUserId, createdAt])
+  @@map("verification_reviews")
+}
+
+model SiteAudit {
+  id                 String                @id @default(uuid()) @db.Uuid
+  verificationCaseId String                @map("verification_case_id") @db.Uuid
+  clinicId           String                @map("clinic_id") @db.Uuid
+  clinicLocationId   String                @map("clinic_location_id") @db.Uuid
+  scheduledByUserId  String                @map("scheduled_by_user_id") @db.Uuid
+  auditorUserId      String                @map("auditor_user_id") @db.Uuid
+  status             SiteAuditStatus       @default(SCHEDULED)
+  scheduledAt        DateTime              @map("scheduled_at") @db.Timestamptz(6)
+  checklist          Json
+  encryptedFindings  String?               @map("encrypted_findings")
+  completedAt        DateTime?             @map("completed_at") @db.Timestamptz(6)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  verificationCase   VerificationCase      @relation(fields: [verificationCaseId], references: [id], onDelete: Restrict)
+  clinic             Clinic                @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  clinicLocation     ClinicLocation        @relation(fields: [clinicLocationId], references: [id], onDelete: Restrict)
+  scheduledBy        User                  @relation("SiteAuditScheduler", fields: [scheduledByUserId], references: [id], onDelete: Restrict)
+  auditor            User                  @relation("SiteAuditAuditor", fields: [auditorUserId], references: [id], onDelete: Restrict)
+  attachments        SiteAuditAttachment[]
+
+  @@index([verificationCaseId, scheduledAt])
+  @@index([auditorUserId, status, scheduledAt])
+  @@map("site_audits")
+}
+
+model SiteAuditAttachment {
+  siteAuditId String    @map("site_audit_id") @db.Uuid
+  fileAssetId String    @map("file_asset_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  siteAudit   SiteAudit @relation(fields: [siteAuditId], references: [id], onDelete: Restrict)
+  fileAsset   FileAsset @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+
+  @@id([siteAuditId, fileAssetId])
+  @@map("site_audit_attachments")
+}
+
+model CorrectiveAction {
+  id                     String                       @id @default(uuid()) @db.Uuid
+  verificationCaseId     String                       @map("verification_case_id") @db.Uuid
+  requirementId          String?                      @map("requirement_id") @db.Uuid
+  requestedByUserId      String                       @map("requested_by_user_id") @db.Uuid
+  title                  String
+  encryptedDescription   String                       @map("encrypted_description")
+  encryptedResponse      String?                      @map("encrypted_response")
+  encryptedDecisionNotes String?                      @map("encrypted_decision_notes")
+  dueAt                  DateTime                     @map("due_at") @db.Timestamptz(6)
+  status                 CorrectiveActionStatus       @default(OPEN)
+  version                Int                          @default(1)
+  submittedAt            DateTime?                    @map("submitted_at") @db.Timestamptz(6)
+  resolvedAt             DateTime?                    @map("resolved_at") @db.Timestamptz(6)
+  createdAt              DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  verificationCase       VerificationCase             @relation(fields: [verificationCaseId], references: [id], onDelete: Restrict)
+  requirement            VerificationRequirement?     @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+  requestedBy            User                         @relation("CorrectiveActionRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  attachments            CorrectiveActionAttachment[]
+
+  @@index([verificationCaseId, status, dueAt])
+  @@index([requirementId, status])
+  @@map("corrective_actions")
+}
+
+model CorrectiveActionAttachment {
+  correctiveActionId String           @map("corrective_action_id") @db.Uuid
+  fileAssetId        String           @map("file_asset_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  correctiveAction   CorrectiveAction @relation(fields: [correctiveActionId], references: [id], onDelete: Restrict)
+  fileAsset          FileAsset        @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+
+  @@id([correctiveActionId, fileAssetId])
+  @@map("corrective_action_attachments")
+}
+
+model AftercarePlan {
+  id          String             @id @default(uuid()) @db.Uuid
+  caseId      String             @map("case_id") @db.Uuid
+  active      Boolean            @default(true)
+  startsAt    DateTime           @map("starts_at") @db.Timestamptz(6)
+  completedAt DateTime?          @map("completed_at") @db.Timestamptz(6)
+  dentalCase  DentalCase         @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  checkIns    AftercareCheckIn[]
+
+  @@index([caseId, active])
+  @@map("aftercare_plans")
+}
+
+model AftercareCheckIn {
+  id              String                @id @default(uuid()) @db.Uuid
+  aftercarePlanId String                @map("aftercare_plan_id") @db.Uuid
+  painScale       Int                   @map("pain_scale")
+  symptomCodes    String[]              @map("symptom_codes")
+  patientNotes    String?               @map("patient_notes")
+  submittedAt     DateTime              @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  aftercarePlan   AftercarePlan         @relation(fields: [aftercarePlanId], references: [id], onDelete: Restrict)
+  escalations     AftercareEscalation[]
+
+  @@index([aftercarePlanId, submittedAt])
+  @@map("aftercare_check_ins")
+}
+
+model AftercareEscalation {
+  id                 String           @id @default(uuid()) @db.Uuid
+  aftercareCheckInId String           @map("aftercare_check_in_id") @db.Uuid
+  severity           String
+  matchedRuleIds     String[]         @map("matched_rule_ids")
+  status             EscalationStatus @default(OPEN)
+  dueAt              DateTime         @map("due_at") @db.Timestamptz(6)
+  resolvedAt         DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  aftercareCheckIn   AftercareCheckIn @relation(fields: [aftercareCheckInId], references: [id], onDelete: Restrict)
+
+  @@index([status, dueAt])
+  @@map("aftercare_escalations")
+}
+
+model Review {
+  id               String                 @id @default(uuid()) @db.Uuid
+  caseId           String                 @map("case_id") @db.Uuid
+  clinicId         String                 @map("clinic_id") @db.Uuid
+  patientUserId    String                 @map("patient_user_id") @db.Uuid
+  overallRating    Int                    @map("overall_rating")
+  dimensionRatings Json                   @map("dimension_ratings")
+  content          String
+  treatmentDate    DateTime               @map("treatment_date") @db.Date
+  followUpDays     Int                    @map("follow_up_days")
+  verified         Boolean                @default(false)
+  moderationStatus ReviewModerationStatus @default(PENDING) @map("moderation_status")
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dentalCase       DentalCase             @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  clinic           Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  patient          User                   @relation("ReviewPatient", fields: [patientUserId], references: [id], onDelete: Restrict)
+  followUps        ReviewFollowUp[]
+  clinicResponse   ReviewResponse?
+  abuseReports     ReviewAbuseReport[]
+
+  @@unique([caseId, patientUserId])
+  @@index([clinicId, moderationStatus, createdAt])
+  @@map("reviews")
+}
+
+model ReviewResponse {
+  id               String                 @id @default(uuid()) @db.Uuid
+  reviewId         String                 @unique @map("review_id") @db.Uuid
+  authorUserId     String                 @map("author_user_id") @db.Uuid
+  content          String
+  moderationStatus ReviewModerationStatus @default(PENDING) @map("moderation_status")
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  review           Review                 @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  author           User                   @relation("ReviewResponseAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([moderationStatus, createdAt])
+  @@map("review_responses")
+}
+
+model ReviewAbuseReport {
+  id               String             @id @default(uuid()) @db.Uuid
+  reviewId         String             @map("review_id") @db.Uuid
+  reporterUserId   String             @map("reporter_user_id") @db.Uuid
+  reasonCode       String             @map("reason_code")
+  encryptedDetails String             @map("encrypted_details")
+  status           ReviewReportStatus @default(OPEN)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  review           Review             @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  reporter         User               @relation("ReviewReportAuthor", fields: [reporterUserId], references: [id], onDelete: Restrict)
+
+  @@unique([reviewId, reporterUserId])
+  @@index([status, createdAt])
+  @@map("review_abuse_reports")
+}
+
+model ReviewFollowUp {
+  id               String                 @id @default(uuid()) @db.Uuid
+  reviewId         String                 @map("review_id") @db.Uuid
+  followUpDays     Int                    @map("follow_up_days")
+  content          String
+  overallRating    Int?                   @map("overall_rating")
+  moderationStatus ReviewModerationStatus @default(PENDING) @map("moderation_status")
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  review           Review                 @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+
+  @@unique([reviewId, followUpDays])
+  @@index([reviewId, createdAt])
+  @@map("review_follow_ups")
+}
+
+model AuditLog {
+  id                 String         @id @default(uuid()) @db.Uuid
+  actorType          AuditActorType @default(USER) @map("actor_type")
+  actorUserId        String?        @map("actor_user_id") @db.Uuid
+  impersonatorUserId String?        @map("impersonator_user_id") @db.Uuid
+  organizationId     String?        @map("organization_id") @db.Uuid
+  action             String
+  resourceType       String         @map("resource_type")
+  resourceId         String         @map("resource_id")
+  requestId          String         @map("request_id")
+  reason             String?
+  success            Boolean
+  beforeMetadata     Json?          @map("before_metadata")
+  afterMetadata      Json?          @map("after_metadata")
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor              User?          @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  impersonator       User?          @relation("AuditImpersonator", fields: [impersonatorUserId], references: [id], onDelete: Restrict)
+  organization       Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([resourceType, resourceId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  aggregateType  String       @map("aggregate_type")
+  aggregateId    String       @map("aggregate_id")
+  eventType      String       @map("event_type")
+  payload        Json
+  correlationId  String       @map("correlation_id")
+  idempotencyKey String       @unique @map("idempotency_key")
+  status         OutboxStatus @default(PENDING)
+  attemptCount   Int          @default(0) @map("attempt_count")
+  availableAt    DateTime     @default(now()) @map("available_at") @db.Timestamptz(6)
+  lockedAt       DateTime?    @map("locked_at") @db.Timestamptz(6)
+  lockOwner      String?      @map("lock_owner")
+  processedAt    DateTime?    @map("processed_at") @db.Timestamptz(6)
+  lastErrorCode  String?      @map("last_error_code")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([status, availableAt, lockedAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_events")
+}
+
+model IdempotencyRecord {
+  id          String            @id @default(uuid()) @db.Uuid
+  userId      String            @map("user_id") @db.Uuid
+  key         String
+  operation   String
+  requestHash String            @map("request_hash") @db.Char(64)
+  status      IdempotencyStatus @default(IN_PROGRESS)
+  resourceId  String?           @map("resource_id")
+  response    Json?
+  expiresAt   DateTime          @map("expires_at") @db.Timestamptz(6)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt DateTime?         @map("completed_at") @db.Timestamptz(6)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([status, expiresAt])
+  @@map("idempotency_records")
+}
+
+model WebhookEvent {
+  id                  String        @id @default(uuid()) @db.Uuid
+  provider            String
+  providerEventId     String        @map("provider_event_id")
+  type                String
+  payload             Json
+  status              WebhookStatus @default(RECEIVED)
+  attemptCount        Int           @default(0) @map("attempt_count")
+  receivedAt          DateTime      @default(now()) @map("received_at") @db.Timestamptz(6)
+  processingStartedAt DateTime?     @map("processing_started_at") @db.Timestamptz(6)
+  processedAt         DateTime?     @map("processed_at") @db.Timestamptz(6)
+  lastErrorCode       String?       @map("last_error_code")
+
+  @@unique([provider, providerEventId])
+  @@index([status, receivedAt])
+  @@map("webhook_events")
+}
+
+model MessageThread {
+  id            String         @id @default(uuid()) @db.Uuid
+  caseId        String         @map("case_id") @db.Uuid
+  subject       String
+  closedAt      DateTime?      @map("closed_at") @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dentalCase    DentalCase     @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  messages      Message[]
+  internalNotes InternalNote[]
+
+  @@index([caseId, updatedAt])
+  @@map("message_threads")
+}
+
+model Message {
+  id            String               @id @default(uuid()) @db.Uuid
+  threadId      String               @map("thread_id") @db.Uuid
+  authorUserId  String               @map("author_user_id") @db.Uuid
+  visibility    MessageVisibility    @default(PARTICIPANTS)
+  encryptedBody String               @map("encrypted_body")
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  editedAt      DateTime?            @map("edited_at") @db.Timestamptz(6)
+  deletedAt     DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  thread        MessageThread        @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  author        User                 @relation("MessageAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  attachments   MessageAttachment[]
+  readReceipts  MessageReadReceipt[]
+
+  @@index([threadId, createdAt])
+  @@map("messages")
+}
+
+model MessageReadReceipt {
+  messageId String   @map("message_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  readAt    DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId, readAt])
+  @@map("message_read_receipts")
+}
+
+model MessageAttachment {
+  messageId   String    @map("message_id") @db.Uuid
+  fileAssetId String    @map("file_asset_id") @db.Uuid
+  message     Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileAsset   FileAsset @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+
+  @@id([messageId, fileAssetId])
+  @@map("message_attachments")
+}
+
+model InternalNote {
+  id             String        @id @default(uuid()) @db.Uuid
+  threadId       String        @map("thread_id") @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  authorUserId   String        @map("author_user_id") @db.Uuid
+  encryptedBody  String        @map("encrypted_body")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  thread         MessageThread @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  author         User          @relation("InternalNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([threadId, organizationId, createdAt])
+  @@map("internal_notes")
+}
+
+model TreatmentMilestone {
+  id                String                 @id @default(uuid()) @db.Uuid
+  caseId            String                 @map("case_id") @db.Uuid
+  code              String
+  title             String
+  status            JourneyMilestoneStatus @default(PENDING)
+  scheduledAt       DateTime?              @map("scheduled_at") @db.Timestamptz(6)
+  completedAt       DateTime?              @map("completed_at") @db.Timestamptz(6)
+  completedByUserId String?                @map("completed_by_user_id") @db.Uuid
+  sortOrder         Int                    @map("sort_order")
+  version           Int                    @default(1)
+  dentalCase        DentalCase             @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  completedBy       User?                  @relation("MilestoneCompleter", fields: [completedByUserId], references: [id], onDelete: Restrict)
+  instructions      TreatmentInstruction[]
+
+  @@unique([caseId, code])
+  @@index([caseId, status, sortOrder])
+  @@map("treatment_milestones")
+}
+
+model TreatmentInstruction {
+  id               String                   @id @default(uuid()) @db.Uuid
+  caseId           String                   @map("case_id") @db.Uuid
+  milestoneId      String?                  @map("milestone_id") @db.Uuid
+  authorUserId     String                   @map("author_user_id") @db.Uuid
+  type             TreatmentInstructionType
+  locale           String
+  encryptedContent String                   @map("encrypted_content")
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase       DentalCase               @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  milestone        TreatmentMilestone?      @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
+  author           User                     @relation("TreatmentInstructionAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, type, createdAt])
+  @@index([milestoneId, createdAt])
+  @@map("treatment_instructions")
+}
+
+model TreatmentEvent {
+  id          String     @id @default(uuid()) @db.Uuid
+  caseId      String     @map("case_id") @db.Uuid
+  actorUserId String     @map("actor_user_id") @db.Uuid
+  eventType   String     @map("event_type")
+  details     Json
+  occurredAt  DateTime   @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  dentalCase  DentalCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  actor       User       @relation("TreatmentEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, occurredAt])
+  @@map("treatment_events")
+}
+
+model PlanChangeRequest {
+  id                String                     @id @default(uuid()) @db.Uuid
+  caseId            String                     @map("case_id") @db.Uuid
+  fromPlanVersionId String                     @map("from_plan_version_id") @db.Uuid
+  authorUserId      String                     @map("author_user_id") @db.Uuid
+  kind              PlanChangeKind
+  reason            String
+  beforeValues      Json                       @map("before_values")
+  afterValues       Json                       @map("after_values")
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase        DentalCase                 @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  fromPlanVersion   TreatmentPlanVersion       @relation("ChangeFromPlanVersion", fields: [fromPlanVersionId], references: [id], onDelete: Restrict)
+  author            User                       @relation("PlanChangeAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  acknowledgement   PlanChangeAcknowledgement?
+
+  @@index([caseId, createdAt])
+  @@map("plan_change_requests")
+}
+
+model PlanChangeAcknowledgement {
+  id                  String            @id @default(uuid()) @db.Uuid
+  planChangeRequestId String            @unique @map("plan_change_request_id") @db.Uuid
+  patientUserId       String            @map("patient_user_id") @db.Uuid
+  sessionId           String            @map("session_id") @db.Uuid
+  requestId           String            @map("request_id") @db.VarChar(128)
+  acknowledgedAt      DateTime          @default(now()) @map("acknowledged_at") @db.Timestamptz(6)
+  planChangeRequest   PlanChangeRequest @relation(fields: [planChangeRequestId], references: [id], onDelete: Restrict)
+  patient             User              @relation("PlanChangePatient", fields: [patientUserId], references: [id], onDelete: Restrict)
+  session             Session           @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@index([patientUserId, acknowledgedAt])
+  @@map("plan_change_acknowledgements")
+}
+
+model DentalPassport {
+  id         String                  @id @default(uuid()) @db.Uuid
+  caseId     String                  @unique @map("case_id") @db.Uuid
+  createdAt  DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase DentalCase              @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  versions   DentalPassportVersion[]
+
+  @@map("dental_passports")
+}
+
+model DentalPassportVersion {
+  id                             String                @id @default(uuid()) @db.Uuid
+  dentalPassportId               String                @map("dental_passport_id") @db.Uuid
+  clinicId                       String                @map("clinic_id") @db.Uuid
+  treatingDentistId              String                @map("treating_dentist_id") @db.Uuid
+  authorUserId                   String                @map("author_user_id") @db.Uuid
+  publishedByUserId              String?               @map("published_by_user_id") @db.Uuid
+  version                        Int
+  schemaVersion                  Int                   @default(1) @map("schema_version")
+  status                         PassportVersionStatus @default(DRAFT)
+  treatmentCompletedAt           DateTime              @map("treatment_completed_at") @db.Date
+  encryptedTreatmentSummary      String                @map("encrypted_treatment_summary")
+  encryptedDischargeInstructions String                @map("encrypted_discharge_instructions")
+  encryptedFollowUpInstructions  String                @map("encrypted_follow_up_instructions")
+  contentChecksum                String                @map("content_checksum") @db.Char(64)
+  previousVersionChecksum        String?               @map("previous_version_checksum") @db.Char(64)
+  generatedFileId                String?               @map("generated_file_id") @db.Uuid
+  publishedAt                    DateTime?             @map("published_at") @db.Timestamptz(6)
+  createdAt                      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalPassport                 DentalPassport        @relation(fields: [dentalPassportId], references: [id], onDelete: Restrict)
+  clinic                         Clinic                @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  treatingDentist                Dentist               @relation(fields: [treatingDentistId], references: [id], onDelete: Restrict)
+  author                         User                  @relation("PassportAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  publishedBy                    User?                 @relation("PassportPublisher", fields: [publishedByUserId], references: [id], onDelete: Restrict)
+  generatedFile                  FileAsset?            @relation(fields: [generatedFileId], references: [id], onDelete: Restrict)
+  implants                       ImplantRecord[]
+  materials                      MaterialRecord[]
+  prescriptions                  PrescriptionRecord[]
+  secureShares                   SecureShare[]
+
+  @@unique([dentalPassportId, version])
+  @@index([status, publishedAt])
+  @@map("dental_passport_versions")
+}
+
+model ImplantRecord {
+  id                      String                @id @default(uuid()) @db.Uuid
+  dentalPassportVersionId String                @map("dental_passport_version_id") @db.Uuid
+  toothNumber             Int                   @map("tooth_number")
+  system                  String
+  manufacturer            String
+  dimensions              String
+  abutmentDetails         String?               @map("abutment_details")
+  lotNumber               String?               @map("lot_number")
+  dentalPassportVersion   DentalPassportVersion @relation(fields: [dentalPassportVersionId], references: [id], onDelete: Cascade)
+
+  @@index([dentalPassportVersionId, toothNumber])
+  @@map("implant_records")
+}
+
+model MaterialRecord {
+  id                      String                @id @default(uuid()) @db.Uuid
+  dentalPassportVersionId String                @map("dental_passport_version_id") @db.Uuid
+  procedureCode           String                @map("procedure_code")
+  material                String
+  manufacturer            String?
+  lotNumber               String?               @map("lot_number")
+  dentalPassportVersion   DentalPassportVersion @relation(fields: [dentalPassportVersionId], references: [id], onDelete: Cascade)
+
+  @@index([dentalPassportVersionId])
+  @@map("material_records")
+}
+
+model PrescriptionRecord {
+  id                      String                @id @default(uuid()) @db.Uuid
+  dentalPassportVersionId String                @map("dental_passport_version_id") @db.Uuid
+  encryptedMedication     String                @map("encrypted_medication")
+  encryptedDosage         String                @map("encrypted_dosage")
+  encryptedInstructions   String                @map("encrypted_instructions")
+  prescribedAt            DateTime              @map("prescribed_at") @db.Date
+  dentalPassportVersion   DentalPassportVersion @relation(fields: [dentalPassportVersionId], references: [id], onDelete: Cascade)
+
+  @@index([dentalPassportVersionId])
+  @@map("prescription_records")
+}
+
+model Incident {
+  id               String               @id @default(uuid()) @db.Uuid
+  caseId           String               @map("case_id") @db.Uuid
+  clinicId         String?              @map("clinic_id") @db.Uuid
+  createdByUserId  String               @map("created_by_user_id") @db.Uuid
+  ownerUserId      String?              @map("owner_user_id") @db.Uuid
+  type             String
+  severity         String
+  status           IncidentStatus       @default(OPEN)
+  summary          String
+  encryptedDetails String               @map("encrypted_details")
+  slaDueAt         DateTime             @map("sla_due_at") @db.Timestamptz(6)
+  version          Int                  @default(1)
+  closedAt         DateTime?            @map("closed_at") @db.Timestamptz(6)
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dentalCase       DentalCase           @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  clinic           Clinic?              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  createdBy        User                 @relation("IncidentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  owner            User?                @relation("IncidentOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  events           IncidentEvent[]
+  attachments      IncidentAttachment[]
+  warrantyClaim    WarrantyClaim?
+
+  @@index([caseId, status, createdAt])
+  @@index([clinicId, status])
+  @@index([ownerUserId, status, slaDueAt])
+  @@map("incidents")
+}
+
+model IncidentEvent {
+  id          String            @id @default(uuid()) @db.Uuid
+  incidentId  String            @map("incident_id") @db.Uuid
+  actorUserId String            @map("actor_user_id") @db.Uuid
+  eventType   String            @map("event_type")
+  visibility  MessageVisibility
+  details     Json
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  incident    Incident          @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  actor       User              @relation("IncidentEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId, createdAt])
+  @@map("incident_events")
+}
+
+model IncidentAttachment {
+  incidentId  String    @map("incident_id") @db.Uuid
+  fileAssetId String    @map("file_asset_id") @db.Uuid
+  incident    Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  fileAsset   FileAsset @relation(fields: [fileAssetId], references: [id], onDelete: Restrict)
+
+  @@id([incidentId, fileAssetId])
+  @@map("incident_attachments")
+}
+
+model WarrantyClaim {
+  id            String              @id @default(uuid()) @db.Uuid
+  incidentId    String              @unique @map("incident_id") @db.Uuid
+  clinicId      String              @map("clinic_id") @db.Uuid
+  status        WarrantyClaimStatus @default(SUBMITTED)
+  warrantyTerms String              @map("warranty_terms")
+  resolution    String?
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  incident      Incident            @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  clinic        Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, status])
+  @@map("warranty_claims")
+}
+
+model NotificationPreference {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  category  String
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  updatedAt DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, channel])
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id                     String                   @id @default(uuid()) @db.Uuid
+  userId                 String                   @map("user_id") @db.Uuid
+  category               String
+  channel                NotificationChannel
+  templateKey            String                   @map("template_key")
+  templateLocale         String                   @map("template_locale")
+  payload                Json
+  status                 NotificationStatus       @default(PENDING)
+  idempotencyKey         String                   @unique @map("idempotency_key")
+  scheduledAt            DateTime                 @default(now()) @map("scheduled_at") @db.Timestamptz(6)
+  deliveredAt            DateTime?                @map("delivered_at") @db.Timestamptz(6)
+  readAt                 DateTime?                @map("read_at") @db.Timestamptz(6)
+  user                   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  privacyExecutionNotice PrivacyRequestExecution?
+
+  @@index([userId, readAt, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("notifications")
+}
+
+model ContentPage {
+  id                String                      @id @default(uuid()) @db.Uuid
+  slug              String
+  locale            String
+  version           Int
+  title             String
+  summary           String?
+  body              String
+  publicationStatus GovernancePublicationStatus @default(DRAFT) @map("publication_status")
+  createdByUserId   String?                     @map("created_by_user_id") @db.Uuid
+  publishedAt       DateTime?                   @map("published_at") @db.Timestamptz(6)
+  archivedAt        DateTime?                   @map("archived_at") @db.Timestamptz(6)
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy         User?                       @relation("ContentPageAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([slug, locale, version])
+  @@index([locale, publicationStatus, publishedAt])
+  @@map("content_pages")
+}
+
+model FeatureFlag {
+  id          String               @id @default(uuid()) @db.Uuid
+  key         String               @unique @db.VarChar(120)
+  description String
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  versions    FeatureFlagVersion[]
+
+  @@map("feature_flags")
+}
+
+model FeatureFlagVersion {
+  id              String      @id @default(uuid()) @db.Uuid
+  featureFlagId   String      @map("feature_flag_id") @db.Uuid
+  version         Int
+  enabled         Boolean
+  environment     String      @db.VarChar(40)
+  audiences       String[]    @default([])
+  reason          String
+  changedByUserId String      @map("changed_by_user_id") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  featureFlag     FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Restrict)
+  changedBy       User        @relation("FeatureFlagVersionAuthor", fields: [changedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([featureFlagId, version])
+  @@index([environment, createdAt])
+  @@map("feature_flag_versions")
+}
+
+model NotificationTemplate {
+  id        String                        @id @default(uuid()) @db.Uuid
+  key       String                        @db.VarChar(160)
+  category  String                        @db.VarChar(80)
+  channel   NotificationChannel
+  locale    String                        @db.VarChar(16)
+  createdAt DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  versions  NotificationTemplateVersion[]
+
+  @@unique([key, channel, locale])
+  @@index([category, channel, locale])
+  @@map("notification_templates")
+}
+
+model NotificationTemplateVersion {
+  id                String                      @id @default(uuid()) @db.Uuid
+  templateId        String                      @map("template_id") @db.Uuid
+  version           Int
+  subject           String
+  body              String
+  publicationStatus GovernancePublicationStatus @default(DRAFT) @map("publication_status")
+  reason            String
+  createdByUserId   String                      @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  template          NotificationTemplate        @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  createdBy         User                        @relation("NotificationTemplateVersionAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([templateId, version])
+  @@index([templateId, publicationStatus, createdAt])
+  @@map("notification_template_versions")
+}
+
+model SystemConfiguration {
+  id          String                       @id @default(uuid()) @db.Uuid
+  key         String                       @unique @db.VarChar(120)
+  description String
+  valueType   ConfigurationValueType       @map("value_type")
+  secret      Boolean                      @default(false)
+  createdAt   DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  versions    SystemConfigurationVersion[]
+
+  @@map("system_configurations")
+}
+
+model SystemConfigurationVersion {
+  id              String              @id @default(uuid()) @db.Uuid
+  configurationId String              @map("configuration_id") @db.Uuid
+  version         Int
+  value           String
+  reason          String
+  changedByUserId String              @map("changed_by_user_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  configuration   SystemConfiguration @relation(fields: [configurationId], references: [id], onDelete: Restrict)
+  changedBy       User                @relation("SystemConfigurationVersionAuthor", fields: [changedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([configurationId, version])
+  @@index([configurationId, createdAt])
+  @@map("system_configuration_versions")
+}
+
+model CountryConfiguration {
+  id              String              @id @default(uuid()) @db.Uuid
+  code            String              @unique @db.Char(2)
+  names           Json
+  currency        Currency
+  callingCode     String              @map("calling_code") @db.VarChar(8)
+  active          Boolean             @default(true)
+  version         Int                 @default(1)
+  updatedByUserId String              @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy       User                @relation("CountryConfigurationUpdater", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  cities          CityConfiguration[]
+
+  @@index([active, code])
+  @@map("country_configurations")
+}
+
+model CityConfiguration {
+  id              String               @id @default(uuid()) @db.Uuid
+  countryId       String               @map("country_id") @db.Uuid
+  code            String               @db.VarChar(80)
+  names           Json
+  timezone        String               @db.VarChar(80)
+  active          Boolean              @default(true)
+  version         Int                  @default(1)
+  updatedByUserId String               @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  country         CountryConfiguration @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  updatedBy       User                 @relation("CityConfigurationUpdater", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([countryId, code])
+  @@index([countryId, active])
+  @@map("city_configurations")
+}
+
+model LocaleConfiguration {
+  id              String   @id @default(uuid()) @db.Uuid
+  locale          String   @unique @db.VarChar(16)
+  names           Json
+  active          Boolean  @default(true)
+  isDefault       Boolean  @default(false) @map("is_default")
+  version         Int      @default(1)
+  updatedByUserId String   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy       User     @relation("LocaleConfigurationUpdater", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([active, locale])
+  @@map("locale_configurations")
+}
+
+model ContactRequest {
+  id               String   @id @default(uuid()) @db.Uuid
+  reference        String   @unique @db.VarChar(32)
+  encryptedName    String   @map("encrypted_name")
+  encryptedEmail   String   @map("encrypted_email")
+  encryptedTopic   String   @map("encrypted_topic")
+  encryptedMessage String   @map("encrypted_message")
+  locale           String   @default("vi-VN")
+  requestId        String   @map("request_id") @db.VarChar(128)
+  idempotencyKey   String   @unique @map("idempotency_key") @db.VarChar(255)
+  requestHash      String   @map("request_hash") @db.Char(64)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@map("contact_requests")
+}
+
+model PrivacyRequest {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  requesterUserId         String                   @map("requester_user_id") @db.Uuid
+  handledByUserId         String?                  @map("handled_by_user_id") @db.Uuid
+  type                    PrivacyRequestType
+  status                  PrivacyRequestStatus     @default(SUBMITTED)
+  encryptedReason         String                   @map("encrypted_reason")
+  encryptedPatientMessage String?                  @map("encrypted_patient_message")
+  dueAt                   DateTime                 @map("due_at") @db.Timestamptz(6)
+  version                 Int                      @default(1)
+  completedAt             DateTime?                @map("completed_at") @db.Timestamptz(6)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  requester               User                     @relation("PrivacyRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  handledBy               User?                    @relation("PrivacyHandler", fields: [handledByUserId], references: [id], onDelete: Restrict)
+  execution               PrivacyRequestExecution?
+
+  @@index([status, dueAt])
+  @@index([requesterUserId, createdAt])
+  @@map("privacy_requests")
+}
+
+model PrivacyRequestExecution {
+  id                             String                            @id @default(uuid()) @db.Uuid
+  privacyRequestId               String                            @unique @map("privacy_request_id") @db.Uuid
+  status                         PrivacyExecutionStatus            @default(PENDING)
+  outcome                        PrivacyExecutionOutcome?
+  identityVerificationMethod     PrivacyIdentityVerificationMethod @map("identity_verification_method")
+  encryptedVerificationReference String                            @map("encrypted_verification_reference")
+  verifiedByUserId               String                            @map("verified_by_user_id") @db.Uuid
+  verifiedAt                     DateTime                          @map("verified_at") @db.Timestamptz(6)
+  noticeNotificationId           String?                           @unique @map("notice_notification_id") @db.Uuid
+  artifactFileAssetId            String?                           @unique @map("artifact_file_asset_id") @db.Uuid
+  artifactExpiresAt              DateTime?                         @map("artifact_expires_at") @db.Timestamptz(6)
+  artifactPurgedAt               DateTime?                         @map("artifact_purged_at") @db.Timestamptz(6)
+  archiveChecksumSha256          String?                           @map("archive_checksum_sha256") @db.Char(64)
+  manifestChecksumSha256         String?                           @map("manifest_checksum_sha256") @db.Char(64)
+  archiveSizeBytes               BigInt?                           @map("archive_size_bytes")
+  recordCount                    Int?                              @map("record_count")
+  categoryDisposition            Json?                             @map("category_disposition")
+  blockerCodes                   String[]                          @default([]) @map("blocker_codes")
+  attemptCount                   Int                               @default(0) @map("attempt_count")
+  leaseExpiresAt                 DateTime?                         @map("lease_expires_at") @db.Timestamptz(6)
+  lastErrorCode                  String?                           @map("last_error_code") @db.VarChar(120)
+  version                        Int                               @default(1)
+  startedAt                      DateTime?                         @map("started_at") @db.Timestamptz(6)
+  completedAt                    DateTime?                         @map("completed_at") @db.Timestamptz(6)
+  createdAt                      DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  privacyRequest                 PrivacyRequest                    @relation(fields: [privacyRequestId], references: [id], onDelete: Restrict)
+  verifiedBy                     User                              @relation("PrivacyExecutionVerifier", fields: [verifiedByUserId], references: [id], onDelete: Restrict)
+  noticeNotification             Notification?                     @relation(fields: [noticeNotificationId], references: [id], onDelete: Restrict)
+  artifactFileAsset              FileAsset?                        @relation(fields: [artifactFileAssetId], references: [id], onDelete: Restrict)
+
+  @@index([status, leaseExpiresAt])
+  @@index([artifactExpiresAt, artifactPurgedAt])
+  @@map("privacy_request_executions")
+}
+
+model PrivacyLegalHold {
+  id                          String                  @id @default(uuid()) @db.Uuid
+  subjectUserId               String                  @map("subject_user_id") @db.Uuid
+  scopes                      PrivacyLegalHoldScope[]
+  encryptedReason             String                  @map("encrypted_reason")
+  encryptedAuthorityReference String                  @map("encrypted_authority_reference")
+  placedByUserId              String                  @map("placed_by_user_id") @db.Uuid
+  releasedByUserId            String?                 @map("released_by_user_id") @db.Uuid
+  startsAt                    DateTime                @default(now()) @map("starts_at") @db.Timestamptz(6)
+  expiresAt                   DateTime?               @map("expires_at") @db.Timestamptz(6)
+  releasedAt                  DateTime?               @map("released_at") @db.Timestamptz(6)
+  version                     Int                     @default(1)
+  createdAt                   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  subject                     User                    @relation("PrivacyHoldSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  placedBy                    User                    @relation("PrivacyHoldPlacer", fields: [placedByUserId], references: [id], onDelete: Restrict)
+  releasedBy                  User?                   @relation("PrivacyHoldReleaser", fields: [releasedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([subjectUserId, releasedAt, expiresAt])
+  @@map("privacy_legal_holds")
+}
+
+model SupportElevation {
+  id               String                 @id @default(uuid()) @db.Uuid
+  actorUserId      String                 @map("actor_user_id") @db.Uuid
+  subjectUserId    String                 @map("subject_user_id") @db.Uuid
+  approvedByUserId String                 @map("approved_by_user_id") @db.Uuid
+  ticketReference  String                 @map("ticket_reference")
+  reason           String
+  capabilities     String[]
+  status           SupportElevationStatus @default(ACTIVE)
+  expiresAt        DateTime               @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt       DateTime?              @map("last_used_at") @db.Timestamptz(6)
+  useCount         Int                    @default(0) @map("use_count")
+  revokedAt        DateTime?              @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor            User                   @relation("ElevationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  subject          User                   @relation("ElevationSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  approvedBy       User                   @relation("ElevationApprover", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([actorUserId, status, expiresAt])
+  @@index([subjectUserId, status, expiresAt])
+  @@map("support_elevations")
+}
+
+model ClinicStaff {
+  id                      String                 @id @default(uuid()) @db.Uuid
+  clinicId                String                 @map("clinic_id") @db.Uuid
+  userId                  String                 @map("user_id") @db.Uuid
+  membershipId            String                 @unique @map("membership_id") @db.Uuid
+  clinicLocationId        String?                @map("clinic_location_id") @db.Uuid
+  jobTitle                String?                @map("job_title")
+  active                  Boolean                @default(true)
+  permissions             String[]               @default([])
+  permissionsConfiguredAt DateTime?              @map("permissions_configured_at") @db.Timestamptz(6)
+  version                 Int                    @default(1)
+  suspendedAt             DateTime?              @map("suspended_at") @db.Timestamptz(6)
+  removedAt               DateTime?              @map("removed_at") @db.Timestamptz(6)
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  clinic                  Clinic                 @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  user                    User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  membership              OrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  clinicLocation          ClinicLocation?        @relation(fields: [clinicLocationId], references: [id], onDelete: Restrict)
+
+  @@unique([clinicId, userId])
+  @@index([clinicId, active])
+  @@map("clinic_staff")
+}
+
+model ProfessionalLicense {
+  id              String             @id @default(uuid()) @db.Uuid
+  clinicId        String?            @map("clinic_id") @db.Uuid
+  dentistId       String?            @map("dentist_id") @db.Uuid
+  authority       String
+  licenseNumber   String             @map("license_number")
+  scopeOfPractice String?            @map("scope_of_practice")
+  issuedAt        DateTime?          @map("issued_at") @db.Date
+  expiresAt       DateTime?          @map("expires_at") @db.Date
+  status          VerificationStatus @default(NOT_SUBMITTED)
+  verifiedAt      DateTime?          @map("verified_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  clinic          Clinic?            @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  dentist         Dentist?           @relation(fields: [dentistId], references: [id], onDelete: Restrict)
+
+  @@unique([authority, licenseNumber])
+  @@index([clinicId, status, expiresAt])
+  @@index([dentistId, status, expiresAt])
+  @@map("professional_licenses")
+}
+
+model ServiceCategory {
+  id         String                @id @default(uuid()) @db.Uuid
+  parentId   String?               @map("parent_id") @db.Uuid
+  code       String                @unique
+  names      Json
+  active     Boolean               @default(true)
+  version    Int                   @default(1)
+  createdAt  DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  parent     ServiceCategory?      @relation("ServiceCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children   ServiceCategory[]     @relation("ServiceCategoryTree")
+  procedures ProcedureDefinition[]
+
+  @@index([parentId, active])
+  @@map("service_categories")
+}
+
+model ProcedureDefinition {
+  id                String          @id @default(uuid()) @db.Uuid
+  serviceCategoryId String          @map("service_category_id") @db.Uuid
+  code              String          @unique
+  names             Json
+  descriptions      Json
+  active            Boolean         @default(true)
+  version           Int             @default(1)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  serviceCategory   ServiceCategory @relation(fields: [serviceCategoryId], references: [id], onDelete: Restrict)
+  clinicServices    ClinicService[]
+
+  @@index([serviceCategoryId, active])
+  @@map("procedure_definitions")
+}
+
+model WarrantyPolicy {
+  id          String          @id @default(uuid()) @db.Uuid
+  clinicId    String          @map("clinic_id") @db.Uuid
+  name        String
+  terms       Json
+  effectiveAt DateTime        @map("effective_at") @db.Timestamptz(6)
+  archivedAt  DateTime?       @map("archived_at") @db.Timestamptz(6)
+  clinic      Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  services    ClinicService[]
+
+  @@index([clinicId, effectiveAt, archivedAt])
+  @@map("warranty_policies")
+}
+
+model ClinicService {
+  id                    String              @id @default(uuid()) @db.Uuid
+  clinicId              String              @map("clinic_id") @db.Uuid
+  procedureDefinitionId String              @map("procedure_definition_id") @db.Uuid
+  warrantyPolicyId      String?             @map("warranty_policy_id") @db.Uuid
+  displayNames          Json                @map("display_names")
+  includedServices      String[]            @map("included_services")
+  exclusions            String[]
+  estimatedDurationDays Int?                @map("estimated_duration_days")
+  active                Boolean             @default(true)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  clinic                Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  procedureDefinition   ProcedureDefinition @relation(fields: [procedureDefinitionId], references: [id], onDelete: Restrict)
+  warrantyPolicy        WarrantyPolicy?     @relation(fields: [warrantyPolicyId], references: [id], onDelete: Restrict)
+  prices                PriceVersion[]
+
+  @@unique([clinicId, procedureDefinitionId])
+  @@index([clinicId, active])
+  @@map("clinic_services")
+}
+
+model PriceVersion {
+  id              String        @id @default(uuid()) @db.Uuid
+  clinicServiceId String        @map("clinic_service_id") @db.Uuid
+  minimumMinor    BigInt        @map("minimum_minor")
+  maximumMinor    BigInt        @map("maximum_minor")
+  currency        Currency
+  materialOptions Json?         @map("material_options")
+  brandOptions    Json?         @map("brand_options")
+  serviceSnapshot Json?         @map("service_snapshot")
+  createdByUserId String?       @map("created_by_user_id") @db.Uuid
+  effectiveAt     DateTime      @map("effective_at") @db.Timestamptz(6)
+  expiresAt       DateTime?     @map("expires_at") @db.Timestamptz(6)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  clinicService   ClinicService @relation(fields: [clinicServiceId], references: [id], onDelete: Restrict)
+
+  @@unique([clinicServiceId, effectiveAt])
+  @@index([clinicServiceId, expiresAt])
+  @@map("price_versions")
+}
+
+model IntakeQuestionnaire {
+  id         String                       @id @default(uuid()) @db.Uuid
+  caseId     String                       @unique @map("case_id") @db.Uuid
+  createdAt  DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase DentalCase                   @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  versions   IntakeQuestionnaireVersion[]
+
+  @@map("intake_questionnaires")
+}
+
+model IntakeQuestionnaireVersion {
+  id                            String                     @id @default(uuid()) @db.Uuid
+  questionnaireId               String                     @map("questionnaire_id") @db.Uuid
+  version                       Int
+  status                        QuestionnaireVersionStatus @default(DRAFT)
+  desiredProcedureCode          String?                    @map("desired_procedure_code")
+  dentalConcerns                String[]                   @default([]) @map("dental_concerns")
+  treatmentGoals                String[]                   @default([]) @map("treatment_goals")
+  encryptedExistingDiagnosis    String?                    @map("encrypted_existing_diagnosis")
+  encryptedCosmeticExpectations String?                    @map("cosmetic_expectations")
+  currentCountry                String?                    @map("current_country")
+  currentCity                   String?                    @map("current_city")
+  expectedArrivalDate           DateTime?                  @map("expected_arrival_date") @db.Date
+  expectedDepartureDate         DateTime?                  @map("expected_departure_date") @db.Date
+  preferredLocation             String?                    @map("preferred_location")
+  availableTreatmentDays        Int?                       @map("available_treatment_days")
+  budgetMinimumMinor            BigInt?                    @map("budget_minimum_minor")
+  budgetMaximumMinor            BigInt?                    @map("budget_maximum_minor")
+  budgetCurrency                Currency?                  @map("budget_currency")
+  preferredLanguage             String?                    @map("preferred_language")
+  encryptedPriorDentalWork      String?                    @map("prior_dental_work")
+  existingImplantSystems        String[]                   @default([]) @map("existing_implant_systems")
+  smokingStatus                 SmokingStatus?             @map("smoking_status")
+  pregnancyStatus               PregnancyStatus?           @map("pregnancy_status")
+  accessibilityNeeds            String[]                   @default([]) @map("accessibility_needs")
+  preferredConsultationTimes    Json?                      @map("preferred_consultation_times")
+  currentStep                   Int                        @default(1) @map("current_step")
+  draftRevision                 Int                        @default(1) @map("draft_revision")
+  submittedAt                   DateTime?                  @map("submitted_at") @db.Timestamptz(6)
+  contentChecksum               String?                    @map("content_checksum") @db.Char(64)
+  createdAt                     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  questionnaire                 IntakeQuestionnaire        @relation(fields: [questionnaireId], references: [id], onDelete: Restrict)
+  medicalConditions             IntakeMedicalCondition[]
+  medications                   IntakeMedication[]
+  allergies                     IntakeAllergy[]
+  consents                      QuestionnaireConsent[]
+
+  @@unique([questionnaireId, version])
+  @@index([status, updatedAt])
+  @@map("intake_questionnaire_versions")
+}
+
+model IntakeMedicalCondition {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  questionnaireVersionId String                     @map("questionnaire_version_id") @db.Uuid
+  code                   String
+  encryptedDetails       String?                    @map("encrypted_details")
+  questionnaireVersion   IntakeQuestionnaireVersion @relation(fields: [questionnaireVersionId], references: [id], onDelete: Cascade)
+
+  @@index([questionnaireVersionId])
+  @@map("intake_medical_conditions")
+}
+
+model IntakeMedication {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  questionnaireVersionId String                     @map("questionnaire_version_id") @db.Uuid
+  encryptedName          String                     @map("encrypted_name")
+  encryptedDosage        String?                    @map("encrypted_dosage")
+  questionnaireVersion   IntakeQuestionnaireVersion @relation(fields: [questionnaireVersionId], references: [id], onDelete: Cascade)
+
+  @@index([questionnaireVersionId])
+  @@map("intake_medications")
+}
+
+model IntakeAllergy {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  questionnaireVersionId String                     @map("questionnaire_version_id") @db.Uuid
+  encryptedSubstance     String                     @map("encrypted_substance")
+  encryptedReaction      String?                    @map("encrypted_reaction")
+  questionnaireVersion   IntakeQuestionnaireVersion @relation(fields: [questionnaireVersionId], references: [id], onDelete: Cascade)
+
+  @@index([questionnaireVersionId])
+  @@map("intake_allergies")
+}
+
+model QuestionnaireConsent {
+  questionnaireVersionId String                     @map("questionnaire_version_id") @db.Uuid
+  consentRecordId        String                     @map("consent_record_id") @db.Uuid
+  questionnaireVersion   IntakeQuestionnaireVersion @relation(fields: [questionnaireVersionId], references: [id], onDelete: Restrict)
+  consentRecord          ConsentRecord              @relation(fields: [consentRecordId], references: [id], onDelete: Restrict)
+
+  @@id([questionnaireVersionId, consentRecordId])
+  @@map("questionnaire_consents")
+}
+
+model ClinicOnboardingProfile {
+  id                                 String                 @id @default(uuid()) @db.Uuid
+  clinicId                           String                 @unique @map("clinic_id") @db.Uuid
+  registrationNumber                 String?                @map("registration_number")
+  registrationCountry                String?                @map("registration_country") @db.Char(2)
+  encryptedBusinessContact           String?                @map("encrypted_business_contact")
+  responsibleClinicalLeaderDentistId String?                @map("responsible_clinical_leader_dentist_id") @db.Uuid
+  aftercarePolicy                    Json?                  @map("aftercare_policy")
+  payoutStatus                       PayoutOnboardingStatus @default(NOT_STARTED) @map("payout_status")
+  payoutProvider                     String?                @map("payout_provider")
+  encryptedPayoutAccountId           String?                @map("encrypted_payout_account_id")
+  termsVersion                       String?                @map("terms_version")
+  termsAcceptedByUserId              String?                @map("terms_accepted_by_user_id") @db.Uuid
+  termsAcceptedAt                    DateTime?              @map("terms_accepted_at") @db.Timestamptz(6)
+  verificationCaseId                 String?                @unique @map("verification_case_id") @db.Uuid
+  submittedAt                        DateTime?              @map("submitted_at") @db.Timestamptz(6)
+  version                            Int                    @default(1)
+  createdAt                          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([payoutStatus, submittedAt])
+  @@map("clinic_onboarding_profiles")
+}
+
+model ClinicDeclaration {
+  id        String                @id @default(uuid()) @db.Uuid
+  clinicId  String                @map("clinic_id") @db.Uuid
+  kind      ClinicDeclarationKind
+  code      String
+  name      String
+  details   Json
+  active    Boolean               @default(true)
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([clinicId, kind, code])
+  @@index([clinicId, kind, active])
+  @@map("clinic_declarations")
+}
+
+model ClinicFileAsset {
+  fileAssetId String   @id @map("file_asset_id") @db.Uuid
+  clinicId    String   @map("clinic_id") @db.Uuid
+  category    String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([clinicId, category, createdAt])
+  @@map("clinic_file_assets")
+}
+
+model ClinicOnboardingDocument {
+  id                    String                       @id @default(uuid()) @db.Uuid
+  clinicId              String                       @map("clinic_id") @db.Uuid
+  kind                  ClinicOnboardingDocumentKind
+  fileAssetId           String                       @map("file_asset_id") @db.Uuid
+  professionalLicenseId String?                      @map("professional_license_id") @db.Uuid
+  label                 String
+  createdByUserId       String                       @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([clinicId, kind, fileAssetId])
+  @@index([clinicId, kind, createdAt])
+  @@map("clinic_onboarding_documents")
+}
+
+model ClinicTeamInvitation {
+  id              String                 @id @default(uuid()) @db.Uuid
+  clinicId        String                 @map("clinic_id") @db.Uuid
+  organizationId  String                 @map("organization_id") @db.Uuid
+  encryptedEmail  String                 @map("encrypted_email")
+  emailHash       String                 @map("email_hash") @db.Char(64)
+  role            SystemRole
+  permissions     String[]               @default([])
+  jobTitle        String?                @map("job_title")
+  status          ClinicInvitationStatus @default(PENDING)
+  tokenHash       String                 @unique @map("token_hash") @db.Char(64)
+  invitedByUserId String                 @map("invited_by_user_id") @db.Uuid
+  expiresAt       DateTime               @map("expires_at") @db.Timestamptz(6)
+  acceptedAt      DateTime?              @map("accepted_at") @db.Timestamptz(6)
+  revokedAt       DateTime?              @map("revoked_at") @db.Timestamptz(6)
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([clinicId, status, expiresAt])
+  @@index([organizationId, emailHash, status])
+  @@map("clinic_team_invitations")
+}
+
+model ClinicTeamInvitationLocation {
+  invitationId String @map("invitation_id") @db.Uuid
+  locationId   String @map("location_id") @db.Uuid
+
+  @@id([invitationId, locationId])
+  @@map("clinic_team_invitation_locations")
+}
+
+model ClinicStaffLocation {
+  clinicStaffId String @map("clinic_staff_id") @db.Uuid
+  locationId    String @map("location_id") @db.Uuid
+
+  @@id([clinicStaffId, locationId])
+  @@index([locationId, clinicStaffId])
+  @@map("clinic_staff_locations")
+}
+
+model ClinicCaseOpportunity {
+  id                      String                  @id @default(uuid()) @db.Uuid
+  clinicId                String                  @map("clinic_id") @db.Uuid
+  caseId                  String                  @map("case_id") @db.Uuid
+  status                  ClinicOpportunityStatus @default(ASSIGNED)
+  encryptedDeclineReason  String?                 @map("encrypted_decline_reason")
+  encryptedRecordsRequest String?                 @map("encrypted_records_request")
+  assignedAt              DateTime                @map("assigned_at") @db.Timestamptz(6)
+  respondedAt             DateTime?               @map("responded_at") @db.Timestamptz(6)
+  respondedByUserId       String?                 @map("responded_by_user_id") @db.Uuid
+  version                 Int                     @default(1)
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([clinicId, caseId])
+  @@index([clinicId, status, assignedAt])
+  @@map("clinic_case_opportunities")
+}
+
+model AvailabilityRule {
+  id                       String               @id @default(uuid()) @db.Uuid
+  clinicId                 String               @map("clinic_id") @db.Uuid
+  locationId               String               @map("location_id") @db.Uuid
+  dentistId                String?              @map("dentist_id") @db.Uuid
+  slotKind                 AvailabilitySlotKind @map("slot_kind")
+  dayOfWeek                Int                  @map("day_of_week")
+  startsAtMinute           Int                  @map("starts_at_minute")
+  endsAtMinute             Int                  @map("ends_at_minute")
+  timezone                 String
+  capacity                 Int                  @default(1)
+  procedureDurationMinutes Int                  @map("procedure_duration_minutes")
+  effectiveFrom            DateTime             @map("effective_from") @db.Date
+  effectiveUntil           DateTime?            @map("effective_until") @db.Date
+  active                   Boolean              @default(true)
+  version                  Int                  @default(1)
+  createdAt                DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([clinicId, locationId, dayOfWeek, active])
+  @@index([dentistId, dayOfWeek, active])
+  @@map("availability_rules")
+}
+
+model AvailabilityBlock {
+  id              String                @id @default(uuid()) @db.Uuid
+  clinicId        String                @map("clinic_id") @db.Uuid
+  locationId      String?               @map("location_id") @db.Uuid
+  dentistId       String?               @map("dentist_id") @db.Uuid
+  kind            AvailabilityBlockKind
+  startsAt        DateTime              @map("starts_at") @db.Timestamptz(6)
+  endsAt          DateTime              @map("ends_at") @db.Timestamptz(6)
+  encryptedReason String                @map("encrypted_reason")
+  createdByUserId String                @map("created_by_user_id") @db.Uuid
+  deletedAt       DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([clinicId, startsAt, deletedAt])
+  @@index([dentistId, startsAt, deletedAt])
+  @@map("availability_blocks")
+}
+
+model ClinicSchedulingPolicy {
+  id                         String   @id @default(uuid()) @db.Uuid
+  clinicId                   String   @unique @map("clinic_id") @db.Uuid
+  minimumNoticeMinutes       Int      @default(1440) @map("minimum_notice_minutes")
+  maximumAdvanceDays         Int      @default(180) @map("maximum_advance_days")
+  rescheduleCutoffMinutes    Int      @default(1440) @map("reschedule_cutoff_minutes")
+  cancellationCutoffMinutes  Int      @default(1440) @map("cancellation_cutoff_minutes")
+  defaultConsultationMinutes Int      @default(60) @map("default_consultation_minutes")
+  defaultTreatmentMinutes    Int      @default(120) @map("default_treatment_minutes")
+  overbookingAllowed         Boolean  @default(false) @map("overbooking_allowed")
+  version                    Int      @default(1)
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("clinic_scheduling_policies")
+}
+
+model ClinicCalendarConnection {
+  id                            String                   @id @default(uuid()) @db.Uuid
+  clinicId                      String                   @map("clinic_id") @db.Uuid
+  dentistId                     String?                  @map("dentist_id") @db.Uuid
+  provider                      String
+  externalCalendarReferenceHash String                   @map("external_calendar_reference_hash") @db.Char(64)
+  status                        CalendarConnectionStatus @default(PENDING)
+  lastSyncedAt                  DateTime?                @map("last_synced_at") @db.Timestamptz(6)
+  lastErrorCode                 String?                  @map("last_error_code")
+  createdAt                     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([clinicId, provider, externalCalendarReferenceHash])
+  @@index([clinicId, status, lastSyncedAt])
+  @@map("clinic_calendar_connections")
+}
+
+enum CaseComplexityCategory {
+  UNKNOWN
+  STANDARD
+  COMPLEX
+}
+
+enum MatchingCriteriaSource {
+  PATIENT
+  CONCIERGE
+}
+
+enum ShortlistStatus {
+  PROPOSED
+  SHARED
+  INTERESTED
+  INTRO_REQUESTED
+  INTRODUCED
+  DECLINED
+  REMOVED
+}
+
+enum IntroductionRequestStatus {
+  REQUESTED
+  CONTACTED
+  INTRODUCED
+  CLOSED
+  CANCELLED
+}
+
+enum ConciergePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ConciergeWorkStatus {
+  UNASSIGNED
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_PATIENT
+  WAITING_CLINIC
+  SUPERVISOR_REVIEW
+  HANDED_OFF
+  RESOLVED
+}
+
+enum ConciergeTaskKind {
+  MISSING_DOCUMENT
+  MATCHING
+  APPOINTMENT
+  TRAVEL
+  AFTERCARE
+  INCIDENT
+  FOLLOW_UP
+  OTHER
+}
+
+enum ConciergeTaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum ConciergeCommunicationChannel {
+  PHONE
+  EMAIL
+  MESSAGE
+  VIDEO
+  IN_PERSON
+  SYSTEM
+}
+
+enum ConciergeCommunicationDirection {
+  INBOUND
+  OUTBOUND
+  INTERNAL
+}
+
+enum ConciergeHandoffStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
+}
+
+enum ConciergeReviewDecision {
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+model ClinicDiscoveryProfile {
+  clinicId               String                   @id @map("clinic_id") @db.Uuid
+  languages              String[]                 @default([])
+  equipment              String[]                 @default([])
+  accessibilityFeatures  String[]                 @default([]) @map("accessibility_features")
+  supportedComplexities  CaseComplexityCategory[] @default([]) @map("supported_complexities")
+  aftercareSupported     Boolean                  @default(false) @map("aftercare_supported")
+  followUpDataAvailable  Boolean                  @default(false) @map("follow_up_data_available")
+  earliestConsultationAt DateTime?                @map("earliest_consultation_at") @db.Timestamptz(6)
+  evidenceIds            String[]                 @default([]) @map("evidence_ids")
+  updatedAt              DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  clinic                 Clinic                   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@index([earliestConsultationAt])
+  @@map("clinic_discovery_profiles")
+}
+
+model SavedClinic {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  clinicId  String   @map("clinic_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, clinicId])
+  @@index([userId, createdAt])
+  @@map("saved_clinics")
+}
+
+model CaseMatchingCriteria {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  caseId             String                 @map("case_id") @db.Uuid
+  version            Int
+  source             MatchingCriteriaSource
+  createdByUserId    String                 @map("created_by_user_id") @db.Uuid
+  procedureCode      String                 @map("procedure_code")
+  preferredCity      String?                @map("preferred_city")
+  preferredDistrict  String?                @map("preferred_district")
+  arrivalDate        DateTime?              @map("arrival_date") @db.Date
+  departureDate      DateTime?              @map("departure_date") @db.Date
+  preferredLanguages String[]               @default([]) @map("preferred_languages")
+  budgetMinimumMinor BigInt?                @map("budget_minimum_minor")
+  budgetMaximumMinor BigInt?                @map("budget_maximum_minor")
+  budgetCurrency     Currency?              @map("budget_currency")
+  complexityCategory CaseComplexityCategory @default(UNKNOWN) @map("complexity_category")
+  requiresAftercare  Boolean                @default(false) @map("requires_aftercare")
+  requiresWarranty   Boolean                @default(false) @map("requires_warranty")
+  accessibilityNeeds String[]               @default([]) @map("accessibility_needs")
+  preferredEquipment String[]               @default([]) @map("preferred_equipment")
+  preferences        Json
+  inputChecksum      String                 @map("input_checksum") @db.Char(64)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  dentalCase         DentalCase             @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  createdBy          User                   @relation("MatchingCriteriaAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  matchingResults    MatchingResult[]
+
+  @@unique([caseId, version])
+  @@index([caseId, createdAt])
+  @@map("case_matching_criteria")
+}
+
+model CaseShortlistEntry {
+  id                      String               @id @default(uuid()) @db.Uuid
+  caseId                  String               @map("case_id") @db.Uuid
+  clinicId                String               @map("clinic_id") @db.Uuid
+  matchingResultId        String               @map("matching_result_id") @db.Uuid
+  organicRank             Int                  @map("organic_rank")
+  displayedRank           Int                  @map("displayed_rank")
+  status                  ShortlistStatus      @default(PROPOSED)
+  encryptedOverrideReason String?              @map("encrypted_override_reason")
+  overrideByUserId        String?              @map("override_by_user_id") @db.Uuid
+  overriddenAt            DateTime?            @map("overridden_at") @db.Timestamptz(6)
+  sharedAt                DateTime?            @map("shared_at") @db.Timestamptz(6)
+  patientInterestedAt     DateTime?            @map("patient_interested_at") @db.Timestamptz(6)
+  createdAt               DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dentalCase              DentalCase           @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  clinic                  Clinic               @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  matchingResult          MatchingResult       @relation(fields: [matchingResultId], references: [id], onDelete: Restrict)
+  overrideBy              User?                @relation("ShortlistOverrideAuthor", fields: [overrideByUserId], references: [id], onDelete: Restrict)
+  introductionRequest     IntroductionRequest?
+
+  @@unique([caseId, clinicId])
+  @@index([caseId, status, displayedRank])
+  @@map("case_shortlist_entries")
+}
+
+model IntroductionRequest {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  shortlistEntryId     String                    @unique @map("shortlist_entry_id") @db.Uuid
+  consentRecordId      String                    @map("consent_record_id") @db.Uuid
+  patientUserId        String                    @map("patient_user_id") @db.Uuid
+  sessionId            String                    @map("session_id") @db.Uuid
+  handledByUserId      String?                   @map("handled_by_user_id") @db.Uuid
+  status               IntroductionRequestStatus @default(REQUESTED)
+  encryptedPatientNote String?                   @map("encrypted_patient_note")
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  handledAt            DateTime?                 @map("handled_at") @db.Timestamptz(6)
+  shortlistEntry       CaseShortlistEntry        @relation(fields: [shortlistEntryId], references: [id], onDelete: Restrict)
+  consentRecord        ConsentRecord             @relation(fields: [consentRecordId], references: [id], onDelete: Restrict)
+  patient              User                      @relation("IntroductionPatient", fields: [patientUserId], references: [id], onDelete: Restrict)
+  session              Session                   @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  handledBy            User?                     @relation("IntroductionHandler", fields: [handledByUserId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@map("introduction_requests")
+}
+
+model ConciergeCaseWorkspace {
+  id                        String                        @id @default(uuid()) @db.Uuid
+  caseId                    String                        @unique @map("case_id") @db.Uuid
+  conciergeOrganizationId   String                        @map("concierge_organization_id") @db.Uuid
+  assignedAgentUserId       String?                       @map("assigned_agent_user_id") @db.Uuid
+  supervisorUserId          String?                       @map("supervisor_user_id") @db.Uuid
+  priority                  ConciergePriority             @default(NORMAL)
+  status                    ConciergeWorkStatus           @default(UNASSIGNED)
+  slaDueAt                  DateTime                      @map("sla_due_at") @db.Timestamptz(6)
+  encryptedPatientSummary   String?                       @map("encrypted_patient_summary")
+  missingDocumentCategories String[]                      @default([]) @map("missing_document_categories")
+  version                   Int                           @default(1)
+  lastActivityAt            DateTime                      @default(now()) @map("last_activity_at") @db.Timestamptz(6)
+  createdAt                 DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dentalCase                DentalCase                    @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  conciergeOrganization     Organization                  @relation(fields: [conciergeOrganizationId], references: [id], onDelete: Restrict)
+  assignedAgent             User?                         @relation("ConciergeAssignedAgent", fields: [assignedAgentUserId], references: [id], onDelete: Restrict)
+  supervisor                User?                         @relation("ConciergeSupervisor", fields: [supervisorUserId], references: [id], onDelete: Restrict)
+  internalNotes             ConciergeInternalNote[]
+  travelNotes               ConciergeTravelNote[]
+  communications            ConciergeCommunicationEvent[]
+  tasks                     ConciergeTask[]
+  handoffs                  ConciergeHandoff[]
+  supervisorReviews         ConciergeSupervisorReview[]
+
+  @@index([conciergeOrganizationId, status, priority, slaDueAt])
+  @@index([assignedAgentUserId, status, slaDueAt])
+  @@map("concierge_case_workspaces")
+}
+
+model ConciergeInternalNote {
+  id            String                 @id @default(uuid()) @db.Uuid
+  workspaceId   String                 @map("workspace_id") @db.Uuid
+  authorUserId  String                 @map("author_user_id") @db.Uuid
+  encryptedBody String                 @map("encrypted_body")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace     ConciergeCaseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  author        User                   @relation("ConciergeNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt])
+  @@map("concierge_internal_notes")
+}
+
+model ConciergeTravelNote {
+  id            String                 @id @default(uuid()) @db.Uuid
+  workspaceId   String                 @map("workspace_id") @db.Uuid
+  authorUserId  String                 @map("author_user_id") @db.Uuid
+  encryptedBody String                 @map("encrypted_body")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace     ConciergeCaseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  author        User                   @relation("ConciergeTravelNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt])
+  @@map("concierge_travel_notes")
+}
+
+model ConciergeCommunicationEvent {
+  id               String                          @id @default(uuid()) @db.Uuid
+  workspaceId      String                          @map("workspace_id") @db.Uuid
+  actorUserId      String                          @map("actor_user_id") @db.Uuid
+  channel          ConciergeCommunicationChannel
+  direction        ConciergeCommunicationDirection
+  encryptedSummary String                          @map("encrypted_summary")
+  occurredAt       DateTime                        @map("occurred_at") @db.Timestamptz(6)
+  createdAt        DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace        ConciergeCaseWorkspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor            User                            @relation("ConciergeCommunicationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, occurredAt])
+  @@map("concierge_communication_events")
+}
+
+model ConciergeTask {
+  id               String                 @id @default(uuid()) @db.Uuid
+  workspaceId      String                 @map("workspace_id") @db.Uuid
+  kind             ConciergeTaskKind
+  status           ConciergeTaskStatus    @default(TODO)
+  encryptedTitle   String                 @map("encrypted_title")
+  encryptedDetails String?                @map("encrypted_details")
+  assignedUserId   String?                @map("assigned_user_id") @db.Uuid
+  createdByUserId  String                 @map("created_by_user_id") @db.Uuid
+  dueAt            DateTime               @map("due_at") @db.Timestamptz(6)
+  completedAt      DateTime?              @map("completed_at") @db.Timestamptz(6)
+  version          Int                    @default(1)
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  workspace        ConciergeCaseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  assignedUser     User?                  @relation("ConciergeTaskAssignee", fields: [assignedUserId], references: [id], onDelete: Restrict)
+  createdBy        User                   @relation("ConciergeTaskCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status, dueAt])
+  @@index([assignedUserId, status, dueAt])
+  @@map("concierge_tasks")
+}
+
+model ConciergeHandoff {
+  id              String                 @id @default(uuid()) @db.Uuid
+  workspaceId     String                 @map("workspace_id") @db.Uuid
+  fromUserId      String                 @map("from_user_id") @db.Uuid
+  toUserId        String                 @map("to_user_id") @db.Uuid
+  encryptedReason String                 @map("encrypted_reason")
+  status          ConciergeHandoffStatus @default(PENDING)
+  requestId       String                 @map("request_id") @db.VarChar(128)
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  acceptedAt      DateTime?              @map("accepted_at") @db.Timestamptz(6)
+  workspace       ConciergeCaseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  fromUser        User                   @relation("ConciergeHandoffFrom", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toUser          User                   @relation("ConciergeHandoffTo", fields: [toUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status, createdAt])
+  @@index([toUserId, status, createdAt])
+  @@map("concierge_handoffs")
+}
+
+model ConciergeSupervisorReview {
+  id               String                  @id @default(uuid()) @db.Uuid
+  workspaceId      String                  @map("workspace_id") @db.Uuid
+  reviewerUserId   String                  @map("reviewer_user_id") @db.Uuid
+  decision         ConciergeReviewDecision
+  encryptedNote    String                  @map("encrypted_note")
+  workspaceVersion Int                     @map("workspace_version")
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace        ConciergeCaseWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  reviewer         User                    @relation("ConciergeReviewAuthor", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt])
+  @@map("concierge_supervisor_reviews")
+}

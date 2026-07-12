@@ -1,0 +1,92 @@
+name: Main release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  metadata:
+    name: Version metadata
+    needs: verify
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.version.outputs.created }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "created=$created" >> "$GITHUB_OUTPUT"
+          node -e "require('node:fs').writeFileSync('build-version.json', JSON.stringify({commit:process.env.COMMIT_SHA,repository:process.env.REPOSITORY,runId:process.env.RUN_ID,created:process.argv[1]},null,2)+'\n')" "$created"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-version-${{ github.sha }}
+          path: build-version.json
+          retention-days: 90
+
+  images:
+    name: Publish ${{ matrix.app }} image
+    needs: [verify, metadata]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: production-images
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, api, worker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate public build configuration
+        if: matrix.app == 'web'
+        env:
+          PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          PUBLIC_API_URL: ${{ vars.PRODUCTION_PUBLIC_API_URL }}
+        run: >-
+          node -e "for(const [name,value] of Object.entries({PRODUCTION_APP_URL:process.env.PUBLIC_APP_URL,PRODUCTION_PUBLIC_API_URL:process.env.PUBLIC_API_URL})){if(!value)throw new Error(name+' is required');const url=new URL(value);if(url.protocol!=='https:')throw new Error(name+' must use HTTPS')}"
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}-${{ matrix.app }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=main
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/${{ matrix.app }}.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_DATE=${{ needs.metadata.outputs.created }}
+            VERSION=${{ github.sha }}
+            VCS_REF=${{ github.sha }}
+            SOURCE_URL=https://github.com/${{ github.repository }}
+            NEXT_PUBLIC_BUILD_VERSION=${{ github.sha }}
+            NEXT_PUBLIC_APP_URL=${{ vars.PRODUCTION_APP_URL }}
+            NEXT_PUBLIC_API_URL=${{ vars.PRODUCTION_PUBLIC_API_URL }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}

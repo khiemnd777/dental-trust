@@ -1,0 +1,11 @@
+{
+  "name": "@dental-trust/typescript-config",
+  "version": "1.0.0",
+  "private": true,
+  "files": [
+    "base.json",
+    "library.json",
+    "node.json",
+    "nextjs.json"
+  ]
+}

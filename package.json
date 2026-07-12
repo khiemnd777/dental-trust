@@ -1,0 +1,40 @@
+{
+  "name": "dental-trust",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DENTAL TRUST cross-border dental care coordination and verification platform",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.12.0",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "start": "turbo run start --parallel",
+    "clean": "turbo run clean && rm -rf .turbo coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "test:integration": "turbo run test:integration",
+    "test:e2e": "turbo run test:e2e",
+    "db:generate": "pnpm --filter @dental-trust/database db:generate",
+    "db:migrate": "pnpm --filter @dental-trust/database db:migrate",
+    "db:migrate:deploy": "pnpm --filter @dental-trust/database db:migrate:deploy",
+    "db:seed": "turbo run build --filter=@dental-trust/database && pnpm --filter @dental-trust/database db:seed",
+    "db:reset": "turbo run build --filter=@dental-trust/database && pnpm --filter @dental-trust/database db:reset",
+    "audit:dependencies": "pnpm audit --audit-level high"
+  },
+  "devDependencies": {
+    "@dental-trust/eslint-config": "workspace:*",
+    "eslint": "10.7.0",
+    "prettier": "3.9.5",
+    "turbo": "2.10.4",
+    "typescript": "6.0.3"
+  }
+}

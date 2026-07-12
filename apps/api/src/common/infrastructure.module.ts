@@ -1,0 +1,81 @@
+import { Global, Module } from '@nestjs/common';
+
+import { parseServerEnvironment } from '@dental-trust/config/server';
+import { prisma } from '@dental-trust/database';
+import {
+  applicationMetrics,
+  createErrorReporter,
+  createLogger,
+  createTraceExporter,
+} from '@dental-trust/observability';
+
+import { createPaymentProvider } from '../infrastructure/providers/payment.provider.js';
+import { createMeetingProvider } from '../infrastructure/providers/meeting.provider.js';
+import { createPayoutProvider } from '../infrastructure/providers/payout.provider.js';
+import { createCalendarSyncProvider } from '../infrastructure/providers/calendar-sync.provider.js';
+import {
+  CALENDAR_SYNC_PROVIDER,
+  ERROR_REPORTER,
+  LOGGER,
+  MEETING_PROVIDER,
+  METRICS,
+  PAYMENT_PROVIDER,
+  PAYOUT_PROVIDER,
+  PRISMA,
+  SERVER_ENV,
+  TRACE_EXPORTER,
+} from './tokens.js';
+
+const environment = parseServerEnvironment(process.env);
+
+@Global()
+@Module({
+  providers: [
+    { provide: SERVER_ENV, useValue: environment },
+    { provide: PRISMA, useValue: prisma },
+    { provide: METRICS, useValue: applicationMetrics },
+    {
+      provide: TRACE_EXPORTER,
+      useValue: createTraceExporter(environment.OTEL_EXPORTER_OTLP_ENDPOINT),
+    },
+    { provide: ERROR_REPORTER, useValue: createErrorReporter(environment.ERROR_TRACKING_DSN) },
+    {
+      provide: PAYMENT_PROVIDER,
+      useFactory: () => createPaymentProvider(environment),
+    },
+    {
+      provide: MEETING_PROVIDER,
+      useFactory: () => createMeetingProvider(environment),
+    },
+    {
+      provide: PAYOUT_PROVIDER,
+      useFactory: () => createPayoutProvider(environment),
+    },
+    {
+      provide: CALENDAR_SYNC_PROVIDER,
+      useFactory: () => createCalendarSyncProvider(environment),
+    },
+    {
+      provide: LOGGER,
+      useValue: createLogger({
+        service: 'dental-trust-api',
+        environment: environment.NODE_ENV,
+        ...(process.env.BUILD_VERSION ? { version: process.env.BUILD_VERSION } : {}),
+        level: environment.LOG_LEVEL,
+      }),
+    },
+  ],
+  exports: [
+    SERVER_ENV,
+    PRISMA,
+    LOGGER,
+    METRICS,
+    TRACE_EXPORTER,
+    ERROR_REPORTER,
+    PAYMENT_PROVIDER,
+    MEETING_PROVIDER,
+    PAYOUT_PROVIDER,
+    CALENDAR_SYNC_PROVIDER,
+  ],
+})
+export class InfrastructureModule {}

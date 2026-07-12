@@ -1,0 +1,10 @@
+export const SERVER_ENV = Symbol('SERVER_ENV');
+export const PRISMA = Symbol('PRISMA');
+export const LOGGER = Symbol('LOGGER');
+export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
+export const MEETING_PROVIDER = Symbol('MEETING_PROVIDER');
+export const PAYOUT_PROVIDER = Symbol('PAYOUT_PROVIDER');
+export const CALENDAR_SYNC_PROVIDER = Symbol('CALENDAR_SYNC_PROVIDER');
+export const METRICS = Symbol('METRICS');
+export const TRACE_EXPORTER = Symbol('TRACE_EXPORTER');
+export const ERROR_REPORTER = Symbol('ERROR_REPORTER');

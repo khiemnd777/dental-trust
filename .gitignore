@@ -1,0 +1,40 @@
+# Dependencies and package-manager state
+node_modules/
+.pnpm-store/
+.pnpm-store-recovery/
+.corepack/
+.cache/
+
+# Build and test artifacts
+.next/
+.turbo/
+coverage/
+dist/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Runtime files
+*.log
+*.pid
+tmp/
+uploads/
+backups/
+*.dump
+*.sql.gz
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Local infrastructure data
+.data/
+minio-data/
+postgres-data/
+redis-data/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/

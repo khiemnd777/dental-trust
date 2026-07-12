@@ -1,0 +1,42 @@
+{
+  "name": "Dental Trust",
+  "short_name": "Dental Trust",
+  "description": "Verified dental care in Vietnam with cross-border support.",
+  "id": "/",
+  "start_url": "/vi?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafb",
+  "theme_color": "#071a2d",
+  "lang": "vi-VN",
+  "categories": ["medical", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tìm phòng khám",
+      "short_name": "Phòng khám",
+      "url": "/vi/clinics",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Hồ sơ của tôi",
+      "short_name": "Hồ sơ",
+      "url": "/vi/app",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@dental-trust/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "node --import tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dental-trust/auth": "workspace:*",
+    "@dental-trust/domain": "workspace:*",
+    "@prisma/client": "6.19.3",
+    "argon2": "0.44.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "prisma": "6.19.3",
+    "tsx": "4.20.5",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}
