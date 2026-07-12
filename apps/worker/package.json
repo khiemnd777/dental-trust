@@ -19,7 +19,7 @@
     "@dental-trust/validation": "workspace:*",
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",
-    "bullmq": "5.80.1",
+    "bullmq": "5.80.2",
     "file-type": "21.3.4",
     "pino": "9.14.0",
     "reflect-metadata": "0.2.2",
