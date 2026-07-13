@@ -20,6 +20,8 @@ import {
   type CreateCaseRequest,
   transitionCaseRequestSchema,
   idempotencyKeySchema,
+  journeySummaryListQuerySchema,
+  type JourneySummaryListQuery,
   type TransitionCaseRequest,
 } from '@dental-trust/contracts';
 
@@ -59,6 +61,23 @@ export class CasesController {
       page: { nextCursor: page.nextCursor, count: page.data.length },
       requestId: access.requestId,
     };
+  }
+
+  @Get('today')
+  async today(
+    @CurrentAccess() access: AccessContext,
+    @Query(new ZodValidationPipe(journeySummaryListQuerySchema)) query: JourneySummaryListQuery,
+  ): Promise<Readonly<Record<string, unknown>>> {
+    const data = await this.cases.today(access, query);
+    return { data, page: { count: data.length }, requestId: access.requestId };
+  }
+
+  @Get(':caseId/journey-summary')
+  async journeySummary(
+    @CurrentAccess() access: AccessContext,
+    @Param('caseId', new ZodValidationPipe(uuidParameterSchema)) caseId: string,
+  ): Promise<Readonly<Record<string, unknown>>> {
+    return { data: await this.cases.journeySummary(access, caseId), requestId: access.requestId };
   }
 
   @Get(':caseId')

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import type {
@@ -9,6 +10,7 @@ import type {
 } from '@dental-trust/contracts';
 import type { Locale, Messages } from '@dental-trust/i18n';
 import { Alert, Badge, Button, Card, Checkbox, EmptyState, Icon, Skeleton } from '@dental-trust/ui';
+import { trackProductEvent } from '@/lib/product-analytics';
 
 const supported = new Set(['patient:notifications', 'patient:settings']);
 
@@ -24,6 +26,7 @@ const copy = {
     locked: 'Required for account security',
     saved: 'Your notification preference was saved.',
     marked: 'The notification was marked as read.',
+    viewUpdate: 'View update',
     channels: { IN_APP: 'In app', EMAIL: 'Email', SMS: 'SMS', MESSAGING: 'Messaging app' },
   },
   vi: {
@@ -37,6 +40,7 @@ const copy = {
     locked: 'Bắt buộc để bảo vệ tài khoản',
     saved: 'Đã lưu tùy chọn thông báo.',
     marked: 'Đã đánh dấu thông báo là đã đọc.',
+    viewUpdate: 'Xem cập nhật',
     channels: {
       IN_APP: 'Trong ứng dụng',
       EMAIL: 'Email',
@@ -218,32 +222,48 @@ export function NotificationCenterWorkspace({
                         {notification.readAt ? t.read : t.unread}
                       </Badge>
                     </div>
-                    {!notification.readAt ? (
-                      <Button
-                        disabled={sending === notification.id}
-                        size="sm"
-                        variant="quiet"
-                        onClick={() =>
-                          void command(
-                            { command: 'mark_read', notificationId: notification.id },
-                            notification.id,
-                            () => {
-                              setNotifications((current) =>
-                                current.map((candidate) =>
-                                  candidate.id === notification.id
-                                    ? { ...candidate, readAt: new Date().toISOString() }
-                                    : candidate,
-                                ),
-                              );
-                              setNotice(t.marked);
-                            },
-                          )
-                        }
-                      >
-                        <Icon name="check" />
-                        {t.markRead}
-                      </Button>
-                    ) : null}
+                    <div className="notification-actions">
+                      {notification.action ? (
+                        <Link
+                          className="dt-button dt-button--secondary dt-button--sm button-link"
+                          href={notificationHref(notification, locale)}
+                          onClick={() =>
+                            trackProductEvent('notification_action_opened', {
+                              target: notification.action?.target ?? 'TODAY',
+                            })
+                          }
+                        >
+                          {t.viewUpdate}
+                          <Icon name="arrow" />
+                        </Link>
+                      ) : null}
+                      {!notification.readAt ? (
+                        <Button
+                          disabled={sending === notification.id}
+                          size="sm"
+                          variant="quiet"
+                          onClick={() =>
+                            void command(
+                              { command: 'mark_read', notificationId: notification.id },
+                              notification.id,
+                              () => {
+                                setNotifications((current) =>
+                                  current.map((candidate) =>
+                                    candidate.id === notification.id
+                                      ? { ...candidate, readAt: new Date().toISOString() }
+                                      : candidate,
+                                  ),
+                                );
+                                setNotice(t.marked);
+                              },
+                            )
+                          }
+                        >
+                          <Icon name="check" />
+                          {t.markRead}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -339,4 +359,16 @@ function formatDate(value: string, locale: Locale) {
   return Number.isNaN(date.getTime())
     ? value
     : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+function notificationHref(notification: NotificationView, locale: Locale) {
+  const action = notification.action;
+  if (!action) return `/${locale}/app`;
+  if (action.target === 'CASE' && action.resourceId)
+    return `/${locale}/app/cases/${action.resourceId}`;
+  if (action.target === 'APPOINTMENTS') return `/${locale}/app`;
+  if (action.target === 'PAYMENTS') return `/${locale}/app/payments`;
+  if (action.target === 'AFTERCARE') return `/${locale}/app/cases`;
+  if (action.target === 'INCIDENTS') return `/${locale}/app/incidents`;
+  return `/${locale}/app`;
 }

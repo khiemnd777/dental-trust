@@ -351,16 +351,18 @@ function GovernanceTable({
           <tbody>
             {records.map((record) => (
               <tr key={recordId(record)}>
-                <td className="data-table__primary">{recordLabel(record, locale)}</td>
-                <td>
+                <td className="data-table__primary" data-label={text.key}>
+                  {recordLabel(record, locale)}
+                </td>
+                <td data-label={text.status}>
                   <Badge tone={recordEnabled(record) ? 'verified' : 'info'}>
                     {recordStatus(record)}
                   </Badge>
                 </td>
-                <td>{recordVersion(record)}</td>
-                <td>{recordDetails(record, locale)}</td>
-                <td>{formatDate(recordDate(record), locale)}</td>
-                <td>
+                <td data-label={text.version}>{recordVersion(record)}</td>
+                <td data-label={text.details}>{recordDetails(record, locale)}</td>
+                <td data-label={text.updated}>{formatDate(recordDate(record), locale)}</td>
+                <td data-label={text.edit}>
                   <Button size="sm" variant="secondary" onClick={() => onSelect(record)}>
                     {text.edit}
                   </Button>

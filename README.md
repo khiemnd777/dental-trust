@@ -10,7 +10,10 @@ The platform coordinates care; it does not diagnose, replace licensed clinical j
 
 ```text
 apps/
-  web/          Next.js public site and role-based portals
+  care/         Mobile-first patient and caregiver product
+  provider/     Dentist and clinic workflow product
+  operations/   Concierge, verification, and administration console
+  web/          Transitional public site and authentication gateway
   api/          NestJS HTTP API and OpenAPI document
   worker/       Durable asynchronous and scheduled work
 packages/
@@ -32,24 +35,26 @@ Prerequisites: Node.js 22 LTS or newer, Corepack, Docker Engine with Compose, an
 
 ```bash
 cp .env.example .env
-corepack enable
-pnpm install --frozen-lockfile
-docker compose up -d
-pnpm db:generate
-pnpm db:migrate
-pnpm db:seed
-pnpm dev
+docker compose up --build -d
+docker compose run --rm api pnpm db:seed
 ```
+
+Compose runs the complete local platform: the three product frontends, public/auth gateway,
+API, worker, migration job, PostgreSQL, Redis, MinIO, Mailpit, and ClamAV. Use `pnpm dev`
+only when intentionally running application processes on the host in watch mode.
 
 Local endpoints:
 
-| Service           | URL                              |
-| ----------------- | -------------------------------- |
-| Web application   | `http://localhost:3000`          |
-| API               | `http://localhost:4000`          |
-| API documentation | `http://localhost:4000/api/docs` |
-| MinIO console     | `http://localhost:9001`          |
-| Mailpit           | `http://localhost:8025`          |
+| Service             | URL                              |
+| ------------------- | -------------------------------- |
+| Patient Care App    | `http://localhost:3000`          |
+| Provider App        | `http://localhost:3001`          |
+| Operations Console  | `http://localhost:3002`          |
+| Public/auth gateway | `http://localhost:3003`          |
+| API                 | `http://localhost:4000`          |
+| API documentation   | `http://localhost:4000/api/docs` |
+| MinIO console       | `http://localhost:9001`          |
+| Mailpit             | `http://localhost:8025`          |
 
 Seed identities and development-only passwords are documented in [Local development](docs/LOCAL_DEVELOPMENT.md). They are rejected as production configuration.
 

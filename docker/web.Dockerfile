@@ -14,7 +14,7 @@ RUN --mount=type=cache,id=dental-trust-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 FROM dependencies AS build
-ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3003
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 ARG NEXT_PUBLIC_DEFAULT_LOCALE=vi-VN
 ARG NEXT_PUBLIC_BUILD_VERSION=development
@@ -37,7 +37,7 @@ LABEL org.opencontainers.image.title="DENTAL TRUST Web" \
       org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.source=$SOURCE_URL
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3003
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV BUILD_VERSION=$VERSION
@@ -46,8 +46,8 @@ COPY --from=build --chown=node:node /workspace/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=node:node /workspace/apps/web/public ./apps/web/public
 USER node
-EXPOSE 3000
+EXPOSE 3003
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3003/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node", "apps/web/server.js"]

@@ -368,15 +368,17 @@ function PrivacyTable({
           <tbody>
             {records.map((record) => (
               <tr key={record.id}>
-                <td className="data-table__id">{record.id.slice(0, 8)}</td>
-                <td>{record.type}</td>
-                <td>
+                <td className="data-table__id" data-label={text.reference}>
+                  {record.id.slice(0, 8)}
+                </td>
+                <td data-label={text.type}>{record.type}</td>
+                <td data-label={text.status}>
                   <Badge tone={statusTone(record.status)}>{record.status}</Badge>
                 </td>
-                <td>{record.version}</td>
-                <td>{formatDate(record.dueAt, locale)}</td>
-                <td>{formatDate(record.createdAt, locale)}</td>
-                <td>
+                <td data-label={text.version}>{record.version}</td>
+                <td data-label={text.due}>{formatDate(record.dueAt, locale)}</td>
+                <td data-label={text.created}>{formatDate(record.createdAt, locale)}</td>
+                <td data-label={text.manage}>
                   {area === 'admin' && transitions[record.status].length ? (
                     <Button size="sm" variant="secondary" onClick={() => onManage(record)}>
                       {text.manage}

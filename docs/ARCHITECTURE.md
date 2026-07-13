@@ -11,10 +11,15 @@ DENTAL TRUST is a pnpm/Turborepo modular monorepo. The API is a NestJS modular m
 ```mermaid
 flowchart LR
   subgraph Clients
-    Browser["Browser / installable PWA"]
+    Patient["Patient / caregiver"]
+    ProviderUser["Dentist / clinic team"]
+    Operator["Platform operator"]
   end
   subgraph Runtime
-    Web["Next.js web :3000"]
+    Care["Care App :3000"]
+    Provider["Provider App :3001"]
+    Operations["Operations Console :3002"]
+    Gateway["Public/auth gateway :3003"]
     API["NestJS API :4000"]
     Worker["BullMQ worker"]
   end
@@ -29,8 +34,13 @@ flowchart LR
     Scanner["Malware scanner"]
     Telemetry["OTel / error tracking"]
   end
-  Browser --> Web
-  Web --> API
+  Patient --> Care
+  ProviderUser --> Provider
+  Operator --> Operations
+  Care --> API
+  Provider --> API
+  Operations --> API
+  Gateway --> API
   API --> PG
   API --> Redis
   API --> Objects
@@ -50,7 +60,10 @@ Application dependencies point inward. Framework and provider code may depend on
 
 ```mermaid
 flowchart TD
-  Web["apps/web"] --> Client["packages/api-client"]
+  Care["apps/care"] --> Client["packages/api-client"]
+  Provider["apps/provider"] --> Client
+  Operations["apps/operations"] --> Client
+  Gateway["apps/web"] --> Client
   Client --> Contracts["packages/contracts"]
   API["apps/api"] --> Contracts
   API --> Auth["packages/auth"]
@@ -96,6 +109,6 @@ The schema and domain model group Identity/Access, Organizations, Verification, 
 
 ## Deployment topology
 
-Web, API, and worker are independently deployable containers built from one immutable commit. A release applies backward-compatible migrations before shifting traffic, verifies readiness and core smoke tests, then retires the prior revision. Database rollback normally uses a forward-fix; destructive schema rollback requires a tested restore point and incident approval.
+Care, Provider, Operations, the transitional public/auth gateway, API, and worker are independently deployable containers built from one immutable commit. A release applies backward-compatible migrations before shifting traffic, verifies readiness and core smoke tests, then retires the prior revision. Database rollback normally uses a forward-fix; destructive schema rollback requires a tested restore point and incident approval.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) and [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md).

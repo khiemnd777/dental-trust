@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Locale, Messages } from '@dental-trust/i18n';
 import {
   Badge,
@@ -30,6 +30,9 @@ export function ClinicDiscovery({
   const [draftQuery, setDraftQuery] = useState('');
   const [service, setService] = useState('');
   const [aftercare, setAftercare] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersTriggerRef = useRef<HTMLButtonElement>(null);
+  const filtersCloseRef = useRef<HTMLButtonElement>(null);
   const [interactive, setInteractive] = useState(false);
   const [compared, setCompared] = useState<string[]>([]);
   const [saved, setSaved] = useState<string[]>(() => {
@@ -41,6 +44,22 @@ export function ClinicDiscovery({
     }
   });
   useEffect(() => setInteractive(true), []);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFiltersOpen(false);
+    };
+    const focusFrame = window.requestAnimationFrame(() => filtersCloseRef.current?.focus());
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+      window.cancelAnimationFrame(focusFrame);
+      filtersTriggerRef.current?.focus();
+    };
+  }, [filtersOpen]);
   const results = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     return clinics.filter((clinic) => {
@@ -91,12 +110,38 @@ export function ClinicDiscovery({
       </section>
       <section className="section">
         <div className="container search-layout">
-          <Card className="filters-panel">
+          {filtersOpen ? (
+            <button
+              aria-label={messages.common.close}
+              className="mobile-filters-backdrop"
+              onClick={() => setFiltersOpen(false)}
+              type="button"
+            />
+          ) : null}
+          <Card
+            aria-labelledby="clinic-filters-title"
+            aria-modal={filtersOpen || undefined}
+            className="filters-panel"
+            data-mobile-open={filtersOpen}
+            id="clinic-filters"
+            role={filtersOpen ? 'dialog' : undefined}
+          >
             <div className="filters-panel__head">
-              <h2>{messages.common.filters}</h2>
-              <Button variant="quiet" size="sm" onClick={clear}>
-                {messages.common.clear}
-              </Button>
+              <h2 id="clinic-filters-title">{messages.common.filters}</h2>
+              <div className="filters-panel__actions">
+                <Button variant="quiet" size="sm" onClick={clear}>
+                  {messages.common.clear}
+                </Button>
+                <button
+                  aria-label={messages.common.close}
+                  className="dt-button dt-button--quiet dt-button--icon filters-panel__mobile-close"
+                  onClick={() => setFiltersOpen(false)}
+                  ref={filtersCloseRef}
+                  type="button"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
             </div>
             <div className="filters-panel__body">
               <SelectField label={messages.discovery.city} name="city">
@@ -131,6 +176,17 @@ export function ClinicDiscovery({
             </div>
           </Card>
           <div>
+            <button
+              aria-controls="clinic-filters"
+              aria-expanded={filtersOpen}
+              className="dt-button dt-button--secondary mobile-filters-trigger"
+              onClick={() => setFiltersOpen(true)}
+              ref={filtersTriggerRef}
+              type="button"
+            >
+              <Icon name="filter" />
+              {messages.common.filters}
+            </button>
             {clinics.some((clinic) => clinic.fixture) ? (
               <Alert tone="warning" title={messages.common.developmentFixture} />
             ) : null}

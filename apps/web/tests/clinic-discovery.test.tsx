@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { getMessages } from '@dental-trust/i18n';
 import { ClinicDiscovery } from '@/components/clinic-discovery';
@@ -22,6 +22,14 @@ describe('clinic discovery', () => {
       />,
     );
     expect(screen.getAllByText(messages.clinics[0].name).length).toBeGreaterThan(0);
+    const filtersTrigger = screen.getByRole('button', { name: messages.common.filters });
+    fireEvent.click(filtersTrigger);
+    const filtersPanel = document.getElementById('clinic-filters');
+    expect(filtersPanel).toHaveAttribute('data-mobile-open', 'true');
+    expect(document.body.style.overflow).toBe('hidden');
+    if (!filtersPanel) throw new Error('Mobile filters panel is required');
+    fireEvent.click(within(filtersPanel).getByRole('button', { name: messages.common.close }));
+    expect(filtersTrigger).toHaveAttribute('aria-expanded', 'false');
     fireEvent.change(screen.getByRole('searchbox', { name: messages.discovery.searchLabel }), {
       target: { value: 'not-a-real-clinic' },
     });

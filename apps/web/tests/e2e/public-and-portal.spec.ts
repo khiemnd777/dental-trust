@@ -32,9 +32,16 @@ test('development patient sign-in reaches the protected dashboard', async ({ pag
   await expectWcagAA(page);
   await page.getByRole('button', { name: 'Patient' }).click();
   await expect(page).toHaveURL(/\/en\/app$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Overview');
-  if (isMobile) await expect(page.locator('.portal-mobile-nav')).toBeVisible();
-  else await expect(page.getByText('Secure session').first()).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Today');
+  await expect(page.getByText('Next action').first()).toBeVisible();
+  if (isMobile) {
+    await expect(page.locator('.portal-mobile-nav')).toBeVisible();
+    await page.getByRole('button', { name: 'More' }).click();
+    const mobileMenu = page.getByRole('dialog', { name: 'Mobile navigation' });
+    await expect(mobileMenu.getByRole('link', { name: 'Data & privacy' })).toBeVisible();
+    await expectWcagAA(page);
+    await mobileMenu.getByRole('button', { name: 'Close' }).click();
+  } else await expect(page.getByText('Secure session').first()).toBeVisible();
   await expectWcagAA(page);
 });
 
@@ -134,6 +141,11 @@ for (const access of [
 test('public clinic search works at a mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/en/clinics');
+  await page.getByRole('button', { name: 'Filters' }).click();
+  const filters = page.getByRole('dialog', { name: 'Filters' });
+  await expect(filters).toBeVisible();
+  await expectWcagAA(page);
+  await filters.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('button', { name: 'Search' })).toBeEnabled();
   await page.getByRole('searchbox').fill('Lotus');
   await page.getByRole('button', { name: 'Search' }).click();

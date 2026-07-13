@@ -4,6 +4,9 @@ FROM node:22.23.1-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 
 FROM base AS dependencies

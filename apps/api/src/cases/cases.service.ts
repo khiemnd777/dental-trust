@@ -11,10 +11,23 @@ import type {
   CaseListQuery,
   CreateCaseRequest,
   DentalCaseView,
+  JourneySummaryListQuery,
+  JourneySummaryView,
   TransitionCaseRequest,
 } from '@dental-trust/contracts';
-import { CaseRepository, type DentalCaseRecord, type PrismaClient } from '@dental-trust/database';
-import { assertActorMayTransitionCase, type CaseTransitionActor } from '@dental-trust/domain';
+import {
+  CaseRepository,
+  type DentalCaseRecord,
+  type JourneySummaryRecord,
+  type PrismaClient,
+} from '@dental-trust/database';
+import {
+  assertActorMayTransitionCase,
+  projectJourney,
+  type CaseTransitionActor,
+  type JourneyPerspective,
+  type JourneyUrgency,
+} from '@dental-trust/domain';
 import { sha256 } from '@dental-trust/security';
 
 import { PRISMA } from '../common/tokens.js';
@@ -92,6 +105,28 @@ export class CasesService {
     return toView(scopedCase);
   }
 
+  async today(
+    access: AccessContext,
+    query: JourneySummaryListQuery,
+  ): Promise<readonly JourneySummaryView[]> {
+    assertCaseReadAccess(access);
+    const records = await this.cases.listJourneySummaries(scopeFor(access), query.limit);
+    return records
+      .map((record) => toJourneySummary(record, access))
+      .sort((left, right) => journeyPriority(left) - journeyPriority(right));
+  }
+
+  async journeySummary(access: AccessContext, caseId: string): Promise<JourneySummaryView> {
+    assertCaseReadAccess(access);
+    const record = await this.cases.findJourneySummary(scopeFor(access), caseId);
+    if (!record) throw new NotFoundException();
+    const resource = await this.cases.loadAccessResource(caseId);
+    if (!resource) throw new NotFoundException();
+    const decision = authorizeCaseAction(access, resource, 'READ_SUMMARY');
+    if (!decision.allowed) throw new ForbiddenException();
+    return toJourneySummary(record, access);
+  }
+
   async transition(
     access: AccessContext,
     caseId: string,
@@ -140,6 +175,17 @@ function scopeFor(access: AccessContext) {
   };
 }
 
+function assertCaseReadAccess(access: AccessContext): void {
+  if (
+    requiresMfa(access) ||
+    !(['case:read:own', 'case:read:shared', 'case:read:assigned', 'case:read:any'] as const).some(
+      (permission) => hasPermission(access, permission),
+    )
+  ) {
+    throw new ForbiddenException();
+  }
+}
+
 function auditActor(access: AccessContext, authorizingOrganizationId?: string) {
   return {
     userId: access.userId,
@@ -174,4 +220,104 @@ function toView(dentalCase: DentalCaseRecord): DentalCaseView {
     createdAt: dentalCase.createdAt.toISOString(),
     updatedAt: dentalCase.updatedAt.toISOString(),
   };
+}
+
+function toJourneySummary(record: JourneySummaryRecord, access: AccessContext): JourneySummaryView {
+  const perspective = journeyPerspective(record, access);
+  const projection = projectJourney({
+    status: record.status,
+    perspective,
+    hasOpenIncident: record.incidents.length > 0,
+  });
+  const expectedAt = expectedDate(record, projection.expectedWithinHours);
+  const urgency: JourneyUrgency =
+    projection.urgency === 'URGENT'
+      ? 'URGENT'
+      : expectedAt && expectedAt.getTime() < Date.now()
+        ? 'ATTENTION'
+        : projection.urgency;
+  const assignment = record.assignments.find((candidate) =>
+    projection.ownerType === 'SUPPORT'
+      ? candidate.kind === 'CONCIERGE' || candidate.kind === 'SUPPORT'
+      : projection.ownerType === 'CLINIC'
+        ? candidate.kind === 'CLINIC' || candidate.kind === 'DENTIST'
+        : false,
+  );
+  const appointment = record.appointments[0];
+  const milestone = record.treatmentMilestones[0];
+  return {
+    caseId: record.id,
+    caseNumber: record.caseNumber,
+    title: record.title,
+    status: record.status,
+    perspective,
+    stage: projection.stage,
+    progress: projection.progress,
+    urgency,
+    primaryAction: { code: projection.primaryActionCode },
+    blockers: projection.blockerCodes.map((code) => ({ code })),
+    owner: projection.ownerType
+      ? {
+          type: projection.ownerType,
+          displayName: assignment?.assignedUser?.email ?? assignment?.organization?.name ?? null,
+        }
+      : null,
+    expectedAt: expectedAt?.toISOString() ?? null,
+    nextAppointment: appointment
+      ? {
+          id: appointment.id,
+          kind: appointment.kind,
+          startsAt: appointment.startsAt.toISOString(),
+          timezone: appointment.timezone,
+          status: appointment.status as 'TENTATIVE' | 'CONFIRMED',
+        }
+      : null,
+    activeMilestone: milestone
+      ? {
+          id: milestone.id,
+          code: milestone.code,
+          title: milestone.title,
+          status: milestone.status as 'PENDING' | 'IN_PROGRESS',
+          scheduledAt: milestone.scheduledAt?.toISOString() ?? null,
+        }
+      : null,
+    timeline: record.statusHistory.map((event) => ({
+      id: event.id,
+      status: event.toStatus,
+      occurredAt: event.createdAt.toISOString(),
+    })),
+    updatedAt: record.updatedAt.toISOString(),
+  };
+}
+
+function journeyPerspective(
+  record: JourneySummaryRecord,
+  access: AccessContext,
+): JourneyPerspective {
+  if (record.patientProfile.userId === access.userId) return 'PATIENT';
+  const roles = new Set(effectiveRoles(access));
+  return roles.has('DENTIST') || roles.has('CLINIC_STAFF') || roles.has('CLINIC_ADMIN')
+    ? 'CLINIC'
+    : 'PATIENT';
+}
+
+function expectedDate(
+  record: JourneySummaryRecord,
+  expectedWithinHours: number | null,
+): Date | null {
+  const incidentDueAt = record.incidents[0]?.slaDueAt;
+  if (incidentDueAt) return incidentDueAt;
+  const milestoneAt = record.treatmentMilestones[0]?.scheduledAt;
+  if (milestoneAt) return milestoneAt;
+  if (expectedWithinHours === null) return record.appointments[0]?.startsAt ?? null;
+  return new Date(record.updatedAt.getTime() + expectedWithinHours * 60 * 60_000);
+}
+
+function journeyPriority(summary: JourneySummaryView): number {
+  if (summary.stage === 'CLOSED') return 100;
+  const urgency = summary.urgency === 'URGENT' ? 0 : summary.urgency === 'ATTENTION' ? 20 : 40;
+  const actingOwner =
+    (summary.perspective === 'PATIENT' && summary.owner?.type === 'PATIENT') ||
+    (summary.perspective === 'CLINIC' && summary.owner?.type === 'CLINIC');
+  return urgency + (actingOwner ? 0 : 10);
 }

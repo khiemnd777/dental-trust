@@ -8,6 +8,7 @@ export * from './errors.js';
 export * from './matching.js';
 export * from './intake.js';
 export * from './incidents.js';
+export * from './journey-summary.js';
 export * from './payments.js';
 export * from './passport.js';
 export * from './privacy-execution.js';

@@ -15,7 +15,7 @@ export function isLocale(value: string): value is Locale {
 const sharedPortalPages = {
   patient: {
     vi: {
-      dashboard: ['Tổng quan', 'Theo dõi hồ sơ điều trị và những việc cần làm hôm nay.'],
+      dashboard: ['Hôm nay', 'Một việc quan trọng tiếp theo cho hành trình điều trị của bạn.'],
       onboarding: [
         'Hồ sơ bệnh nhân',
         'Cập nhật định danh, liên lạc, tùy chọn và người liên hệ khẩn cấp.',
@@ -72,7 +72,7 @@ const sharedPortalPages = {
       ],
     },
     en: {
-      dashboard: ['Overview', 'Track your care case and the actions that need attention today.'],
+      dashboard: ['Today', 'Your single most important next action in the care journey.'],
       onboarding: [
         'Patient profile',
         'Update identity, contact, preferences, and your emergency contact.',
@@ -140,7 +140,7 @@ const sharedPortalPages = {
   },
   clinic: {
     vi: {
-      dashboard: ['Tổng quan phòng khám', 'Theo dõi hồ sơ mới, lịch tư vấn và nghĩa vụ theo dõi.'],
+      dashboard: ['Hôm nay', 'Ưu tiên hồ sơ cần phòng khám xử lý, đang chờ và sắp tới.'],
       onboarding: [
         'Hoàn tất đăng ký',
         'Cung cấp pháp nhân, giấy phép, cơ sở vật chất và chính sách.',
@@ -178,7 +178,7 @@ const sharedPortalPages = {
       settings: ['Cài đặt phòng khám', 'Cấu hình tổ chức, thông báo và bảo mật.'],
     },
     en: {
-      dashboard: ['Clinic overview', 'Track new cases, consultations, and aftercare obligations.'],
+      dashboard: ['Today', 'Prioritize clinic actions, patient blockers, and upcoming care.'],
       onboarding: [
         'Complete onboarding',
         'Provide legal, licensing, facility, and policy evidence.',
@@ -593,6 +593,7 @@ export const messages = {
       brand: 'DENTAL TRUST',
       skip: 'Đi đến nội dung chính',
       menu: 'Mở trình đơn',
+      more: 'Thêm',
       close: 'Đóng',
       back: 'Quay lại',
       learnMore: 'Tìm hiểu thêm',
@@ -1079,6 +1080,7 @@ export const messages = {
       brand: 'DENTAL TRUST',
       skip: 'Skip to main content',
       menu: 'Open menu',
+      more: 'More',
       close: 'Close',
       back: 'Go back',
       learnMore: 'Learn more',

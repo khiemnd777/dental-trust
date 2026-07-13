@@ -24,6 +24,14 @@ const PatientOnboardingWorkspace = dynamic(
     import('./patient-onboarding-workspace').then((module) => module.PatientOnboardingWorkspace),
   { loading: PortalFeatureLoading },
 );
+const TodayWorkspace = dynamic(
+  () => import('./today-workspace').then((module) => module.TodayWorkspace),
+  { loading: PortalFeatureLoading },
+);
+const CaseHubWorkspace = dynamic(
+  () => import('./today-workspace').then((module) => module.CaseHubWorkspace),
+  { loading: PortalFeatureLoading },
+);
 const VerificationWorkspace = dynamic(
   () => import('./verification-workspace').then((module) => module.VerificationWorkspace),
   { loading: PortalFeatureLoading },
@@ -220,6 +228,27 @@ export function PortalWorkspace({
   };
   const kind = featureKind(pageKey);
   const workspace = selectPortalWorkspace(area, pageKey);
+  if (workspace === 'today' && (area === 'patient' || area === 'clinic'))
+    return (
+      <TodayWorkspace
+        area={area}
+        description={description}
+        locale={locale}
+        messages={messages}
+        title={title}
+      />
+    );
+  if (workspace === 'case-hub' && (area === 'patient' || area === 'clinic'))
+    return (
+      <CaseHubWorkspace
+        area={area}
+        description={description}
+        locale={locale}
+        messages={messages}
+        resourceId={resourceId}
+        title={title}
+      />
+    );
   if (workspace === 'patient-onboarding')
     return (
       <PatientOnboardingWorkspace
@@ -629,9 +658,13 @@ export function PortalWorkspace({
                     <tbody>
                       {rows.map((row) => (
                         <tr key={row[0]}>
-                          <td className="data-table__id">{row[0]}</td>
-                          <td className="data-table__primary">{row[1]}</td>
-                          <td>
+                          <td className="data-table__id" data-label="Ref">
+                            {row[0]}
+                          </td>
+                          <td className="data-table__primary" data-label={messages.common.actions}>
+                            {row[1]}
+                          </td>
+                          <td data-label={messages.common.status}>
                             <Badge
                               tone={
                                 completed.includes(row[0])
@@ -644,8 +677,8 @@ export function PortalWorkspace({
                               {completed.includes(row[0]) ? messages.portal.done : row[2]}
                             </Badge>
                           </td>
-                          <td>{row[3]}</td>
-                          <td>
+                          <td data-label={messages.common.due}>{row[3]}</td>
+                          <td data-label={messages.common.actions}>
                             <div className="data-table__action">
                               <Button size="sm" variant="quiet" onClick={() => setSelected(row[0])}>
                                 {messages.portal.open}
@@ -710,19 +743,7 @@ export function PortalWorkspace({
         </aside>
       </div>
       {selected ? (
-        <div
-          aria-modal="true"
-          role="dialog"
-          style={{
-            background: 'rgb(7 26 45 / .55)',
-            display: 'grid',
-            inset: 0,
-            padding: '1rem',
-            placeItems: 'center',
-            position: 'fixed',
-            zIndex: 80,
-          }}
-        >
+        <div aria-modal="true" className="modal-backdrop" role="dialog">
           <Card style={{ maxWidth: '32rem', padding: '1.4rem', width: '100%' }}>
             <div className="workspace-card__head" style={{ padding: '0 0 1rem' }}>
               <div>

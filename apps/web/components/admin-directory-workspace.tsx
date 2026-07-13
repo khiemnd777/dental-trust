@@ -393,14 +393,20 @@ function DirectoryTable({
           <tbody>
             {records.map((record) => (
               <tr key={recordKey(record)}>
-                <td className="data-table__id">{recordReference(record)}</td>
-                <td className="data-table__primary">{recordSubject(record, locale)}</td>
-                <td>
+                <td className="data-table__id" data-label={text.reference}>
+                  {recordReference(record)}
+                </td>
+                <td className="data-table__primary" data-label={text.subject}>
+                  {recordSubject(record, locale)}
+                </td>
+                <td data-label={text.status}>
                   <Badge tone={recordTone(record)}>{recordStatus(record)}</Badge>
                 </td>
-                <td>{recordDetails(record, text)}</td>
-                <td>{'createdAt' in record ? formatDate(record.createdAt, locale) : '—'}</td>
-                <td>
+                <td data-label={text.details}>{recordDetails(record, text)}</td>
+                <td data-label={text.created}>
+                  {'createdAt' in record ? formatDate(record.createdAt, locale) : '—'}
+                </td>
+                <td data-label={text.manage}>
                   {'email' in record ? (
                     <Button size="sm" variant="secondary" onClick={() => onManage(record)}>
                       {text.manage}

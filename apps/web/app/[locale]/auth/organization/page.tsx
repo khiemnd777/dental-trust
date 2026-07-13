@@ -16,7 +16,7 @@ export default async function OrganizationSelectionPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string; returnTo?: string }>;
+  searchParams: Promise<{ error?: string; returnTo?: string; product?: string }>;
 }) {
   const { locale } = await params;
   const query = await searchParams;
@@ -24,7 +24,7 @@ export default async function OrganizationSelectionPage({
   const session = await getSession();
   if (!session)
     redirect(
-      `/${locale}/auth/login?returnTo=${encodeURIComponent(`/${locale}/auth/organization`)}`,
+      `/${locale}/auth/login?returnTo=${encodeURIComponent(`/${locale}/auth/organization`)}${query.product ? `&product=${encodeURIComponent(query.product)}` : ''}`,
     );
   const messages = getMessages(locale);
   const memberships = session.availableMemberships ?? [];
@@ -48,6 +48,7 @@ export default async function OrganizationSelectionPage({
                 >
                   <input name="organizationId" type="hidden" value={membership.organizationId} />
                   <input name="returnTo" type="hidden" value={query.returnTo ?? ''} />
+                  <input name="product" type="hidden" value={query.product ?? ''} />
                   <div>
                     <strong>{messages.auth.organizationLabel}</strong>
                     <code>{membership.organizationId}</code>
@@ -72,6 +73,7 @@ export default async function OrganizationSelectionPage({
             style={{ marginTop: '1.5rem' }}
           >
             <input name="idempotencyKey" type="hidden" value={crypto.randomUUID()} />
+            <input name="product" type="hidden" value={query.product ?? ''} />
             <h2>{locale === 'vi' ? 'Tạo tổ chức phòng khám' : 'Create a clinic organization'}</h2>
             <p>
               {locale === 'vi'

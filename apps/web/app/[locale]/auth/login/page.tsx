@@ -10,7 +10,7 @@ export default async function LoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string; returnTo?: string }>;
+  searchParams: Promise<{ error?: string; returnTo?: string; product?: string }>;
 }) {
   const { locale } = await params;
   const query = await searchParams;
@@ -45,6 +45,7 @@ export default async function LoginPage({
           style={{ marginTop: error ? '1rem' : undefined }}
         >
           <input name="returnTo" type="hidden" value={query.returnTo ?? ''} />
+          <input name="product" type="hidden" value={query.product ?? ''} />
           <Field
             label={messages.auth.email}
             name="email"
@@ -84,6 +85,7 @@ export default async function LoginPage({
             <div className="demo-buttons">
               {demoAreas.map(([area, label]) => (
                 <form action={action} key={area}>
+                  <input name="product" type="hidden" value={query.product ?? ''} />
                   <input name="demoArea" type="hidden" value={area} />
                   <input name="email" type="hidden" value={`${area}@dentaltrust.local`} />
                   <input name="password" type="hidden" value="DentalTrust!2026" />

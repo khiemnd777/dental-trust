@@ -114,13 +114,19 @@ export function CaseListWorkspace({
                   const href = caseHref(area, locale, dentalCase.id);
                   return (
                     <tr key={dentalCase.id}>
-                      <td className="data-table__id">{dentalCase.caseNumber}</td>
-                      <td className="data-table__primary">{dentalCase.title}</td>
-                      <td>
+                      <td className="data-table__id" data-label="Ref">
+                        {dentalCase.caseNumber}
+                      </td>
+                      <td className="data-table__primary" data-label={messages.common.actions}>
+                        {dentalCase.title}
+                      </td>
+                      <td data-label={messages.common.status}>
                         <Badge tone="info">{dentalCase.status.replaceAll('_', ' ')}</Badge>
                       </td>
-                      <td>{new Date(dentalCase.updatedAt).toLocaleDateString(locale)}</td>
-                      <td>
+                      <td data-label={messages.common.due}>
+                        {new Date(dentalCase.updatedAt).toLocaleDateString(locale)}
+                      </td>
+                      <td data-label={messages.common.actions}>
                         {href ? (
                           <Link className="text-link" href={href}>
                             {messages.portal.open}

@@ -20,6 +20,10 @@ const developmentNotifications = [
     scheduledAt: '2026-07-12T08:00:00.000Z',
     deliveredAt: '2026-07-12T08:00:01.000Z',
     readAt: null,
+    action: {
+      target: 'CASE',
+      resourceId: '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01',
+    },
   },
   {
     id: '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9f02',
@@ -30,6 +34,7 @@ const developmentNotifications = [
     scheduledAt: '2026-07-11T08:00:00.000Z',
     deliveredAt: '2026-07-11T08:00:01.000Z',
     readAt: '2026-07-11T09:00:00.000Z',
+    action: { target: 'AFTERCARE', resourceId: null },
   },
 ];
 

@@ -218,6 +218,23 @@ async function main(): Promise<void> {
         verificationStatus: 'NOT_SUBMITTED',
       },
     });
+    await db.clinicOnboardingProfile.upsert({
+      where: { clinicId: clinic.id },
+      update: {
+        registrationNumber: `VN-DENTAL-${String(index).padStart(4, '0')}`,
+        registrationCountry: 'VN',
+      },
+      create: {
+        clinicId: clinic.id,
+        registrationNumber: `VN-DENTAL-${String(index).padStart(4, '0')}`,
+        registrationCountry: 'VN',
+      },
+    });
+    await db.clinicSchedulingPolicy.upsert({
+      where: { clinicId: clinic.id },
+      update: {},
+      create: { clinicId: clinic.id },
+    });
     await db.professionalLicense.upsert({
       where: {
         authority_licenseNumber: {

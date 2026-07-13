@@ -121,6 +121,16 @@ describe('portal shell and server composition', () => {
     fireEvent.change(within(search).getByRole('textbox'), { target: { value: 'pay' } });
     fireEvent.submit(search);
     expect(navigation.push).toHaveBeenCalledWith('/en/admin/payments');
+
+    fireEvent.click(screen.getByRole('button', { name: messages.common.more }));
+    const mobileMenu = screen.getByRole('dialog', { name: messages.common.mobileNavigation });
+    expect(within(mobileMenu).getByRole('link', { name: 'Health' })).toHaveAttribute(
+      'href',
+      '/en/admin/health',
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+    fireEvent.click(within(mobileMenu).getByRole('button', { name: messages.common.close }));
+    expect(screen.queryByRole('dialog', { name: messages.common.mobileNavigation })).toBeNull();
   });
 
   it('composes area navigation from authorized routes and available case scope', async () => {

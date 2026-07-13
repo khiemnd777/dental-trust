@@ -229,14 +229,14 @@ function VerificationQueue({
             <tbody>
               {cases.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.subjectName}</td>
-                  <td>{item.subjectType}</td>
-                  <td>
+                  <td data-label={copy.subject}>{item.subjectName}</td>
+                  <td data-label={copy.type}>{item.subjectType}</td>
+                  <td data-label={copy.status}>
                     <Badge tone={statusTone(item.status)}>{humanize(item.status)}</Badge>
                   </td>
-                  <td>{humanize(item.riskLevel)}</td>
-                  <td>{formatDate(item.expiresAt, locale)}</td>
-                  <td>
+                  <td data-label={copy.risk}>{humanize(item.riskLevel)}</td>
+                  <td data-label={copy.expiry}>{formatDate(item.expiresAt, locale)}</td>
+                  <td data-label={copy.action}>
                     <Link
                       className="dt-button dt-button--quiet dt-button--sm"
                       href={`/${locale}/verification-admin/${

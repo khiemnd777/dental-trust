@@ -1,4 +1,4 @@
-import type { NotificationChannel, PrismaClient } from '@prisma/client';
+import type { NotificationChannel, Prisma, PrismaClient } from '@prisma/client';
 
 export interface NotificationActor {
   readonly userId: string;
@@ -90,6 +90,7 @@ export class NotificationRepository {
         scheduledAt: true,
         deliveredAt: true,
         readAt: true,
+        payload: true,
       },
     });
     const hasMore = records.length > input.limit;
@@ -113,6 +114,7 @@ export class NotificationRepository {
           scheduledAt: true,
           deliveredAt: true,
           readAt: true,
+          payload: true,
         },
       });
       if (!notification) return null;
@@ -130,6 +132,7 @@ export class NotificationRepository {
               scheduledAt: true,
               deliveredAt: true,
               readAt: true,
+              payload: true,
             },
           });
       if (!notification.readAt) {
@@ -161,6 +164,7 @@ function toNotificationRecord(notification: {
   scheduledAt: Date;
   deliveredAt: Date | null;
   readAt: Date | null;
+  payload: Prisma.JsonValue;
 }) {
   return {
     id: notification.id,
@@ -171,5 +175,26 @@ function toNotificationRecord(notification: {
     scheduledAt: notification.scheduledAt.toISOString(),
     deliveredAt: notification.deliveredAt?.toISOString() ?? null,
     readAt: notification.readAt?.toISOString() ?? null,
+    action: notificationAction(notification.category, notification.payload),
   };
+}
+
+function notificationAction(category: string, payload: Prisma.JsonValue) {
+  const resourceId = payloadCaseId(payload);
+  if (resourceId) return { target: 'CASE' as const, resourceId };
+  if (category === 'APPOINTMENTS' || category === 'CONSULTATIONS')
+    return { target: 'APPOINTMENTS' as const, resourceId: null };
+  if (category === 'PAYMENTS') return { target: 'PAYMENTS' as const, resourceId: null };
+  if (category === 'AFTERCARE') return { target: 'AFTERCARE' as const, resourceId: null };
+  if (category === 'INCIDENTS' || category === 'WARRANTY')
+    return { target: 'INCIDENTS' as const, resourceId: null };
+  if (category === 'CASE_UPDATES' || category === 'TREATMENT_MILESTONES')
+    return { target: 'TODAY' as const, resourceId: null };
+  return null;
+}
+
+function payloadCaseId(payload: Prisma.JsonValue): string | null {
+  if (!payload || Array.isArray(payload) || typeof payload !== 'object') return null;
+  const caseId = (payload as Prisma.JsonObject).caseId;
+  return typeof caseId === 'string' && /^[0-9a-f-]{36}$/iu.test(caseId) ? caseId : null;
 }

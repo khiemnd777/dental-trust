@@ -431,18 +431,24 @@ function OperationsTable({
                 (pageKey === 'notifications' && status === 'FAILED');
               return (
                 <tr key={record.id}>
-                  <td className="data-table__id">{record.id.slice(0, 8)}</td>
-                  <td className="data-table__primary">{recordType(record)}</td>
-                  <td>
+                  <td className="data-table__id" data-label={text.reference}>
+                    {record.id.slice(0, 8)}
+                  </td>
+                  <td className="data-table__primary" data-label={text.type}>
+                    {recordType(record)}
+                  </td>
+                  <td data-label={text.status}>
                     <Badge
                       tone={status === 'FAILED' || status === 'DEAD_LETTER' ? 'danger' : 'info'}
                     >
                       {status}
                     </Badge>
                   </td>
-                  <td>{'attemptCount' in record ? record.attemptCount : '—'}</td>
-                  <td>{formatDate(recordDate(record), locale)}</td>
-                  <td>
+                  <td data-label={text.attempts}>
+                    {'attemptCount' in record ? record.attemptCount : '—'}
+                  </td>
+                  <td data-label={text.occurred}>{formatDate(recordDate(record), locale)}</td>
+                  <td data-label={text.retry}>
                     {retryable ? (
                       <Button size="sm" variant="secondary" onClick={() => onRetry(record)}>
                         {text.retry}

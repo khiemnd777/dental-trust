@@ -19,6 +19,15 @@ export const notificationCategorySchema = z.enum([
 
 export const notificationChannelSchema = z.enum(['IN_APP', 'EMAIL', 'SMS', 'MESSAGING']);
 
+export const notificationActionTargetSchema = z.enum([
+  'CASE',
+  'TODAY',
+  'APPOINTMENTS',
+  'PAYMENTS',
+  'AFTERCARE',
+  'INCIDENTS',
+]);
+
 export const notificationPreferenceViewSchema = z.object({
   category: notificationCategorySchema,
   channel: notificationChannelSchema,
@@ -51,6 +60,12 @@ export const notificationViewSchema = z.object({
   scheduledAt: z.string().datetime({ offset: true }),
   deliveredAt: z.string().datetime({ offset: true }).nullable(),
   readAt: z.string().datetime({ offset: true }).nullable(),
+  action: z
+    .object({
+      target: notificationActionTargetSchema,
+      resourceId: z.uuid().nullable(),
+    })
+    .nullable(),
 });
 
 export type NotificationCategory = z.infer<typeof notificationCategorySchema>;

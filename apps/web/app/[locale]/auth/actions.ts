@@ -27,6 +27,25 @@ const destinations: Record<PortalArea, string> = {
   admin: 'admin',
 };
 
+type ProductTarget = 'care' | 'provider' | 'operations';
+
+function requestedProduct(value: FormDataEntryValue | null): ProductTarget | null {
+  return value === 'care' || value === 'provider' || value === 'operations' ? value : null;
+}
+
+function productDestination(product: ProductTarget | null, area: PortalArea): string | null {
+  if (product === 'care' && area === 'patient')
+    return process.env.CARE_APP_URL ?? 'http://localhost:3000';
+  if (product === 'provider' && area === 'clinic')
+    return process.env.PROVIDER_APP_URL ?? 'http://localhost:3001';
+  if (
+    product === 'operations' &&
+    (area === 'concierge' || area === 'verification' || area === 'admin')
+  )
+    return process.env.OPERATIONS_APP_URL ?? 'http://localhost:3002';
+  return null;
+}
+
 function safeReturnTo(locale: Locale, value: FormDataEntryValue | null, fallback: string) {
   if (typeof value !== 'string' || !value.startsWith(`/${locale}/`) || value.includes('//'))
     return fallback;
@@ -89,6 +108,7 @@ export async function loginAction(locale: Locale, formData: FormData) {
     .toLowerCase();
   const password = String(formData.get('password') ?? '');
   const requestedArea = String(formData.get('demoArea') ?? '') as PortalArea;
+  const product = requestedProduct(formData.get('product'));
   let area: PortalArea;
   if (useDevelopmentAuthAdapter()) {
     const resolvedArea = requestedArea in destinations ? requestedArea : areaFromEmail(email);
@@ -109,14 +129,19 @@ export async function loginAction(locale: Locale, formData: FormData) {
     if (!resolvedArea) {
       if (session.availableMemberships?.length) {
         const requested = safeReturnTo(locale, formData.get('returnTo'), '');
-        redirect(
-          `/${locale}/auth/organization${requested ? `?returnTo=${encodeURIComponent(requested)}` : ''}`,
-        );
+        const organizationQuery = new URLSearchParams({
+          ...(requested ? { returnTo: requested } : {}),
+          ...(product ? { product } : {}),
+        });
+        redirect(`/${locale}/auth/organization?${organizationQuery.toString()}`);
       }
       redirect(`/${locale}/auth/login?error=permission`);
     }
     area = resolvedArea;
   }
+  const productUrl = productDestination(product, area);
+  if (product && !productUrl) redirect(`/${locale}/auth/login?error=permission&product=${product}`);
+  if (productUrl) redirect(productUrl);
   const destination = `/${locale}/${destinations[area]}`;
   redirect(safeReturnTo(locale, formData.get('returnTo'), destination));
 }
@@ -133,6 +158,10 @@ export async function selectOrganizationAction(locale: Locale, formData: FormDat
   const fallback = `/${locale}/${
     membership.role === 'CONCIERGE_AGENT' ? destinations.concierge : destinations.clinic
   }`;
+  const product = requestedProduct(formData.get('product'));
+  const area: PortalArea = membership.role === 'CONCIERGE_AGENT' ? 'concierge' : 'clinic';
+  const productUrl = productDestination(product, area);
+  if (productUrl) redirect(productUrl);
   redirect(safeReturnTo(locale, formData.get('returnTo'), fallback));
 }
 

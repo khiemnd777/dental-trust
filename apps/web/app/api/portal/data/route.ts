@@ -24,6 +24,7 @@ const resourcePages = new Set([
   'patient:caregivers',
   'patient:journey',
   'patient:passport',
+  'clinic:caseDetail',
   'clinic:planBuilder',
   'clinic:progress',
   'clinic:passport',
@@ -115,6 +116,84 @@ function patientIntakeDevelopmentData() {
   };
 }
 
+function journeySummaryDevelopmentData(area: 'patient' | 'clinic', caseId = developmentCaseId) {
+  const clinicPerspective = area === 'clinic';
+  return {
+    caseId,
+    caseNumber: developmentCaseNumber,
+    title: 'Implant treatment coordination',
+    status: 'CONSULTATION_SCHEDULED',
+    perspective: clinicPerspective ? 'CLINIC' : 'PATIENT',
+    stage: 'CONSULTATION',
+    progress: 56,
+    urgency: clinicPerspective ? 'ATTENTION' : 'ROUTINE',
+    primaryAction: { code: clinicPerspective ? 'REVIEW_CASE' : 'VIEW_APPOINTMENT' },
+    blockers: [],
+    owner: {
+      type: clinicPerspective ? 'CLINIC' : 'SUPPORT',
+      displayName: clinicPerspective ? 'Minh An Dental Center' : 'Dental Trust coordinator',
+    },
+    expectedAt: '2026-07-14T08:00:00.000Z',
+    nextAppointment: {
+      id: '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e61',
+      kind: 'CONSULTATION',
+      startsAt: '2026-07-14T08:00:00.000Z',
+      timezone: 'Asia/Ho_Chi_Minh',
+      status: 'CONFIRMED',
+    },
+    activeMilestone: null,
+    timeline: [
+      {
+        id: '118f0c6a-7b2d-7d50-9a11-2f4b7c8d9e61',
+        status: 'CONSULTATION_SCHEDULED',
+        occurredAt: '2026-07-12T08:00:00.000Z',
+      },
+      {
+        id: '218f0c6a-7b2d-7d50-9a11-2f4b7c8d9e61',
+        status: 'CLINICS_SHORTLISTED',
+        occurredAt: '2026-07-10T08:00:00.000Z',
+      },
+    ],
+    updatedAt: '2026-07-12T08:00:00.000Z',
+  };
+}
+
+function journeySummariesDevelopmentData(area: 'patient' | 'clinic') {
+  const primary = journeySummaryDevelopmentData(area);
+  if (area === 'patient') return [primary];
+  return [
+    primary,
+    {
+      ...primary,
+      caseId: '318f0c6a-7b2d-7d50-9a11-2f4b7c8d9e61',
+      caseNumber: 'DT-2026-0713-02',
+      title: 'Smile restoration review',
+      status: 'TREATMENT_PLANS_PENDING',
+      stage: 'PLAN_REVIEW',
+      progress: 38,
+      urgency: 'URGENT',
+      primaryAction: { code: 'PREPARE_PLAN' },
+      blockers: [],
+      owner: { type: 'CLINIC', displayName: 'Dr. Minh Nguyen' },
+      nextAppointment: null,
+    },
+    {
+      ...primary,
+      caseId: '418f0c6a-7b2d-7d50-9a11-2f4b7c8d9e61',
+      caseNumber: 'DT-2026-0713-03',
+      title: 'Dental implant assessment',
+      status: 'ADDITIONAL_INFORMATION_REQUESTED',
+      stage: 'INTAKE',
+      progress: 18,
+      urgency: 'ROUTINE',
+      primaryAction: { code: 'REVIEW_INTAKE' },
+      blockers: [{ code: 'ADDITIONAL_INFORMATION' }],
+      owner: { type: 'PATIENT', displayName: null },
+      nextAppointment: null,
+    },
+  ];
+}
+
 function developmentData(
   area: PortalArea,
   pageKey: string,
@@ -123,6 +202,10 @@ function developmentData(
   resourceId?: string,
 ) {
   if (area === 'verification') return verificationDevelopmentData(pageKey, resourceId);
+  if ((area === 'patient' || area === 'clinic') && pageKey === 'dashboard')
+    return journeySummariesDevelopmentData(area);
+  if ((area === 'patient' && pageKey === 'case') || (area === 'clinic' && pageKey === 'caseDetail'))
+    return journeySummaryDevelopmentData(area, resourceId);
   const shared = {
     caseId: developmentCaseId,
     caseNumber: developmentCaseNumber,
@@ -1126,6 +1209,13 @@ function upstreamPath(
   threadId?: string,
   view?: string,
 ) {
+  if ((area === 'patient' || area === 'clinic') && pageKey === 'dashboard')
+    return 'cases/today?limit=25';
+  if (
+    resourceId &&
+    ((area === 'patient' && pageKey === 'case') || (area === 'clinic' && pageKey === 'caseDetail'))
+  )
+    return `cases/${resourceId}/journey-summary`;
   if (area === 'patient' && pageKey === 'onboarding') return 'patient/profile';
   if (area === 'patient' && pageKey === 'intake' && resourceId) return `cases/${resourceId}/intake`;
   if (area === 'patient' && pageKey === 'checkout') return 'bookings/checkout-options';

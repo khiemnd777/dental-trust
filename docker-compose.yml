@@ -1,5 +1,39 @@
 name: dental-trust
 
+x-backend-environment: &backend-environment
+  NODE_ENV: development
+  APP_URL: http://localhost:3000
+  API_URL: http://localhost:4000
+  CORS_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003
+  DATABASE_URL: postgresql://${POSTGRES_USER:-dental_trust}:${POSTGRES_PASSWORD:-dental_trust_dev_only}@postgres:5432/${POSTGRES_DB:-dental_trust}?schema=public
+  DIRECT_DATABASE_URL: postgresql://${POSTGRES_USER:-dental_trust}:${POSTGRES_PASSWORD:-dental_trust_dev_only}@postgres:5432/${POSTGRES_DB:-dental_trust}?schema=public
+  REDIS_URL: redis://redis:6379
+  AUTH_SECRET: ${AUTH_SECRET:-development-only-change-me-32-bytes-minimum}
+  AUTH_ISSUER: ${AUTH_ISSUER:-dental-trust}
+  AUTH_AUDIENCE: ${AUTH_AUDIENCE:-dental-trust-web}
+  FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-development-only-field-key-change-me}
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: ${S3_REGION:-ap-southeast-1}
+  S3_BUCKET: ${S3_BUCKET:-dental-trust-private}
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:-dentaltrust}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-dentaltrust-dev-only}
+  S3_FORCE_PATH_STYLE: 'true'
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: '3310'
+  SMTP_HOST: mailpit
+  SMTP_PORT: '1025'
+  SMTP_FROM: ${SMTP_FROM:-care@dentaltrust.local}
+  SMTP_SECURE: 'false'
+  PAYMENT_ADAPTER: development
+  MEETING_ADAPTER: development
+  CALENDAR_ADAPTER: development
+  PASSPORT_PDF_ADAPTER: builtin
+  LOG_LEVEL: ${LOG_LEVEL:-debug}
+
+x-frontend-environment: &frontend-environment
+  NEXT_PUBLIC_API_URL: http://api:4000/api/v1
+  PUBLIC_APP_URL: http://localhost:3003
+
 services:
   postgres:
     image: postgres:16.13-alpine3.23
@@ -118,6 +152,182 @@ services:
       timeout: 10s
       retries: 30
       start_period: 120s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dental-trust
+
+  migrate:
+    image: dental-trust-api:local
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: 'no'
+    command: ['pnpm', 'db:migrate:deploy']
+    environment:
+      <<: *backend-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dental-trust
+
+  api:
+    image: dental-trust-api:local
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *backend-environment
+      PORT: '4000'
+    ports:
+      - '${API_PORT:-4000}:4000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/api/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dental-trust
+
+  worker:
+    image: dental-trust-worker:local
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *backend-environment
+      WORKER_HEALTH_PORT: '4001'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dental-trust
+
+  care:
+    image: dental-trust-care:local
+    build:
+      context: .
+      dockerfile: docker/care.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://api:4000/api/v1
+        PUBLIC_APP_URL: http://localhost:3003
+    restart: unless-stopped
+    environment:
+      <<: *frontend-environment
+    ports:
+      - '${CARE_PORT:-3000}:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dental-trust
+
+  provider:
+    image: dental-trust-provider:local
+    build:
+      context: .
+      dockerfile: docker/provider.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://api:4000/api/v1
+        PUBLIC_APP_URL: http://localhost:3003
+    restart: unless-stopped
+    environment:
+      <<: *frontend-environment
+    ports:
+      - '${PROVIDER_PORT:-3001}:3001'
+    depends_on:
+      api:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dental-trust
+
+  operations:
+    image: dental-trust-operations:local
+    build:
+      context: .
+      dockerfile: docker/operations.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://api:4000/api/v1
+        PUBLIC_APP_URL: http://localhost:3003
+    restart: unless-stopped
+    environment:
+      <<: *frontend-environment
+    ports:
+      - '${OPERATIONS_PORT:-3002}:3002'
+    depends_on:
+      api:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dental-trust
+
+  web:
+    image: dental-trust-web:local
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: http://localhost:3003
+        NEXT_PUBLIC_API_URL: http://api:4000/api/v1
+        NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-vi-VN}
+        NEXT_PUBLIC_BUILD_VERSION: ${NEXT_PUBLIC_BUILD_VERSION:-development}
+    restart: unless-stopped
+    environment:
+      <<: *frontend-environment
+      NEXT_PUBLIC_APP_URL: http://localhost:3003
+      CARE_APP_URL: http://localhost:3000
+      PROVIDER_APP_URL: http://localhost:3001
+      OPERATIONS_APP_URL: http://localhost:3002
+      WEB_AUTH_ADAPTER: api
+    ports:
+      - '${WEB_PORT:-3003}:3003'
+    depends_on:
+      api:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
     networks:

@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+import {
+  dentalCaseStatuses,
+  journeyActionCodes,
+  journeyBlockerCodes,
+  journeyStages,
+} from '@dental-trust/domain';
+
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
 const boundedClinicalText = z.string().trim().min(1).max(10_000);
 
@@ -138,6 +145,58 @@ export const planChangeViewSchema = z.object({
   acknowledgedAt: z.string().datetime({ offset: true }).nullable(),
 });
 
+export const journeySummaryListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(25),
+});
+
+export const journeySummaryViewSchema = z.object({
+  caseId: z.uuid(),
+  caseNumber: z.string().min(1),
+  title: z.string().min(1),
+  status: z.enum(dentalCaseStatuses),
+  perspective: z.enum(['PATIENT', 'CLINIC']),
+  stage: z.enum(journeyStages),
+  progress: z.number().int().min(0).max(100),
+  urgency: z.enum(['ROUTINE', 'ATTENTION', 'URGENT']),
+  primaryAction: z.object({ code: z.enum(journeyActionCodes) }),
+  blockers: z.array(z.object({ code: z.enum(journeyBlockerCodes) })).max(10),
+  owner: z
+    .object({
+      type: z.enum(['PATIENT', 'CLINIC', 'SUPPORT']),
+      displayName: z.string().min(1).max(320).nullable(),
+    })
+    .nullable(),
+  expectedAt: z.string().datetime({ offset: true }).nullable(),
+  nextAppointment: z
+    .object({
+      id: z.uuid(),
+      kind: z.enum(['CONSULTATION', 'CLINICAL_VISIT']),
+      startsAt: z.string().datetime({ offset: true }),
+      timezone: z.string().min(1).max(120),
+      status: z.enum(['TENTATIVE', 'CONFIRMED']),
+    })
+    .nullable(),
+  activeMilestone: z
+    .object({
+      id: z.uuid(),
+      code: z.string().min(1),
+      title: z.string().min(1),
+      status: z.enum(['PENDING', 'IN_PROGRESS']),
+      scheduledAt: z.string().datetime({ offset: true }).nullable(),
+    })
+    .nullable(),
+  timeline: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        status: z.enum(dentalCaseStatuses),
+        occurredAt: z.string().datetime({ offset: true }),
+      }),
+    )
+    .max(12),
+  updatedAt: z.string().datetime({ offset: true }),
+});
+
 export type MilestoneCompleteRequest = z.infer<typeof milestoneCompleteRequestSchema>;
 export type TreatmentInstructionRequest = z.infer<typeof treatmentInstructionRequestSchema>;
 export type PlanChangeRequestInput = z.infer<typeof planChangeRequestSchema>;
@@ -146,3 +205,5 @@ export type PassportShareRequest = z.infer<typeof passportShareRequestSchema>;
 export type JourneyMilestoneView = z.infer<typeof journeyMilestoneViewSchema>;
 export type TreatmentInstructionView = z.infer<typeof treatmentInstructionViewSchema>;
 export type PlanChangeView = z.infer<typeof planChangeViewSchema>;
+export type JourneySummaryListQuery = z.infer<typeof journeySummaryListQuerySchema>;
+export type JourneySummaryView = z.infer<typeof journeySummaryViewSchema>;

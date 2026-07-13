@@ -11,18 +11,18 @@
 
 ```bash
 cp .env.example .env
-corepack enable
-pnpm install --frozen-lockfile
-docker compose up -d
-pnpm db:generate
-pnpm db:migrate
-pnpm db:seed
-pnpm dev
+docker compose up --build -d
+docker compose run --rm api pnpm db:seed
 ```
 
-`docker compose up -d` starts PostgreSQL (`5432`), Redis (`6379`), MinIO (`9000`, console `9001`), Mailpit (`1025`, UI `8025`), and ClamAV (`3310`). ClamAV's first signature download can take up to several minutes; inspect `docker compose ps` and `docker compose logs clamav` rather than bypassing a production scan requirement.
+`docker compose up --build -d` starts the complete platform: Care, Provider, Operations,
+the public/auth gateway, API, worker, the automatic migration job, PostgreSQL (`5432`),
+Redis (`6379`), MinIO (`9000`, console `9001`), Mailpit (`1025`, UI `8025`), and ClamAV
+(`3310`). ClamAV's first signature download can take up to several minutes; inspect
+`docker compose ps` and `docker compose logs clamav` rather than bypassing a production
+scan requirement.
 
-Web runs at `http://localhost:3000`; API runs at `http://localhost:4000`, with versioned routes under `/api/v1` and documentation at `/api/docs`.
+Care runs at `http://localhost:3000`, Provider at `http://localhost:3001`, Operations at `http://localhost:3002`, and the transitional public/auth gateway at `http://localhost:3003`. API runs at `http://localhost:4000`, with versioned routes under `/api/v1` and documentation at `/api/docs`.
 
 ## Development accounts
 
@@ -68,9 +68,23 @@ pnpm db:seed
 Run one workspace:
 
 ```bash
+pnpm --filter @dental-trust/care dev
+pnpm --filter @dental-trust/provider dev
+pnpm --filter @dental-trust/operations dev
 pnpm --filter @dental-trust/web dev
 pnpm --filter @dental-trust/api dev
 pnpm --filter @dental-trust/worker dev
+```
+
+For host-based watch mode, start only the dependencies and then run the applications:
+
+```bash
+docker compose up -d postgres redis minio minio-init mailpit clamav
+corepack enable
+pnpm install --frozen-lockfile
+pnpm db:generate
+pnpm db:migrate
+pnpm dev
 ```
 
 Inspect local email at `http://localhost:8025` and private objects at `http://localhost:9001`. Payment flows use the development/test adapter; they do not represent a production settlement.
@@ -94,7 +108,7 @@ Production mode additionally rejects development secrets/adapters and missing St
 - Port conflict: set the documented compose port override or stop the conflicting service; keep application URLs consistent.
 - Database unavailable: run `docker compose ps`, then `node scripts/wait-for-service.mjs localhost 5432`.
 - MinIO bucket missing: rerun `docker compose up minio-init` after MinIO becomes healthy.
-- Mail not visible: confirm API/worker use `SMTP_HOST=localhost` and `SMTP_PORT=1025` when running on the host.
+- Mail not visible: Compose uses `mailpit:1025`; host watch mode uses `localhost:1025`.
 - Tests point at development data: stop and set a separate test database URL before integration/E2E tests.
 
 Stop services with `docker compose down`. Add `--volumes` only when intentionally deleting all local database, object, queue, and scanner data.

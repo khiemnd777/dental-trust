@@ -41,6 +41,47 @@ export type DentalCaseRecord = Prisma.DentalCaseGetPayload<{
   include: { patientProfile: { select: { userId: true } } };
 }>;
 
+const journeySummaryInclude = Prisma.validator<Prisma.DentalCaseInclude>()({
+  patientProfile: { select: { userId: true } },
+  statusHistory: {
+    orderBy: { createdAt: 'desc' },
+    take: 8,
+    select: { id: true, toStatus: true, createdAt: true },
+  },
+  assignments: {
+    where: { endedAt: null },
+    orderBy: { assignedAt: 'desc' },
+    take: 3,
+    select: {
+      kind: true,
+      assignedUser: { select: { email: true } },
+      organization: { select: { name: true } },
+    },
+  },
+  appointments: {
+    where: { status: { in: ['TENTATIVE', 'CONFIRMED'] } },
+    orderBy: { startsAt: 'asc' },
+    take: 1,
+    select: { id: true, kind: true, startsAt: true, timezone: true, status: true },
+  },
+  treatmentMilestones: {
+    where: { status: { in: ['PENDING', 'IN_PROGRESS'] } },
+    orderBy: { sortOrder: 'asc' },
+    take: 1,
+    select: { id: true, code: true, title: true, status: true, scheduledAt: true },
+  },
+  incidents: {
+    where: { status: { notIn: ['RESOLVED', 'CLOSED'] } },
+    orderBy: { slaDueAt: 'asc' },
+    take: 1,
+    select: { id: true, slaDueAt: true, status: true },
+  },
+});
+
+export type JourneySummaryRecord = Prisma.DentalCaseGetPayload<{
+  include: typeof journeySummaryInclude;
+}>;
+
 export class CaseNotFoundError extends Error {
   constructor() {
     super('Dental case was not found in the caller resource scope.');
@@ -175,6 +216,28 @@ export class CaseRepository {
       skip: options.cursor ? 1 : 0,
       take: options.limit + 1,
       include: { patientProfile: { select: { userId: true } } },
+    });
+  }
+
+  async listJourneySummaries(
+    scope: CaseQueryScope,
+    limit: number,
+  ): Promise<readonly JourneySummaryRecord[]> {
+    return this.db.dentalCase.findMany({
+      where: this.scopeWhere(scope),
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+      include: journeySummaryInclude,
+    });
+  }
+
+  async findJourneySummary(
+    scope: CaseQueryScope,
+    caseId: string,
+  ): Promise<JourneySummaryRecord | null> {
+    return this.db.dentalCase.findFirst({
+      where: { AND: [{ id: caseId }, this.scopeWhere(scope)] },
+      include: journeySummaryInclude,
     });
   }
 

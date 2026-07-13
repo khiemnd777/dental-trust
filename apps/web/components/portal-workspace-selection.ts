@@ -1,6 +1,8 @@
 import type { PortalArea } from '@/lib/routing';
 
 export type PortalWorkspaceKind =
+  | 'today'
+  | 'case-hub'
   | 'patient-onboarding'
   | 'verification'
   | 'booking-billing'
@@ -24,8 +26,8 @@ const exact = new Map<string, PortalWorkspaceKind>([
   ['patient:checkout', 'booking-billing'],
   ['patient:payments', 'booking-billing'],
   ['clinic:billing', 'booking-billing'],
-  ['patient:dashboard', 'case-list'],
-  ['clinic:dashboard', 'clinic-operations'],
+  ['patient:dashboard', 'today'],
+  ['clinic:dashboard', 'today'],
   ['clinic:cases', 'clinic-operations'],
   ['concierge:dashboard', 'case-list'],
   ['concierge:queue', 'case-list'],
@@ -71,7 +73,8 @@ const exact = new Map<string, PortalWorkspaceKind>([
   ['concierge:incidents', 'matching-concierge'],
   ['concierge:tasks', 'matching-concierge'],
   ['patient:newCase', 'specialized'],
-  ['patient:case', 'specialized'],
+  ['patient:case', 'case-hub'],
+  ['clinic:caseDetail', 'case-hub'],
   ['patient:records', 'specialized'],
   ['patient:plans', 'specialized'],
   ['patient:aftercare', 'specialized'],
