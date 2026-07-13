@@ -5,6 +5,8 @@ import {
   decideVerificationCaseSchema,
   secondApprovalSchema,
   verificationCaseListQuerySchema,
+  verificationEvidenceAccessViewSchema,
+  verificationRequirementViewSchema,
 } from '@dental-trust/contracts';
 
 describe('verification HTTP contracts', () => {
@@ -48,5 +50,29 @@ describe('verification HTTP contracts', () => {
   it('bounds queue pages and rejects oversized limits', () => {
     expect(verificationCaseListQuerySchema.safeParse({ limit: 25 }).success).toBe(true);
     expect(verificationCaseListQuerySchema.safeParse({ limit: 101 }).success).toBe(false);
+  });
+
+  it('gives reviewers criteria and a safe way to access the submitted evidence', () => {
+    expect(
+      verificationRequirementViewSchema.safeParse({
+        id: '118f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01',
+        code: 'clinic.operating-license.v1',
+        category: 'CLINIC_OPERATING_LICENSE',
+        names: { 'vi-VN': 'Giấy phép hoạt động phòng khám' },
+        descriptions: { 'vi-VN': 'Giấy phép còn hiệu lực do cơ quan có thẩm quyền cấp.' },
+        required: true,
+        highRisk: true,
+        validityDays: 365,
+        templateVersion: 1,
+        status: 'PROVIDED',
+        evidence: [],
+      }).success,
+    ).toBe(true);
+    expect(
+      verificationEvidenceAccessViewSchema.safeParse({
+        kind: 'SOURCE',
+        sourceReference: '/demo-evidence/clinic-operating-license.html',
+      }).success,
+    ).toBe(true);
   });
 });

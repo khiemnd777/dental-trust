@@ -21,6 +21,7 @@ ENV NODE_ENV=production PORT=3002 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 WORKDIR /workspace
 COPY --from=build --chown=node:node /workspace/apps/operations/.next/standalone ./
 COPY --from=build --chown=node:node /workspace/apps/operations/.next/static ./apps/operations/.next/static
+COPY --from=build --chown=node:node /workspace/apps/operations/public ./apps/operations/public
 USER node
 EXPOSE 3002
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:3002/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]

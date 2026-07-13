@@ -420,6 +420,11 @@ async function main(): Promise<void> {
       secondApproverUserId: admin.id,
     });
   }
+  await seedVerificationWorkflowDemos({
+    submitterUserId: clinicAdmin.id,
+    primaryReviewerUserId: verification.id,
+    administratorReviewerUserId: admin.id,
+  });
 
   const patientProfile = await db.patientProfile.findUniqueOrThrow({
     where: { userId: patient.id },
@@ -889,6 +894,258 @@ async function seedVerifiedSubject(input: {
       data: { licenseStatus: 'VERIFIED' },
     });
   }
+}
+
+async function seedVerificationWorkflowDemos(input: {
+  readonly submitterUserId: string;
+  readonly primaryReviewerUserId: string;
+  readonly administratorReviewerUserId: string;
+}): Promise<void> {
+  const evidenceReviewCaseId = 'ffffffff-ffff-4fff-8fff-fffffffffff1';
+  const secondApprovalCaseId = 'ffffffff-ffff-4fff-8fff-fffffffffff2';
+  const demoCaseIds = [evidenceReviewCaseId, secondApprovalCaseId];
+
+  await db.$transaction(async (transaction) => {
+    await transaction.siteAuditAttachment.deleteMany({
+      where: { siteAudit: { verificationCaseId: { in: demoCaseIds } } },
+    });
+    await transaction.correctiveActionAttachment.deleteMany({
+      where: { correctiveAction: { verificationCaseId: { in: demoCaseIds } } },
+    });
+    await transaction.siteAudit.deleteMany({
+      where: { verificationCaseId: { in: demoCaseIds } },
+    });
+    await transaction.correctiveAction.deleteMany({
+      where: { verificationCaseId: { in: demoCaseIds } },
+    });
+    await transaction.verificationReview.deleteMany({
+      where: { verificationCaseId: { in: demoCaseIds } },
+    });
+    await transaction.verificationEvidence.deleteMany({
+      where: { verificationCaseId: { in: demoCaseIds } },
+    });
+    await transaction.verificationRequirement.deleteMany({
+      where: { verificationCaseId: { in: demoCaseIds } },
+    });
+    await transaction.verificationCase.deleteMany({ where: { id: { in: demoCaseIds } } });
+  });
+
+  const evidenceReviewOrganization = await db.organization.upsert({
+    where: { slug: 'verification-demo-evidence-review' },
+    update: { name: '[DEMO 1] Chờ duyệt bằng chứng' },
+    create: {
+      id: 'd0000000-0000-4000-8000-000000000001',
+      type: 'CLINIC',
+      name: '[DEMO 1] Chờ duyệt bằng chứng',
+      slug: 'verification-demo-evidence-review',
+    },
+  });
+  const evidenceReviewClinic = await db.clinic.upsert({
+    where: { organizationId: evidenceReviewOrganization.id },
+    update: {
+      name: '[DEMO 1] Chờ duyệt bằng chứng',
+      legalEntityName: '[DEMO 1] Chờ duyệt bằng chứng',
+      verificationStatus: 'SUBMITTED',
+      verifiedAt: null,
+    },
+    create: {
+      id: 'd1000000-0000-4000-8000-000000000001',
+      organizationId: evidenceReviewOrganization.id,
+      name: '[DEMO 1] Chờ duyệt bằng chứng',
+      slug: 'verification-demo-evidence-review',
+      legalEntityName: '[DEMO 1] Chờ duyệt bằng chứng',
+      verificationStatus: 'SUBMITTED',
+    },
+  });
+
+  const secondApprovalOrganization = await db.organization.upsert({
+    where: { slug: 'verification-demo-second-approval' },
+    update: { name: '[DEMO 2] Chờ phê duyệt kép' },
+    create: {
+      id: 'd0000000-0000-4000-8000-000000000002',
+      type: 'CLINIC',
+      name: '[DEMO 2] Chờ phê duyệt kép',
+      slug: 'verification-demo-second-approval',
+    },
+  });
+  const secondApprovalClinic = await db.clinic.upsert({
+    where: { organizationId: secondApprovalOrganization.id },
+    update: {
+      name: '[DEMO 2] Chờ phê duyệt kép',
+      legalEntityName: '[DEMO 2] Chờ phê duyệt kép',
+      verificationStatus: 'UNDER_REVIEW',
+      verifiedAt: null,
+    },
+    create: {
+      id: 'd1000000-0000-4000-8000-000000000002',
+      organizationId: secondApprovalOrganization.id,
+      name: '[DEMO 2] Chờ phê duyệt kép',
+      slug: 'verification-demo-second-approval',
+      legalEntityName: '[DEMO 2] Chờ phê duyệt kép',
+      verificationStatus: 'UNDER_REVIEW',
+    },
+  });
+
+  const evidenceReviewCase = await db.verificationCase.create({
+    data: {
+      id: evidenceReviewCaseId,
+      subjectType: 'CLINIC',
+      clinicId: evidenceReviewClinic.id,
+      submittedByUserId: input.submitterUserId,
+      assignedReviewerUserId: input.administratorReviewerUserId,
+      status: 'DRAFT',
+      riskLevel: 'HIGH',
+      methodologyVersion: '2026-01',
+      version: 1,
+    },
+  });
+  const secondApprovalCase = await db.verificationCase.create({
+    data: {
+      id: secondApprovalCaseId,
+      subjectType: 'CLINIC',
+      clinicId: secondApprovalClinic.id,
+      submittedByUserId: input.submitterUserId,
+      assignedReviewerUserId: input.primaryReviewerUserId,
+      status: 'DRAFT',
+      riskLevel: 'HIGH',
+      methodologyVersion: '2026-01',
+      version: 1,
+    },
+  });
+
+  const templates = await db.verificationRequirementTemplate.findMany({
+    where: { subjectType: 'CLINIC', active: true },
+    orderBy: { code: 'asc' },
+  });
+  const pendingEvidenceSources: Readonly<Record<string, string>> = {
+    'clinic.operating-license.v1': '/demo-evidence/clinic-operating-license.html',
+    'clinic.infection-control.v1': '/demo-evidence/infection-control-process.html',
+    'clinic.emergency.v1': '/demo-evidence/emergency-procedure.html',
+  };
+
+  for (const [index, template] of templates.entries()) {
+    const pendingSource = pendingEvidenceSources[template.code];
+    const evidenceReviewRequirement = await db.verificationRequirement.create({
+      data: {
+        verificationCaseId: evidenceReviewCase.id,
+        templateId: template.id,
+        status: pendingSource ? 'PROVIDED' : 'APPROVED',
+        required: template.required,
+        highRisk: template.highRisk,
+      },
+    });
+    await db.verificationEvidence.create({
+      data: {
+        id: `d3000000-0000-4000-8001-${String(index + 1).padStart(12, '0')}`,
+        verificationCaseId: evidenceReviewCase.id,
+        requirementId: evidenceReviewRequirement.id,
+        submittedByUserId: input.submitterUserId,
+        ...(pendingSource ? {} : { approvedByUserId: input.administratorReviewerUserId }),
+        category: template.category,
+        sourceReference: pendingSource ?? `Development registry reference: ${template.code}`,
+        issuedAt: new Date('2026-06-01T00:00:00Z'),
+        expiresAt: new Date('2027-06-01T00:00:00Z'),
+        ...(pendingSource ? {} : { approvedAt: new Date('2026-07-13T14:15:00Z') }),
+      },
+    });
+
+    const secondApprovalRequirement = await db.verificationRequirement.create({
+      data: {
+        verificationCaseId: secondApprovalCase.id,
+        templateId: template.id,
+        status: 'APPROVED',
+        required: template.required,
+        highRisk: template.highRisk,
+      },
+    });
+    await db.verificationEvidence.create({
+      data: {
+        id: `d3000000-0000-4000-8002-${String(index + 1).padStart(12, '0')}`,
+        verificationCaseId: secondApprovalCase.id,
+        requirementId: secondApprovalRequirement.id,
+        submittedByUserId: input.submitterUserId,
+        approvedByUserId: input.primaryReviewerUserId,
+        category: template.category,
+        sourceReference: `Development registry reference: ${template.code}`,
+        issuedAt: new Date('2026-06-01T00:00:00Z'),
+        expiresAt: new Date('2027-06-01T00:00:00Z'),
+        approvedAt: new Date('2026-07-13T12:45:00Z'),
+      },
+    });
+  }
+
+  await db.verificationCase.update({
+    where: { id: evidenceReviewCase.id },
+    data: {
+      status: 'SUBMITTED',
+      version: 2,
+      submittedAt: new Date('2026-07-13T14:05:00Z'),
+    },
+  });
+  await db.verificationCase.update({
+    where: { id: secondApprovalCase.id },
+    data: {
+      status: 'SUBMITTED',
+      version: 2,
+      submittedAt: new Date('2026-07-13T12:35:00Z'),
+    },
+  });
+
+  for (const review of [
+    {
+      id: 'd4000000-0000-4000-8000-000000000001',
+      caseVersion: 3,
+      fromStatus: 'SUBMITTED' as const,
+      toStatus: 'UNDER_REVIEW' as const,
+      note: 'Development reviewer started the case review.',
+    },
+    {
+      id: 'd4000000-0000-4000-8000-000000000002',
+      caseVersion: 4,
+      fromStatus: 'UNDER_REVIEW' as const,
+      toStatus: 'APPROVED' as const,
+      note: 'Development reviewer approved the complete checklist.',
+    },
+  ]) {
+    await db.verificationReview.create({
+      data: {
+        id: review.id,
+        verificationCaseId: secondApprovalCase.id,
+        reviewerUserId: input.primaryReviewerUserId,
+        caseVersion: review.caseVersion,
+        fromStatus: review.fromStatus,
+        toStatus: review.toStatus,
+        status: 'APPLIED',
+        fourEyesRequired: false,
+        encryptedNotes: encryptDevelopmentValue(
+          review.note,
+          `verification-review:${review.id}:notes`,
+        ),
+        appliedAt: new Date('2026-07-13T12:45:00Z'),
+      },
+    });
+    await db.verificationCase.update({
+      where: { id: secondApprovalCase.id },
+      data: { status: review.toStatus, version: review.caseVersion },
+    });
+  }
+  const pendingReviewId = 'd4000000-0000-4000-8000-000000000003';
+  await db.verificationReview.create({
+    data: {
+      id: pendingReviewId,
+      verificationCaseId: secondApprovalCase.id,
+      reviewerUserId: input.primaryReviewerUserId,
+      caseVersion: 5,
+      fromStatus: 'APPROVED',
+      toStatus: 'VERIFIED',
+      status: 'PENDING_SECOND_APPROVAL',
+      fourEyesRequired: true,
+      encryptedNotes: encryptDevelopmentValue(
+        'Development reviewer proposed final verification after completing all evidence checks.',
+        `verification-review:${pendingReviewId}:notes`,
+      ),
+    },
+  });
 }
 
 async function applySeedVerificationReview(

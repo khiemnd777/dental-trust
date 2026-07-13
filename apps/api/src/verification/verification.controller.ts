@@ -105,6 +105,18 @@ export class VerificationController {
     return { data: await this.verification.getCase(access, caseId), requestId: access.requestId };
   }
 
+  @Get('cases/:caseId/evidence/:evidenceId/access')
+  async accessEvidence(
+    @CurrentAccess() access: AccessContext,
+    @Param('caseId', new ZodValidationPipe(uuidParameterSchema)) caseId: string,
+    @Param('evidenceId', new ZodValidationPipe(uuidParameterSchema)) evidenceId: string,
+  ) {
+    return {
+      data: await this.verification.accessEvidence(access, caseId, evidenceId),
+      requestId: access.requestId,
+    };
+  }
+
   @Post('cases/:caseId/assign')
   async assignCase(
     @CurrentAccess() access: AccessContext,

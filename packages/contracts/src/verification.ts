@@ -132,6 +132,13 @@ export const verificationEvidenceViewSchema = z.object({
   requirementId: z.uuid(),
   category: verificationEvidenceCategorySchema,
   fileAssetId: z.uuid().nullable(),
+  fileName: z.string().nullable(),
+  mediaType: z.string().nullable(),
+  sizeBytes: z.string().nullable(),
+  fileStatus: z
+    .enum(['QUARANTINED', 'SCANNING', 'AVAILABLE', 'REJECTED', 'DELETION_PENDING', 'DELETED'])
+    .nullable(),
+  scanStatus: z.enum(['PENDING', 'CLEAN', 'INFECTED', 'ERROR']).nullable(),
   sourceReference: z.string().nullable(),
   contentHash: z.string().nullable(),
   issuedAt: z.string().date().nullable(),
@@ -145,8 +152,12 @@ export const verificationRequirementViewSchema = z.object({
   id: z.uuid(),
   code: z.string(),
   category: verificationEvidenceCategorySchema,
+  names: z.record(z.string(), z.string()),
+  descriptions: z.record(z.string(), z.string()),
   required: z.boolean(),
   highRisk: z.boolean(),
+  validityDays: z.number().int().positive().nullable(),
+  templateVersion: z.number().int().positive(),
   status: verificationRequirementStatusSchema,
   evidence: z.array(verificationEvidenceViewSchema),
 });
@@ -154,7 +165,9 @@ export const verificationRequirementViewSchema = z.object({
 export const verificationReviewViewSchema = z.object({
   id: z.uuid(),
   reviewerUserId: z.uuid(),
+  reviewerEmail: z.email(),
   secondApproverUserId: z.uuid().nullable(),
+  secondApproverEmail: z.email().nullable(),
   fromStatus: verificationStatusSchema,
   toStatus: verificationStatusSchema,
   status: z.enum(['PENDING_SECOND_APPROVAL', 'APPLIED', 'REJECTED']),
@@ -164,6 +177,20 @@ export const verificationReviewViewSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
   appliedAt: z.string().datetime({ offset: true }).nullable(),
 });
+
+export const verificationEvidenceAccessViewSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('FILE'),
+    downloadUrl: z.url(),
+    expiresAt: z.string().datetime({ offset: true }),
+    fileName: z.string(),
+    mediaType: z.string().nullable(),
+  }),
+  z.object({
+    kind: z.literal('SOURCE'),
+    sourceReference: z.string(),
+  }),
+]);
 
 export const siteAuditViewSchema = z.object({
   id: z.uuid(),
@@ -233,6 +260,7 @@ export type VerificationRequirementTemplateView = z.infer<
   typeof verificationRequirementTemplateViewSchema
 >;
 export type VerificationEvidenceView = z.infer<typeof verificationEvidenceViewSchema>;
+export type VerificationEvidenceAccessView = z.infer<typeof verificationEvidenceAccessViewSchema>;
 export type VerificationRequirementView = z.infer<typeof verificationRequirementViewSchema>;
 export type VerificationReviewView = z.infer<typeof verificationReviewViewSchema>;
 export type SiteAuditView = z.infer<typeof siteAuditViewSchema>;

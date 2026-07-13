@@ -9,10 +9,19 @@ const verificationCaseInclude = {
     orderBy: [{ required: 'desc' as const }, { createdAt: 'asc' as const }],
     include: {
       template: true,
-      evidence: { orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }] },
+      evidence: {
+        orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+        include: { fileAsset: true },
+      },
     },
   },
-  reviews: { orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }] },
+  reviews: {
+    orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+    include: {
+      reviewer: { select: { email: true } },
+      secondApprover: { select: { email: true } },
+    },
+  },
   siteAudits: {
     orderBy: [{ scheduledAt: 'desc' as const }, { id: 'desc' as const }],
     include: { attachments: { select: { fileAssetId: true } } },

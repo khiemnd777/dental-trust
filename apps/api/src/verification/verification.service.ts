@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { hasPermission, requiresMfa, type AccessContext } from '@dental-trust/auth';
 import type {
@@ -21,6 +27,7 @@ import type {
   VerificationCaseDetail,
   VerificationCaseListQuery,
   VerificationCaseSummary,
+  VerificationEvidenceAccessView,
   VerificationEvidenceView,
   VerificationRequirementTemplateView,
   VerificationRequirementView,
@@ -37,18 +44,21 @@ import { SensitiveFieldCipher, sha256 } from '@dental-trust/security';
 
 import { PRISMA, SERVER_ENV } from '../common/tokens.js';
 import type { ServerEnvironment } from '@dental-trust/config/server';
+import { PrivateObjectStorageProvider } from '../infrastructure/providers/private-object-storage.provider.js';
 
 @Injectable()
 export class VerificationService {
   private readonly verification: VerificationRepository;
   private readonly cipher: SensitiveFieldCipher;
+  private readonly storage: PrivateObjectStorageProvider;
 
   constructor(
-    @Inject(PRISMA) db: PrismaClient,
+    @Inject(PRISMA) private readonly db: PrismaClient,
     @Inject(SERVER_ENV) environment: ServerEnvironment,
   ) {
-    this.verification = new VerificationRepository(db);
+    this.verification = new VerificationRepository(this.db);
     this.cipher = new SensitiveFieldCipher(environment.FIELD_ENCRYPTION_KEY);
+    this.storage = new PrivateObjectStorageProvider(environment);
   }
 
   async listTemplates(
@@ -103,6 +113,49 @@ export class VerificationService {
     const record = await this.verification.getCaseScoped(scopeFor(access), verificationCaseId);
     if (!record) throw new NotFoundException();
     return this.toDetail(access, record);
+  }
+
+  async accessEvidence(
+    access: AccessContext,
+    verificationCaseId: string,
+    evidenceId: string,
+  ): Promise<VerificationEvidenceAccessView> {
+    this.assertRead(access);
+    const record = await this.verification.getCaseScoped(scopeFor(access), verificationCaseId);
+    if (!record) throw new NotFoundException();
+    const evidence = record.requirements
+      .flatMap((requirement) => requirement.evidence)
+      .find(({ id }) => id === evidenceId);
+    if (!evidence) throw new NotFoundException();
+
+    if (!evidence.fileAsset) {
+      if (!evidence.sourceReference) throw new NotFoundException();
+      return { kind: 'SOURCE', sourceReference: evidence.sourceReference };
+    }
+    if (evidence.fileAsset.status !== 'AVAILABLE' || evidence.fileAsset.scanStatus !== 'CLEAN') {
+      throw new ConflictException('The evidence file is not clean and available.');
+    }
+
+    const download = await this.storage.createPrivateDownload(evidence.fileAsset.objectKey);
+    await this.db.auditLog.create({
+      data: {
+        actorUserId: access.userId,
+        ...(record.clinic?.organizationId ? { organizationId: record.clinic.organizationId } : {}),
+        action: 'verification.evidence.download-authorized',
+        resourceType: 'VerificationEvidence',
+        resourceId: evidence.id,
+        requestId: access.requestId,
+        success: true,
+        afterMetadata: { verificationCaseId, fileAssetId: evidence.fileAsset.id },
+      },
+    });
+    return {
+      kind: 'FILE',
+      downloadUrl: download.signedUrl,
+      expiresAt: download.expiresAt.toISOString(),
+      fileName: evidence.fileAsset.originalFileName,
+      mediaType: evidence.fileAsset.detectedMediaType ?? evidence.fileAsset.declaredMediaType,
+    };
   }
 
   async getSiteAuditCase(
@@ -626,14 +679,24 @@ export class VerificationService {
         id: requirement.id,
         code: requirement.template.code,
         category: verificationCategory(requirement.template.category),
+        names: localizedMap(requirement.template.names),
+        descriptions: localizedMap(requirement.template.descriptions),
         required: requirement.required,
         highRisk: requirement.highRisk,
+        validityDays: requirement.template.validityDays,
+        templateVersion: requirement.template.version,
         status: requirement.status,
         evidence: requirement.evidence.map((evidence): VerificationEvidenceView => ({
           id: evidence.id,
           requirementId: evidence.requirementId,
           category: verificationCategory(evidence.category),
           fileAssetId: evidence.fileAssetId,
+          fileName: evidence.fileAsset?.originalFileName ?? null,
+          mediaType:
+            evidence.fileAsset?.detectedMediaType ?? evidence.fileAsset?.declaredMediaType ?? null,
+          sizeBytes: evidence.fileAsset?.sizeBytes.toString() ?? null,
+          fileStatus: evidence.fileAsset?.status ?? null,
+          scanStatus: evidence.fileAsset?.scanStatus ?? null,
           sourceReference: evidence.sourceReference,
           contentHash: evidence.contentHash,
           issuedAt: evidence.issuedAt?.toISOString().slice(0, 10) ?? null,
@@ -646,7 +709,9 @@ export class VerificationService {
       reviews: record.reviews.map((review): VerificationReviewView => ({
         id: review.id,
         reviewerUserId: review.reviewerUserId,
+        reviewerEmail: review.reviewer.email,
         secondApproverUserId: review.secondApproverUserId,
+        secondApproverEmail: review.secondApprover?.email ?? null,
         fromStatus: review.fromStatus,
         toStatus: review.toStatus,
         status: review.status,

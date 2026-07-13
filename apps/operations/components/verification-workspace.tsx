@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import type { VerificationCaseDetail, VerificationEvidenceView } from '@dental-trust/contracts';
+import type {
+  VerificationCaseDetail,
+  VerificationEvidenceView,
+  VerificationRequirementView,
+} from '@dental-trust/contracts';
 
 import { OperationsIcon } from './operations-icon';
 import { OpsAvatar, OpsEmpty, OpsMetric, OpsPanelHeader, OpsStatus } from './operations-ui';
@@ -16,6 +20,7 @@ type VerificationAction =
   | {
       readonly kind: 'evidence';
       readonly evidence: VerificationEvidenceView;
+      readonly requirement: VerificationRequirementView;
       readonly decision: 'APPROVE' | 'REJECT';
     }
   | { readonly kind: 'decision' }
@@ -51,7 +56,7 @@ export function VerificationWorkspace({
         (filter === 'mine' && item.assignedReviewerUserId === currentUserId) ||
         (filter === 'unassigned' && item.assignedReviewerUserId === null) ||
         (filter === 'high' && item.riskLevel === 'HIGH') ||
-        (filter === 'second' && ['UNDER_REVIEW', 'SUBMITTED'].includes(item.status));
+        (filter === 'second' && ['APPROVED', 'UNDER_REVIEW', 'SUBMITTED'].includes(item.status));
       if (!matches) return false;
       if (!normalized) return true;
       return [item.subjectName, item.subjectType, item.status, item.riskLevel].some((value) =>
@@ -219,8 +224,9 @@ export function VerificationWorkspace({
               [
                 'second',
                 'Cần quyết định',
-                data.cases.filter((item) => ['UNDER_REVIEW', 'SUBMITTED'].includes(item.status))
-                  .length,
+                data.cases.filter((item) =>
+                  ['APPROVED', 'UNDER_REVIEW', 'SUBMITTED'].includes(item.status),
+                ).length,
               ],
             ] as const
           ).map(([value, label, count]) => (
@@ -268,7 +274,11 @@ export function VerificationWorkspace({
                   </span>
                 </span>
                 <span>
-                  <OpsStatus value={item.status} />
+                  {item.status === 'APPROVED' ? (
+                    <OpsStatus label="Chờ duyệt độc lập" value="PENDING" />
+                  ) : (
+                    <OpsStatus value={item.status} />
+                  )}
                   <small
                     className={`ops-priority ops-priority--${item.riskLevel === 'HIGH' ? 'urgent' : 'normal'}`}
                   >
@@ -405,10 +415,10 @@ function VerificationCasePanel({
   const approvedRequirements = detail.requirements.filter(({ status }) =>
     ['APPROVED', 'WAIVED'].includes(status),
   ).length;
-  const fourEyesReviews = detail.reviews.filter(({ fourEyesRequired }) => fourEyesRequired);
-  const appliedFourEyesReviews = fourEyesReviews.filter(
-    ({ status }) => status === 'APPLIED',
+  const requiredBlockers = detail.requirements.filter(
+    ({ required, status }) => required && !['APPROVED', 'WAIVED'].includes(status),
   ).length;
+  const fourEyes = verificationFourEyesProgress(detail);
   const pendingSecondReview = detail.reviews.find(
     ({ status }) => status === 'PENDING_SECOND_APPROVAL',
   );
@@ -428,7 +438,11 @@ function VerificationCasePanel({
     <>
       <section className="ops-case-context" aria-label="Tóm tắt hồ sơ">
         <div className="ops-case-context__state">
-          <OpsStatus value={detail.status} />
+          {detail.status === 'APPROVED' ? (
+            <OpsStatus label="Chờ duyệt độc lập" value="PENDING" />
+          ) : (
+            <OpsStatus value={detail.status} />
+          )}
           <span
             className={`ops-risk-badge ops-risk-badge--${detail.riskLevel === 'HIGH' ? 'high' : 'standard'}`}
           >
@@ -483,9 +497,9 @@ function VerificationCasePanel({
           onClick={() => onTabChange('requirements')}
           type="button"
         >
-          Bằng chứng{' '}
+          Yêu cầu{' '}
           <b>
-            {approvedRequirements}/{detail.requirements.length}
+            {approvedRequirements}/{detail.requirements.length} đạt
           </b>
         </button>
         <button
@@ -493,10 +507,7 @@ function VerificationCasePanel({
           onClick={() => onTabChange('reviews')}
           type="button"
         >
-          Phê duyệt kép{' '}
-          <b>
-            {fourEyesReviews.length ? `${appliedFourEyesReviews}/${fourEyesReviews.length}` : '0'}
-          </b>
+          Phê duyệt kép <b>{fourEyes.completed}/2</b>
         </button>
         <button
           aria-pressed={detailTab === 'corrective'}
@@ -588,7 +599,7 @@ function VerificationCasePanel({
               type="button"
             >
               <OperationsIcon name="verification" />
-              Ghi quyết định
+              {verificationDecisionCta(detail.status, requiredBlockers)}
             </button>
           ) : null}
         </div>
@@ -616,6 +627,7 @@ function VerificationOverview({
   const pendingSecondReviews = detail.reviews.filter(
     ({ status }) => status === 'PENDING_SECOND_APPROVAL',
   ).length;
+  const fourEyes = verificationFourEyesProgress(detail);
   const signals = verificationRiskSignals(detail);
   const progress = detail.requirements.length
     ? Math.round((approvedRequirements / detail.requirements.length) * 100)
@@ -683,9 +695,7 @@ function VerificationOverview({
               <OperationsIcon name="shield" />
             </span>
             <small>Phê duyệt kép</small>
-            <strong>
-              {pendingSecondReviews ? `${pendingSecondReviews} đang chờ` : 'Không chờ duyệt'}
-            </strong>
+            <strong>{fourEyes.completed}/2 người đã duyệt</strong>
           </div>
           <div>
             <span>
@@ -753,108 +763,196 @@ function Requirements({
     <section className="ops-detail-section ops-verification-section">
       <header className="ops-verification-section__header">
         <div>
-          <span className="ops-eyebrow">Evidence checklist</span>
-          <h3>Bằng chứng xác minh</h3>
-          <p>Chỉ các bằng chứng đang chờ review mới hiển thị hành động.</p>
+          <span className="ops-eyebrow">Review checklist</span>
+          <h3>Yêu cầu và bằng chứng</h3>
+          <p>Mở tài liệu, đối chiếu tiêu chí rồi mới ghi nhận kết quả review.</p>
         </div>
         <strong>
-          {approvedRequirements}/{detail.requirements.length} đạt
+          {approvedRequirements}/{detail.requirements.length} yêu cầu đã đạt
         </strong>
       </header>
       <div className="ops-requirement-list">
-        {detail.requirements.map((requirement) => (
-          <article key={requirement.id}>
-            <header>
-              <span>
-                <OperationsIcon name={requirement.highRisk ? 'alert' : 'document'} />
-              </span>
-              <div>
-                <strong>{humanize(requirement.category)}</strong>
-                <code>{requirement.code}</code>
-                <span className="ops-requirement-tags">
-                  <small>{requirement.required ? 'Bắt buộc' : 'Tùy chọn'}</small>
-                  {requirement.highRisk ? <small>Kiểm soát tăng cường</small> : null}
+        {detail.requirements.map((requirement) => {
+          const name = localizedVerificationText(requirement.names, humanize(requirement.category));
+          const description = localizedVerificationText(
+            requirement.descriptions,
+            'Chưa cấu hình tiêu chí kiểm tra.',
+          );
+          return (
+            <article key={requirement.id}>
+              <header>
+                <span className="ops-requirement-icon">
+                  <OperationsIcon name={requirement.highRisk ? 'alert' : 'document'} />
                 </span>
+                <div>
+                  <strong>{name}</strong>
+                  <code>
+                    {requirement.code} · mẫu v{requirement.templateVersion}
+                  </code>
+                  <span className="ops-requirement-tags">
+                    <small>{requirement.required ? 'Bắt buộc' : 'Tùy chọn'}</small>
+                    {requirement.highRisk ? <small>Kiểm soát tăng cường</small> : null}
+                  </span>
+                </div>
+                <OpsStatus value={requirement.status} />
+              </header>
+
+              <div className="ops-review-basis">
+                <span>
+                  <OperationsIcon name="verification" />
+                </span>
+                <div>
+                  <small>Tiêu chí đạt</small>
+                  <p>{description}</p>
+                  <em>
+                    {requirement.validityDays
+                      ? `Chu kỳ hiệu lực tham chiếu: ${requirement.validityDays} ngày.`
+                      : 'Không áp dụng chu kỳ hiệu lực cố định.'}
+                  </em>
+                </div>
               </div>
-              <OpsStatus value={requirement.status} />
-            </header>
-            {requirement.evidence.length ? (
-              <div>
-                {requirement.evidence.map((evidence) => (
-                  <section key={evidence.id}>
-                    <div className="ops-evidence-record">
-                      <span
-                        className={`ops-evidence-record__icon ${evidence.revokedAt ? 'is-revoked' : evidence.approvedAt ? 'is-approved' : ''}`}
-                      >
-                        <OperationsIcon
-                          name={
-                            evidence.revokedAt
-                              ? 'close'
-                              : evidence.approvedAt
-                                ? 'check'
-                                : 'document'
-                          }
-                        />
-                      </span>
-                      <span>
-                        <strong>
-                          {evidence.sourceReference ??
-                            evidence.fileAssetId ??
-                            'Bằng chứng đã tải lên'}
-                        </strong>
-                        <small>
-                          Tạo {formatDateTime(evidence.createdAt)}
-                          {evidence.expiresAt ? ` · Hết hạn ${evidence.expiresAt}` : ''}
-                        </small>
-                      </span>
-                    </div>
-                    <div className="ops-evidence-actions">
-                      {canReviewEvidence && !evidence.approvedAt && !evidence.revokedAt ? (
-                        <>
-                          <button
-                            onClick={() =>
-                              onAction({ kind: 'evidence', evidence, decision: 'APPROVE' })
-                            }
-                            type="button"
+
+              {requirement.evidence.length ? (
+                <div className="ops-evidence-list">
+                  {requirement.evidence.map((evidence) => {
+                    const rejected = requirement.status === 'REJECTED' && !evidence.approvedAt;
+                    const canAct =
+                      canReviewEvidence && !rejected && !evidence.approvedAt && !evidence.revokedAt;
+                    const openable = Boolean(
+                      evidence.fileAssetId || openableSourceReference(evidence.sourceReference),
+                    );
+                    return (
+                      <section className="ops-evidence-item" key={evidence.id}>
+                        <div className="ops-evidence-record">
+                          <span
+                            className={`ops-evidence-record__icon ${evidence.revokedAt || rejected ? 'is-revoked' : evidence.approvedAt ? 'is-approved' : ''}`}
                           >
-                            <OperationsIcon name="check" />
-                            Duyệt
-                          </button>
-                          <button
-                            onClick={() =>
-                              onAction({ kind: 'evidence', evidence, decision: 'REJECT' })
-                            }
-                            type="button"
-                          >
-                            <OperationsIcon name="close" />
-                            Từ chối
-                          </button>
-                        </>
-                      ) : (
-                        <span
-                          className={`ops-evidence-state ${evidence.revokedAt ? 'is-revoked' : evidence.approvedAt ? 'is-approved' : ''}`}
-                        >
-                          <OperationsIcon
-                            name={
-                              evidence.revokedAt ? 'close' : evidence.approvedAt ? 'check' : 'clock'
-                            }
-                          />
-                          {evidence.revokedAt
-                            ? 'Đã thu hồi'
-                            : evidence.approvedAt
-                              ? 'Đã duyệt'
-                              : 'Chờ review'}
-                        </span>
-                      )}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ) : (
-              <p>Chưa có bằng chứng cho yêu cầu này.</p>
-            )}
-          </article>
-        ))}
+                            <OperationsIcon
+                              name={
+                                evidence.revokedAt || rejected
+                                  ? 'close'
+                                  : evidence.approvedAt
+                                    ? 'check'
+                                    : 'document'
+                              }
+                            />
+                          </span>
+                          <div className="ops-evidence-record__body">
+                            <strong>{evidenceDisplayName(evidence)}</strong>
+                            <small>
+                              Cung cấp {formatDateTime(evidence.createdAt)} ·{' '}
+                              {evidence.fileAssetId ? 'Tệp tải lên' : 'Nguồn tham chiếu'}
+                            </small>
+                            <dl className="ops-evidence-facts">
+                              <div>
+                                <dt>Ngày cấp</dt>
+                                <dd>{evidence.issuedAt ?? 'Chưa cung cấp'}</dd>
+                              </div>
+                              <div>
+                                <dt>Hiệu lực</dt>
+                                <dd className={evidenceIsExpired(evidence) ? 'is-danger' : ''}>
+                                  {evidence.expiresAt
+                                    ? evidenceIsExpired(evidence)
+                                      ? `Đã hết hạn ${evidence.expiresAt}`
+                                      : `Đến ${evidence.expiresAt}`
+                                    : 'Chưa cung cấp'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>An toàn tệp</dt>
+                                <dd>{evidenceFileCheck(evidence)}</dd>
+                              </div>
+                              <div>
+                                <dt>Toàn vẹn</dt>
+                                <dd>
+                                  {evidence.contentHash
+                                    ? `${evidence.contentHash.slice(0, 12)}…`
+                                    : 'Chưa có checksum'}
+                                </dd>
+                              </div>
+                            </dl>
+                          </div>
+                        </div>
+                        <div className="ops-evidence-actions">
+                          {openable ? (
+                            <a
+                              href={verificationEvidenceHref(detail.id, evidence)}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              <OperationsIcon name="document" />
+                              Xem tài liệu / nguồn
+                            </a>
+                          ) : (
+                            <span className="ops-evidence-unavailable">
+                              <OperationsIcon name="alert" />
+                              Không có tài liệu để mở
+                            </span>
+                          )}
+                          {canAct ? (
+                            <>
+                              <button
+                                onClick={() =>
+                                  onAction({
+                                    kind: 'evidence',
+                                    evidence,
+                                    requirement,
+                                    decision: 'APPROVE',
+                                  })
+                                }
+                                type="button"
+                              >
+                                <OperationsIcon name="check" />
+                                Duyệt bằng chứng
+                              </button>
+                              <button
+                                onClick={() =>
+                                  onAction({
+                                    kind: 'evidence',
+                                    evidence,
+                                    requirement,
+                                    decision: 'REJECT',
+                                  })
+                                }
+                                type="button"
+                              >
+                                <OperationsIcon name="close" />
+                                Từ chối
+                              </button>
+                            </>
+                          ) : (
+                            <span
+                              className={`ops-evidence-state ${evidence.revokedAt || rejected ? 'is-revoked' : evidence.approvedAt ? 'is-approved' : ''}`}
+                            >
+                              <OperationsIcon
+                                name={
+                                  evidence.revokedAt || rejected
+                                    ? 'close'
+                                    : evidence.approvedAt
+                                      ? 'check'
+                                      : 'clock'
+                                }
+                              />
+                              {evidence.revokedAt
+                                ? 'Đã thu hồi'
+                                : rejected
+                                  ? 'Đã từ chối'
+                                  : evidence.approvedAt
+                                    ? 'Đã duyệt'
+                                    : 'Chờ review'}
+                            </span>
+                          )}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p>Chưa có bằng chứng cho yêu cầu này.</p>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -869,9 +967,51 @@ function Reviews({
   readonly currentUserId: string;
   readonly onAction: (action: VerificationAction) => void;
 }) {
+  const fourEyesReview = detail.reviews.find(({ fourEyesRequired }) => fourEyesRequired);
+  const fourEyes = verificationFourEyesProgress(detail);
   return (
-    <section className="ops-detail-section">
-      <h3>Kiểm soát hai người</h3>
+    <section className="ops-detail-section ops-review-workspace">
+      <header className="ops-review-workspace__header">
+        <div>
+          <span className="ops-eyebrow">Independent approval</span>
+          <h3>Phê duyệt hồ sơ bởi hai người</h3>
+          <p>Người đề xuất và người phê duyệt cuối phải là hai tài khoản độc lập.</p>
+        </div>
+        <strong>{fourEyes.completed}/2 người đã duyệt</strong>
+      </header>
+
+      <div className="ops-four-eyes-summary">
+        <article className={fourEyes.completed >= 1 ? 'is-complete' : ''}>
+          <span>
+            <OperationsIcon name={fourEyes.completed >= 1 ? 'check' : 'users'} />
+          </span>
+          <div>
+            <small>Người 1 · Đề xuất quyết định</small>
+            <strong>{fourEyesReview?.reviewerEmail ?? 'Chưa có người đề xuất'}</strong>
+            <p>{fourEyes.completed >= 1 ? 'Đã hoàn tất review chính.' : 'Chưa gửi phê duyệt.'}</p>
+          </div>
+        </article>
+        <span className="ops-four-eyes-summary__connector" aria-hidden="true" />
+        <article className={fourEyes.completed === 2 ? 'is-complete' : ''}>
+          <span>
+            <OperationsIcon name={fourEyes.completed === 2 ? 'check' : 'shield'} />
+          </span>
+          <div>
+            <small>Người 2 · Phê duyệt độc lập</small>
+            <strong>
+              {fourEyesReview?.secondApproverEmail ??
+                (fourEyes.completed === 1 ? 'Đang chờ người khác' : 'Chưa bắt đầu')}
+            </strong>
+            <p>
+              {fourEyes.completed === 2
+                ? 'Đã hoàn tất phê duyệt cuối.'
+                : 'Không được trùng với người đề xuất.'}
+            </p>
+          </div>
+        </article>
+      </div>
+
+      <h4>Lịch sử quyết định</h4>
       {detail.reviews.length ? (
         <div className="ops-review-list">
           {detail.reviews.toReversed().map((review) => (
@@ -904,7 +1044,7 @@ function Reviews({
                       }
                       type="button"
                     >
-                      Phê duyệt
+                      Phê duyệt cuối
                     </button>
                     <button
                       onClick={() =>
@@ -912,7 +1052,7 @@ function Reviews({
                       }
                       type="button"
                     >
-                      Từ chối
+                      Trả lại
                     </button>
                   </>
                 ) : null}
@@ -974,12 +1114,23 @@ function VerificationActionDialog({
   readonly onExecute: (operation: () => Promise<unknown>, success: string) => Promise<void>;
   readonly pending: boolean;
 }) {
-  const decisionOptions = availableVerificationTransitions(detail.status);
+  const requiredBlockers = detail.requirements.filter(
+    ({ required, status }) => required && !['APPROVED', 'WAIVED'].includes(status),
+  ).length;
+  const decisionOptions = availableVerificationTransitions(detail.status).filter(
+    (status) => !requiredBlockers || !['APPROVED', 'VERIFIED'].includes(status),
+  );
   const [selectedDecision, setSelectedDecision] = useState<VerificationCaseDetail['status']>(
     decisionOptions[0] ?? detail.status,
   );
+  const [evidenceOpened, setEvidenceOpened] = useState(false);
   const secondReview =
     action.kind === 'second' ? detail.reviews.find(({ id }) => id === action.reviewId) : undefined;
+  const evidenceOpenable =
+    action.kind === 'evidence' &&
+    Boolean(
+      action.evidence.fileAssetId || openableSourceReference(action.evidence.sourceReference),
+    );
   const requiresExpiry =
     (action.kind === 'decision' && selectedDecision === 'VERIFIED') ||
     (action.kind === 'second' && action.approve && secondReview?.toStatus === 'VERIFIED');
@@ -987,8 +1138,10 @@ function VerificationActionDialog({
     action.kind === 'evidence'
       ? `${action.decision === 'APPROVE' ? 'Duyệt' : 'Từ chối'} bằng chứng`
       : action.kind === 'second'
-        ? 'Phê duyệt độc lập'
-        : 'Ghi quyết định xác minh';
+        ? action.approve
+          ? 'Phê duyệt cuối'
+          : 'Trả lại người đề xuất'
+        : verificationDecisionCta(detail.status, requiredBlockers);
   return (
     <div className="ops-dialog-layer">
       <button
@@ -1012,8 +1165,18 @@ function VerificationActionDialog({
           onSubmit={(event: FormEvent<HTMLFormElement>) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
-            const notes = String(form.get('notes'));
+            const rawNotes = String(form.get('notes'));
             if (action.kind === 'evidence') {
+              const checks = form.getAll('checks').map(String);
+              const rejectionReason = String(form.get('rejectionReason') ?? '');
+              const notes = [
+                `Kết quả: ${action.decision}.`,
+                rejectionReason ? `Lý do: ${rejectionReason}.` : '',
+                checks.length ? `Xác nhận: ${checks.join(', ')}.` : '',
+                rawNotes,
+              ]
+                .filter(Boolean)
+                .join(' ');
               void onExecute(
                 () =>
                   sendOperationsCommand({
@@ -1032,6 +1195,7 @@ function VerificationActionDialog({
             }
             if (action.kind === 'second') {
               const expiresAt = String(form.get('expiresAt'));
+              const notes = `${action.approve ? 'Đã kiểm tra độc lập quyết định và bằng chứng. ' : ''}${rawNotes}`;
               void onExecute(
                 () =>
                   sendOperationsCommand({
@@ -1050,6 +1214,7 @@ function VerificationActionDialog({
             }
             const toStatus = String(form.get('toStatus'));
             const expiresAt = String(form.get('expiresAt'));
+            const notes = rawNotes;
             void onExecute(
               () =>
                 sendOperationsCommand({
@@ -1066,6 +1231,118 @@ function VerificationActionDialog({
             );
           }}
         >
+          {action.kind === 'evidence' ? (
+            <>
+              <section className="ops-dialog-evidence-summary">
+                <small>Yêu cầu đang review</small>
+                <strong>
+                  {localizedVerificationText(
+                    action.requirement.names,
+                    humanize(action.requirement.category),
+                  )}
+                </strong>
+                <p>
+                  {localizedVerificationText(
+                    action.requirement.descriptions,
+                    'Chưa cấu hình tiêu chí kiểm tra.',
+                  )}
+                </p>
+                <dl>
+                  <div>
+                    <dt>Nguồn</dt>
+                    <dd>{evidenceDisplayName(action.evidence)}</dd>
+                  </div>
+                  <div>
+                    <dt>Hiệu lực</dt>
+                    <dd>{action.evidence.expiresAt ?? 'Chưa cung cấp ngày hết hạn'}</dd>
+                  </div>
+                </dl>
+                {evidenceOpenable ? (
+                  <a
+                    href={verificationEvidenceHref(detail.id, action.evidence)}
+                    onClick={() => setEvidenceOpened(true)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <OperationsIcon name="document" />
+                    Mở tài liệu / nguồn để kiểm tra
+                  </a>
+                ) : (
+                  <div className="ops-dialog-evidence-warning">
+                    <OperationsIcon name="alert" />
+                    Không có tài liệu hoặc đường dẫn có thể mở. Bằng chứng này không đủ điều kiện để
+                    duyệt.
+                  </div>
+                )}
+              </section>
+
+              {action.decision === 'APPROVE' ? (
+                <fieldset className="ops-review-confirmations">
+                  <legend>Xác nhận bắt buộc trước khi duyệt</legend>
+                  <label>
+                    <input
+                      disabled={!evidenceOpened}
+                      name="checks"
+                      required
+                      type="checkbox"
+                      value="SOURCE_REVIEWED"
+                    />
+                    <span>Tôi đã mở và kiểm tra tài liệu hoặc nguồn tham chiếu.</span>
+                  </label>
+                  <label>
+                    <input
+                      disabled={!evidenceOpened}
+                      name="checks"
+                      required
+                      type="checkbox"
+                      value="SUBJECT_MATCHED"
+                    />
+                    <span>Thông tin trên bằng chứng khớp với đối tượng của hồ sơ.</span>
+                  </label>
+                  <label>
+                    <input
+                      disabled={!evidenceOpened}
+                      name="checks"
+                      required
+                      type="checkbox"
+                      value="CRITERIA_AND_VALIDITY_CONFIRMED"
+                    />
+                    <span>Bằng chứng đáp ứng tiêu chí và còn hiệu lực.</span>
+                  </label>
+                  {action.requirement.highRisk ? (
+                    <label>
+                      <input
+                        disabled={!evidenceOpened}
+                        name="checks"
+                        required
+                        type="checkbox"
+                        value="ENHANCED_CHECK_COMPLETED"
+                      />
+                      <span>Đã hoàn tất kiểm soát tăng cường hoặc đối chiếu nguồn độc lập.</span>
+                    </label>
+                  ) : null}
+                  {!evidenceOpened && evidenceOpenable ? (
+                    <small>Hãy mở tài liệu trước để bật các xác nhận.</small>
+                  ) : null}
+                </fieldset>
+              ) : (
+                <label>
+                  <span>Lý do từ chối · Bắt buộc</span>
+                  <select name="rejectionReason" required>
+                    <option value="">Chọn lý do</option>
+                    <option value="MISSING_OR_UNREADABLE">
+                      Thiếu hoặc không đọc được tài liệu
+                    </option>
+                    <option value="SUBJECT_MISMATCH">Không khớp pháp nhân / đối tượng</option>
+                    <option value="EXPIRED">Đã hết hạn</option>
+                    <option value="UNVERIFIABLE_SOURCE">Không xác minh được nguồn</option>
+                    <option value="INSUFFICIENT_SCOPE">Không đáp ứng đủ tiêu chí</option>
+                    <option value="OTHER">Lý do khác</option>
+                  </select>
+                </label>
+              )}
+            </>
+          ) : null}
           {action.kind === 'decision' ? (
             <label>
               <span>Quyết định</span>
@@ -1090,9 +1367,18 @@ function VerificationActionDialog({
               <input name="expiresAt" required={requiresExpiry} type="datetime-local" />
             </label>
           ) : null}
+          {action.kind === 'second' && action.approve ? (
+            <label className="ops-second-approval-confirmation">
+              <input name="independentCheck" required type="checkbox" />
+              <span>
+                Tôi xác nhận đã kiểm tra độc lập quyết định, các yêu cầu rủi ro cao và audit trail.
+              </span>
+            </label>
+          ) : null}
           <label>
             <span>Lý do / ghi chú</span>
             <textarea
+              maxLength={1_400}
               minLength={10}
               name="notes"
               placeholder="Nêu bằng chứng và cơ sở của quyết định…"
@@ -1104,14 +1390,107 @@ function VerificationActionDialog({
             <button onClick={onClose} type="button">
               Hủy
             </button>
-            <button className="ops-button ops-button--primary" disabled={pending} type="submit">
-              {pending ? 'Đang ghi nhận…' : 'Xác nhận quyết định'}
+            <button
+              className="ops-button ops-button--primary"
+              disabled={
+                pending ||
+                (action.kind === 'evidence' &&
+                  action.decision === 'APPROVE' &&
+                  (!evidenceOpenable || !evidenceOpened))
+              }
+              type="submit"
+            >
+              {pending
+                ? 'Đang ghi nhận…'
+                : action.kind === 'evidence'
+                  ? action.decision === 'APPROVE'
+                    ? 'Xác nhận duyệt'
+                    : 'Xác nhận từ chối'
+                  : action.kind === 'second'
+                    ? action.approve
+                      ? 'Phê duyệt cuối'
+                      : 'Trả lại'
+                    : 'Xác nhận quyết định'}
             </button>
           </footer>
         </form>
       </section>
     </div>
   );
+}
+
+function localizedVerificationText(
+  values: Readonly<Record<string, string>>,
+  fallback: string,
+): string {
+  return values['vi-VN'] ?? values['en-US'] ?? Object.values(values)[0] ?? fallback;
+}
+
+function openableSourceReference(reference: string | null): boolean {
+  if (!reference) return false;
+  if (reference.startsWith('/')) return true;
+  try {
+    const url = new URL(reference);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function verificationEvidenceHref(
+  verificationCaseId: string,
+  evidence: VerificationEvidenceView,
+): string {
+  if (!evidence.fileAssetId && openableSourceReference(evidence.sourceReference)) {
+    return evidence.sourceReference ?? '#';
+  }
+  return `/api/operations/evidence/${verificationCaseId}/${evidence.id}`;
+}
+
+function evidenceDisplayName(evidence: VerificationEvidenceView): string {
+  return (
+    evidence.fileName ??
+    evidence.sourceReference ??
+    evidence.fileAssetId ??
+    'Bằng chứng chưa có tên'
+  );
+}
+
+function evidenceIsExpired(evidence: VerificationEvidenceView): boolean {
+  return Boolean(
+    evidence.expiresAt && Date.parse(`${evidence.expiresAt}T23:59:59+07:00`) < Date.now(),
+  );
+}
+
+function evidenceFileCheck(evidence: VerificationEvidenceView): string {
+  if (!evidence.fileAssetId) return 'Không áp dụng';
+  if (evidence.fileStatus === 'AVAILABLE' && evidence.scanStatus === 'CLEAN') {
+    return 'Sẵn sàng · Đã quét an toàn';
+  }
+  if (evidence.scanStatus === 'INFECTED') return 'Phát hiện mã độc';
+  if (evidence.fileStatus === 'REJECTED' || evidence.scanStatus === 'ERROR')
+    return 'Tệp bị từ chối';
+  return 'Chưa sẵn sàng';
+}
+
+function verificationFourEyesProgress(detail: VerificationCaseDetail): {
+  readonly completed: 0 | 1 | 2;
+} {
+  const review = detail.reviews.find(({ fourEyesRequired }) => fourEyesRequired);
+  if (!review) return { completed: 0 };
+  return { completed: review.status === 'APPLIED' ? 2 : 1 };
+}
+
+function verificationDecisionCta(
+  status: VerificationCaseDetail['status'],
+  requiredBlockers: number,
+): string {
+  if (status === 'SUBMITTED') return 'Bắt đầu xem xét';
+  if (status === 'UNDER_REVIEW') {
+    return requiredBlockers ? 'Xử lý hồ sơ chưa đạt' : 'Gửi phê duyệt hồ sơ';
+  }
+  if (status === 'APPROVED') return 'Gửi phê duyệt cuối';
+  return 'Ghi quyết định hồ sơ';
 }
 
 function riskLabel(value: string): string {
