@@ -23,6 +23,7 @@ import { AdminOperationsModule } from './admin-operations/admin-operations.modul
 import { ClinicOperationsModule } from './clinic-operations/clinic-operations.module.js';
 import { MatchingConciergeModule } from './matching-concierge/matching-concierge.module.js';
 import { IntakeModule } from './intake/intake.module.js';
+import { AssistantModule } from './assistant/assistant.module.js';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { IntakeModule } from './intake/intake.module.js';
     ClinicOperationsModule,
     MatchingConciergeModule,
     IntakeModule,
+    AssistantModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -21,10 +21,15 @@ export function CareShell({ children }: { children: ReactNode }) {
             <small>Care</small>
           </span>
         </Link>
-        <Link aria-label="Thông báo mới" className="care-icon-button" href="/notifications">
-          <Icon name="bell" />
-          <span className="care-notification-dot" />
-        </Link>
+        <div className="care-topbar__actions">
+          <Link aria-label="Mở AI Hướng dẫn" className="care-icon-button" href="/assistant">
+            <Icon name="sparkle" />
+          </Link>
+          <Link aria-label="Thông báo mới" className="care-icon-button" href="/notifications">
+            <Icon name="bell" />
+            <span className="care-notification-dot" />
+          </Link>
+        </div>
       </header>
       {children}
       <nav aria-label="Điều hướng chính" className="care-bottom-nav">

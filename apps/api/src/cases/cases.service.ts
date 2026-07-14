@@ -52,6 +52,8 @@ export class CasesService {
         title: input.title,
         desiredProcedureCode: input.desiredProcedureCode,
         preferredCurrency: input.preferredCurrency,
+        ...(input.timingPreference ? { timingPreference: input.timingPreference } : {}),
+        ...(input.decisionPriority ? { decisionPriority: input.decisionPriority } : {}),
         ...(input.preferredLocation ? { preferredLocation: input.preferredLocation } : {}),
         ...(input.expectedArrivalDate ? { expectedArrivalDate: input.expectedArrivalDate } : {}),
         ...(input.expectedDepartureDate
@@ -215,6 +217,8 @@ function toView(dentalCase: DentalCaseRecord): DentalCaseView {
     expectedArrivalDate: dentalCase.expectedArrivalDate?.toISOString().slice(0, 10) ?? null,
     expectedDepartureDate: dentalCase.expectedDepartureDate?.toISOString().slice(0, 10) ?? null,
     preferredCurrency: dentalCase.preferredCurrency,
+    timingPreference: dentalCase.timingPreference,
+    decisionPriority: dentalCase.decisionPriority,
     status: dentalCase.status,
     version: dentalCase.version,
     createdAt: dentalCase.createdAt.toISOString(),

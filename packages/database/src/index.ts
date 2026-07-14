@@ -1,6 +1,7 @@
 export * from '@prisma/client';
 export * from './client.js';
 export * from './repositories/case.repository.js';
+export * from './repositories/assistant.repository.js';
 export * from './repositories/clinical-workflow.repository.js';
 export * from './repositories/identity.repository.js';
 export * from './repositories/payment.repository.js';

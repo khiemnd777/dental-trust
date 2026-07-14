@@ -524,6 +524,9 @@ export class PrivacyExecutionRepository {
           },
         });
         if (input.outcome === 'DEIDENTIFIED_WITH_RETENTION') {
+          await transaction.assistantSession.deleteMany({
+            where: { userId: input.execution.privacyRequest.requesterUserId },
+          });
           await transaction.emergencyContact.deleteMany({ where: { patientId: input.profileId } });
           await transaction.patientProfile.update({
             where: { id: input.profileId },
@@ -656,6 +659,35 @@ export class PrivacyExecutionRepository {
       select: { id: true },
     });
     if (!profile) throw new Error('PRIVACY_SUBJECT_PROFILE_NOT_FOUND');
+    const assistantSessions = await this.db.assistantSession.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        caseId: true,
+        locale: true,
+        status: true,
+        model: true,
+        promptVersion: true,
+        noticeVersion: true,
+        noticeAcknowledgedAt: true,
+        closedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        messages: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            exchangeId: true,
+            role: true,
+            encryptedContent: true,
+            safetyLevel: true,
+            suggestedAction: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
     const [account, consents, cases, notifications, privacyRequests, auditActivity] =
       await Promise.all([
         this.db.user.findUniqueOrThrow({
@@ -855,7 +887,15 @@ export class PrivacyExecutionRepository {
           },
         }),
       ]);
-    return { account, consents, cases, notifications, privacyRequests, auditActivity };
+    return {
+      account,
+      consents,
+      cases,
+      assistantSessions,
+      notifications,
+      privacyRequests,
+      auditActivity,
+    };
   }
 
   expiredArtifacts(now: Date, limit = 100) {

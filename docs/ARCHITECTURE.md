@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-The diagrams describe the implemented modular-monolith topology. Connected vertical slices include identity/session/account lifecycle/MFA, patient onboarding/intake, public discovery, tenant-scoped cases and collaboration, clinic operations, matching/concierge, verification, private-file lifecycle/scanning, treatment journey and bilingual Dental Passport, booking/Stripe deposits/refunds/invoices/webhooks, incidents/reviews/privacy intake, notifications, administration, health, audit, and outbox foundations. Provider certification and a bounded set of persistence-heavy worker processors remain deployment work; see [Known limitations](KNOWN_LIMITATIONS.md).
+The diagrams describe the implemented modular-monolith topology. Connected vertical slices include identity/session/account lifecycle/MFA, patient onboarding/intake, AI Care guidance, public discovery, tenant-scoped cases and collaboration, clinic operations, matching/concierge, verification, private-file lifecycle/scanning, treatment journey and bilingual Dental Passport, booking/Stripe deposits/refunds/invoices/webhooks, incidents/reviews/privacy intake, notifications, administration, health, audit, and outbox foundations. AI Care uses strict structured model output and a server-owned action policy; see [AI Care Guide to Booking](AI_CARE_BOOKING.md). Provider certification and a bounded set of persistence-heavy worker processors remain deployment work; see [Known limitations](KNOWN_LIMITATIONS.md).
 
 ## Architectural style
 

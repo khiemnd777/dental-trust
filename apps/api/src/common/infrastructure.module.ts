@@ -13,7 +13,9 @@ import { createPaymentProvider } from '../infrastructure/providers/payment.provi
 import { createMeetingProvider } from '../infrastructure/providers/meeting.provider.js';
 import { createPayoutProvider } from '../infrastructure/providers/payout.provider.js';
 import { createCalendarSyncProvider } from '../infrastructure/providers/calendar-sync.provider.js';
+import { createAssistantModelProvider } from '../infrastructure/providers/assistant-model.provider.js';
 import {
+  ASSISTANT_MODEL_PROVIDER,
   CALENDAR_SYNC_PROVIDER,
   ERROR_REPORTER,
   LOGGER,
@@ -33,6 +35,10 @@ const environment = parseServerEnvironment(process.env);
   providers: [
     { provide: SERVER_ENV, useValue: environment },
     { provide: PRISMA, useValue: prisma },
+    {
+      provide: ASSISTANT_MODEL_PROVIDER,
+      useFactory: () => createAssistantModelProvider(environment),
+    },
     { provide: METRICS, useValue: applicationMetrics },
     {
       provide: TRACE_EXPORTER,
@@ -76,6 +82,7 @@ const environment = parseServerEnvironment(process.env);
     MEETING_PROVIDER,
     PAYOUT_PROVIDER,
     CALENDAR_SYNC_PROVIDER,
+    ASSISTANT_MODEL_PROVIDER,
   ],
 })
 export class InfrastructureModule {}

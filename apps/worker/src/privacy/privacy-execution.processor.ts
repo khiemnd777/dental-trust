@@ -326,6 +326,19 @@ function materializeValue(
   }
   if (!id) return output;
 
+  if (typeof value.encryptedContent === 'string') {
+    const content = cipher.decrypt(value.encryptedContent, `assistant-message:${id}`);
+    if (value.role === 'ASSISTANT') {
+      try {
+        output.content = JSON.parse(content);
+      } catch {
+        output.content = content;
+      }
+    } else {
+      output.content = content;
+    }
+  }
+
   if (typeof value.encryptedIdentityData === 'string') {
     output.identity = decryptJson(
       cipher,
@@ -433,6 +446,9 @@ function exportDispositions(
 ): PrivacyCategoryDispositionRecord[] {
   const account = isRecord(snapshot.account) ? snapshot.account : {};
   const cases = Array.isArray(snapshot.cases) ? snapshot.cases : [];
+  const assistantSessions = Array.isArray(snapshot.assistantSessions)
+    ? snapshot.assistantSessions
+    : [];
   const counts: Readonly<Record<string, number>> = {
     ACCOUNT_IDENTITY: Object.keys(account).length > 0 ? 1 : 0,
     AUTHENTICATION: 0,
@@ -441,7 +457,9 @@ function exportDispositions(
     CLINICAL_INTAKE: nestedArrayCount(cases, 'intakeQuestionnaire'),
     CLINICAL_CASES: cases.length,
     CLINICAL_FILES: fileCount,
-    MESSAGING: deepArrayLength(cases, 'messageThreads', 'messages'),
+    MESSAGING:
+      deepArrayLength(cases, 'messageThreads', 'messages') +
+      deepArrayLength(assistantSessions, 'messages'),
     TREATMENT_AND_PASSPORT: deepArrayLength(cases, 'dentalPassport', 'versions'),
     AFTERCARE: deepArrayLength(cases, 'aftercarePlans'),
     TRUST_SAFETY: deepArrayLength(cases, 'incidents') + deepArrayLength(cases, 'reviews'),

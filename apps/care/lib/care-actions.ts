@@ -7,6 +7,7 @@ export async function forwardCareAction(
   path: string,
   method: 'POST' | 'DELETE' | 'PUT' | 'PATCH',
   body?: unknown,
+  timeoutMs = 8_000,
 ) {
   const token = (await cookies()).get('dt_session')?.value;
   if (!token) return new Response('Unauthorized', { status: 401 });
@@ -19,7 +20,7 @@ export async function forwardCareAction(
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     cache: 'no-store',
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const payload = await response.text();
   return new Response(payload, {

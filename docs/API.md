@@ -13,6 +13,7 @@ The current production controller surface is deliberately narrow:
 - `POST /auth/mfa/totp/enroll`, `POST /auth/mfa/totp/confirm`, `POST /auth/mfa/verify`
 - `GET /public/clinics`, `GET /public/clinics/:slug`, `GET /public/dentists`, `GET /public/dentists/:slug`, `POST /contact`
 - `POST /cases`, `GET /cases`, `GET /cases/:caseId`, `POST /cases/:caseId/transitions`
+- `POST /assistant/messages` (patient-only AI guidance; encrypted, structured, and server action-gated)
 - `POST /files/uploads`, `POST /files/:fileAssetId/finalize`, `GET /files/:fileAssetId/status`, `GET /files/:fileAssetId/download`
 - `POST /files/clinic-uploads`, `POST /files/clinic-uploads/:fileAssetId/finalize`, `GET /files/clinic-uploads/:fileAssetId/status`, `GET /files/clinic-uploads/:fileAssetId/download`
 - `POST /payments/deposit-intents`, `GET /payments`, `POST /payments/:paymentId/refunds`

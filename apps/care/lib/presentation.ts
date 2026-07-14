@@ -65,6 +65,7 @@ export function actionHref(code: string) {
   if (code === 'COMPLETE_INTAKE') return '/start';
   if (code === 'REVIEW_OPTIONS') return '/discover';
   if (code === 'NONE') return '/journey';
+  if (code === 'CONFIRM_BOOKING') return '/booking';
   return '/messages';
 }
 

@@ -13,6 +13,7 @@ import {
   createIncidentRequestSchema,
   createSupportElevationRequestSchema,
   processPrivacyRequestSchema,
+  assistantMessageRequestSchema,
 } from '@dental-trust/contracts';
 
 describe('HTTP contracts', () => {
@@ -121,5 +122,17 @@ describe('HTTP contracts', () => {
         capabilities: ['SYSTEM_ADMIN'],
       }).success,
     ).toBe(false);
+  });
+
+  it('requires an explicit AI notice acknowledgement and bounded message', () => {
+    const request = {
+      clientMessageId: '00000000-0000-4000-8000-000000000001',
+      locale: 'vi-VN',
+      message: 'Tôi muốn tìm hiểu về Implant.',
+    };
+    expect(assistantMessageRequestSchema.safeParse(request).success).toBe(false);
+    expect(
+      assistantMessageRequestSchema.safeParse({ ...request, acknowledgedAiNotice: true }).success,
+    ).toBe(true);
   });
 });

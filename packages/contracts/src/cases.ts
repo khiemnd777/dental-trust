@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import { dentalCaseStatuses } from '@dental-trust/domain/cases';
 
+export const caseTimingPreferenceSchema = z.enum(['FLEXIBLE', 'ONE_MONTH', 'THREE_MONTHS']);
+export const caseDecisionPrioritySchema = z.enum(['TRUST', 'COST', 'TIME', 'AFTERCARE']);
+
 export const createCaseRequestSchema = z
   .object({
     title: z.string().trim().min(3).max(160),
@@ -10,6 +13,8 @@ export const createCaseRequestSchema = z
     expectedArrivalDate: z.string().date().optional(),
     expectedDepartureDate: z.string().date().optional(),
     preferredCurrency: z.enum(['VND', 'USD']).default('USD'),
+    timingPreference: caseTimingPreferenceSchema.optional(),
+    decisionPriority: caseDecisionPrioritySchema.optional(),
   })
   .refine(
     ({ expectedArrivalDate, expectedDepartureDate }) =>
@@ -41,6 +46,8 @@ export const dentalCaseViewSchema = z.object({
   expectedArrivalDate: z.string().date().nullable(),
   expectedDepartureDate: z.string().date().nullable(),
   preferredCurrency: z.enum(['VND', 'USD']),
+  timingPreference: caseTimingPreferenceSchema.nullable(),
+  decisionPriority: caseDecisionPrioritySchema.nullable(),
   status: z.enum(dentalCaseStatuses),
   version: z.number().int().positive(),
   createdAt: z.string().datetime({ offset: true }),

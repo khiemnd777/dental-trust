@@ -1,5 +1,6 @@
 export * from './audit.js';
 export * from './aftercare.js';
+export * from './assistant.js';
 export * from './cases.js';
 export * from './clinic-operations.js';
 export * from './caregivers.js';

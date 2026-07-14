@@ -95,6 +95,20 @@ export default async function TodayPage() {
         </Link>
       </section>
 
+      <section className="ai-guide-card" aria-labelledby="ai-guide-title">
+        <span>
+          <Icon name="sparkle" />
+        </span>
+        <div>
+          <p className="eyebrow">Bạn đang có câu hỏi?</p>
+          <h2 id="ai-guide-title">AI giúp làm rõ bước tiếp theo</h2>
+          <p>Hỏi bằng ngôn ngữ tự nhiên, sau đó bạn kiểm tra lại trước mọi hành động.</p>
+        </div>
+        <Link className="secondary-button" href="/assistant">
+          Trò chuyện <Icon name="arrow" />
+        </Link>
+      </section>
+
       {journey?.nextAppointment ? (
         <section className="section-block" aria-labelledby="appointment-heading">
           <div className="section-heading">

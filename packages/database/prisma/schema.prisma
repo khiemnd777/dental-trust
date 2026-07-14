@@ -96,6 +96,35 @@ enum Currency {
   USD
 }
 
+enum CaseTimingPreference {
+  FLEXIBLE
+  ONE_MONTH
+  THREE_MONTHS
+}
+
+enum CaseDecisionPriority {
+  TRUST
+  COST
+  TIME
+  AFTERCARE
+}
+
+enum AssistantSessionStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum AssistantMessageRole {
+  USER
+  ASSISTANT
+}
+
+enum AssistantSafetyLevel {
+  ROUTINE
+  ATTENTION
+  URGENT
+}
+
 enum FileAssetStatus {
   QUARANTINED
   SCANNING
@@ -586,6 +615,7 @@ model User {
   countryConfigurationsUpdated CountryConfiguration[]        @relation("CountryConfigurationUpdater")
   cityConfigurationsUpdated    CityConfiguration[]           @relation("CityConfigurationUpdater")
   localeConfigurationsUpdated  LocaleConfiguration[]         @relation("LocaleConfigurationUpdater")
+  assistantSessions            AssistantSession[]
 
   @@index([accountStatus, deletedAt])
   @@map("users")
@@ -910,6 +940,8 @@ model DentalCase {
   expectedArrivalDate   DateTime?               @map("expected_arrival_date") @db.Date
   expectedDepartureDate DateTime?               @map("expected_departure_date") @db.Date
   preferredCurrency     Currency                @default(USD) @map("preferred_currency")
+  timingPreference      CaseTimingPreference?   @map("timing_preference")
+  decisionPriority      CaseDecisionPriority?   @map("decision_priority")
   status                DentalCaseStatus        @default(DRAFT)
   version               Int                     @default(1)
   closedAt              DateTime?               @map("closed_at") @db.Timestamptz(6)
@@ -939,10 +971,52 @@ model DentalCase {
   matchingCriteria      CaseMatchingCriteria[]
   shortlistEntries      CaseShortlistEntry[]
   conciergeWorkspace    ConciergeCaseWorkspace?
+  assistantSessions     AssistantSession[]
 
   @@index([patientProfileId, status, updatedAt])
   @@index([status, updatedAt])
   @@map("dental_cases")
+}
+
+model AssistantSession {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  userId               String                 @map("user_id") @db.Uuid
+  caseId               String?                @map("case_id") @db.Uuid
+  locale               String                 @default("vi-VN")
+  status               AssistantSessionStatus @default(ACTIVE)
+  model                String
+  promptVersion        String                 @map("prompt_version")
+  noticeVersion        String                 @map("notice_version")
+  noticeAcknowledgedAt DateTime               @map("notice_acknowledged_at") @db.Timestamptz(6)
+  closedAt             DateTime?              @map("closed_at") @db.Timestamptz(6)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dentalCase           DentalCase?            @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  messages             AssistantMessage[]
+
+  @@index([userId, status, updatedAt])
+  @@index([caseId, updatedAt])
+  @@map("assistant_sessions")
+}
+
+model AssistantMessage {
+  id                String                @id @default(uuid()) @db.Uuid
+  sessionId         String                @map("session_id") @db.Uuid
+  exchangeId        String                @map("exchange_id") @db.Uuid
+  role              AssistantMessageRole
+  encryptedContent  String                @map("encrypted_content")
+  safetyLevel       AssistantSafetyLevel? @map("safety_level")
+  suggestedAction   String?               @map("suggested_action")
+  modelResponseId   String?               @map("model_response_id")
+  inputTokens       Int?                  @map("input_tokens")
+  outputTokens      Int?                  @map("output_tokens")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  session           AssistantSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, exchangeId, role])
+  @@index([sessionId, createdAt])
+  @@map("assistant_messages")
 }
 
 model CaseStatusHistory {

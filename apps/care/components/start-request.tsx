@@ -31,10 +31,21 @@ export function StartRequest() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
-  const [need, setNeed] = useState('');
-  const [location, setLocation] = useState('TP. Hồ Chí Minh');
-  const [timing, setTiming] = useState('FLEXIBLE');
-  const [priority, setPriority] = useState('TRUST');
+  const initialNeed = needs.some((item) => item.code === searchParams.get('procedure'))
+    ? (searchParams.get('procedure') ?? '')
+    : '';
+  const initialTiming = timingOptions.some(([value]) => value === searchParams.get('timing'))
+    ? (searchParams.get('timing') ?? 'FLEXIBLE')
+    : 'FLEXIBLE';
+  const initialPriority = priorityOptions.some(([value]) => value === searchParams.get('priority'))
+    ? (searchParams.get('priority') ?? 'TRUST')
+    : 'TRUST';
+  const [need, setNeed] = useState(initialNeed);
+  const [location, setLocation] = useState(
+    searchParams.get('location')?.slice(0, 120) || 'TP. Hồ Chí Minh',
+  );
+  const [timing, setTiming] = useState(initialTiming);
+  const [priority, setPriority] = useState(initialPriority);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const clinic = searchParams.get('clinic');
@@ -59,6 +70,8 @@ export function StartRequest() {
           desiredProcedureCode: need,
           preferredLocation: location,
           preferredCurrency: 'VND',
+          timingPreference: timing,
+          decisionPriority: priority,
         }),
       });
       if (!response.ok) {
@@ -194,11 +207,15 @@ export function StartRequest() {
               </span>
               <span>
                 <small>Thời gian</small>
-                <strong>{timing === 'FLEXIBLE' ? 'Linh hoạt' : 'Đã có dự kiến'}</strong>
+                <strong>
+                  {timingOptions.find(([value]) => value === timing)?.[1] ?? 'Linh hoạt'}
+                </strong>
               </span>
               <span>
                 <small>Ưu tiên</small>
-                <strong>{priority === 'TRUST' ? 'Độ tin cậy' : 'Theo lựa chọn của bạn'}</strong>
+                <strong>
+                  {priorityOptions.find(([value]) => value === priority)?.[1] ?? 'Độ tin cậy'}
+                </strong>
               </span>
             </div>
             <div className="privacy-note">

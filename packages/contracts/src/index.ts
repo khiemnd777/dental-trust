@@ -1,4 +1,5 @@
 export * from './auth.js';
+export * from './assistant.js';
 export * from './admin-operations.js';
 export * from './admin-directory.js';
 export * from './admin-governance.js';

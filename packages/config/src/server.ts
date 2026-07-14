@@ -33,6 +33,10 @@ export const serverEnvironmentSchema = z
     AUTH_ISSUER: z.string().min(1).default('dental-trust'),
     AUTH_AUDIENCE: z.string().min(1).default('dental-trust-web'),
     FIELD_ENCRYPTION_KEY: z.string().min(32).default('development-only-field-key-change-me'),
+    OPENAI_API_KEY: optionalString,
+    OPENAI_BASE_URL: z.url().default('https://api.openai.com/v1'),
+    OPENAI_MODEL: z.string().min(1).max(120).default('gpt-5.6-luna'),
+    OPENAI_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(15_000),
     S3_ENDPOINT: z.url().default('http://localhost:9000'),
     S3_REGION: z.string().min(1).default('ap-southeast-1'),
     S3_BUCKET: z.string().min(3).default('dental-trust-private'),
@@ -134,6 +138,20 @@ export const serverEnvironmentSchema = z
       });
     }
     if (environment.NODE_ENV === 'production') {
+      if (!environment.OPENAI_API_KEY) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Production AI assistant requires an OpenAI API key',
+          path: ['OPENAI_API_KEY'],
+        });
+      }
+      if (!environment.OPENAI_BASE_URL.startsWith('https://')) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Production OpenAI endpoint must use HTTPS',
+          path: ['OPENAI_BASE_URL'],
+        });
+      }
       for (const [field, value] of [
         ['AUTH_SECRET', environment.AUTH_SECRET],
         ['FIELD_ENCRYPTION_KEY', environment.FIELD_ENCRYPTION_KEY],

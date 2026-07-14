@@ -118,6 +118,26 @@ export interface CareMessage {
   readonly createdAt: string;
 }
 
+export interface BookingCheckoutOption {
+  readonly treatmentPlanAcceptanceId: string;
+  readonly treatmentPlanVersionId: string;
+  readonly treatmentPlanVersion: number;
+  readonly caseId: string;
+  readonly caseNumber: string;
+  readonly clinicId: string;
+  readonly clinicName: string;
+  readonly planTotalMinor: string;
+  readonly depositMinor: string;
+  readonly depositBasisPoints: number;
+  readonly currency: 'VND' | 'USD';
+  readonly cancellationPolicy: {
+    readonly policyVersion: number;
+    readonly display: { readonly 'vi-VN': string; readonly 'en-US': string };
+  };
+  readonly acceptedAt: string;
+  readonly expiresAt: string;
+}
+
 interface Envelope<T> {
   readonly data?: T;
 }
@@ -214,4 +234,8 @@ export async function getAccountData() {
 
 export async function getNotifications() {
   return (await careApi<readonly CareNotification[]>('/notifications?limit=50')) ?? [];
+}
+
+export async function getBookingOptions() {
+  return (await careApi<readonly BookingCheckoutOption[]>('/bookings/checkout-options')) ?? [];
 }

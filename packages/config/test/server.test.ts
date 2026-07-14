@@ -16,6 +16,7 @@ describe('server environment', () => {
     expect(environment.S3_FORCE_PATH_STYLE).toBe(false);
     expect(environment.SMTP_SECURE).toBe(false);
     expect(environment.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+    expect(environment.OPENAI_MODEL).toBe('gpt-5.6-luna');
   });
 
   it('fails closed when an external passport renderer is incomplete', () => {
@@ -73,12 +74,22 @@ describe('server environment', () => {
       CALENDAR_ADAPTER: 'external',
       CALENDAR_PROVIDER_URL: 'https://calendar-sync.dentaltrust.example',
       CALENDAR_PROVIDER_TOKEN: 'calendar-provider-production-token',
+      OPENAI_API_KEY: 'sk-proj-production-configured',
     });
 
     expect(environment.PAYMENT_ADAPTER).toBe('stripe');
     expect(environment.MEETING_ADAPTER).toBe('manual');
     expect(environment.CALENDAR_ADAPTER).toBe('external');
     expect(environment.SMTP_SECURE).toBe(true);
+  });
+
+  it('requires an AI provider credential in production', () => {
+    expect(() =>
+      parseServerEnvironment({
+        NODE_ENV: 'production',
+        OPENAI_BASE_URL: 'https://api.openai.com/v1',
+      }),
+    ).toThrow();
   });
 
   it('rejects partially configured optional messaging providers in production', () => {

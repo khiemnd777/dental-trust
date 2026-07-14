@@ -7,6 +7,7 @@ import { FilesController } from './files/files.controller.js';
 import { PublicController } from './public/public.controller.js';
 import { PaymentsController, StripeWebhooksController } from './payments/payments.controller.js';
 import { BookingsController } from './bookings/bookings.controller.js';
+import { AssistantController } from './assistant/assistant.controller.js';
 import {
   AppointmentsController,
   InternalNotesController,
@@ -27,6 +28,7 @@ describe('AppModule dependency injection', () => {
       expect(app.get(PublicController)).toBeInstanceOf(PublicController);
       expect(app.get(PaymentsController)).toBeInstanceOf(PaymentsController);
       expect(app.get(BookingsController)).toBeInstanceOf(BookingsController);
+      expect(app.get(AssistantController)).toBeInstanceOf(AssistantController);
       expect(app.get(StripeWebhooksController)).toBeInstanceOf(StripeWebhooksController);
       expect(app.get(AppointmentsController)).toBeInstanceOf(AppointmentsController);
       expect(app.get(MessageThreadsController)).toBeInstanceOf(MessageThreadsController);

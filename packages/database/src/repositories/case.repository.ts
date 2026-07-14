@@ -22,6 +22,8 @@ export interface CreateCasePersistenceInput {
   readonly expectedArrivalDate?: string;
   readonly expectedDepartureDate?: string;
   readonly preferredCurrency: 'VND' | 'USD';
+  readonly timingPreference?: 'FLEXIBLE' | 'ONE_MONTH' | 'THREE_MONTHS';
+  readonly decisionPriority?: 'TRUST' | 'COST' | 'TIME' | 'AFTERCARE';
 }
 
 export interface PageOptions {
@@ -152,6 +154,8 @@ export class CaseRepository {
               ? { expectedDepartureDate: new Date(`${input.expectedDepartureDate}T00:00:00.000Z`) }
               : {}),
             preferredCurrency: input.preferredCurrency,
+            ...(input.timingPreference ? { timingPreference: input.timingPreference } : {}),
+            ...(input.decisionPriority ? { decisionPriority: input.decisionPriority } : {}),
             statusHistory: {
               create: {
                 toStatus: 'DRAFT',
@@ -502,6 +506,8 @@ function serializeCase(dentalCase: DentalCaseRecord): Prisma.InputJsonObject {
     expectedArrivalDate: dentalCase.expectedArrivalDate?.toISOString() ?? null,
     expectedDepartureDate: dentalCase.expectedDepartureDate?.toISOString() ?? null,
     preferredCurrency: dentalCase.preferredCurrency,
+    timingPreference: dentalCase.timingPreference,
+    decisionPriority: dentalCase.decisionPriority,
     status: dentalCase.status,
     version: dentalCase.version,
     closedAt: dentalCase.closedAt?.toISOString() ?? null,
@@ -542,6 +548,10 @@ function deserializeCase(value: Prisma.JsonValue): DentalCaseRecord {
     expectedArrivalDate: nullableDate('expectedArrivalDate'),
     expectedDepartureDate: nullableDate('expectedDepartureDate'),
     preferredCurrency: requiredString('preferredCurrency') as DentalCaseRecord['preferredCurrency'],
+    timingPreference:
+      (item['timingPreference'] as DentalCaseRecord['timingPreference'] | undefined) ?? null,
+    decisionPriority:
+      (item['decisionPriority'] as DentalCaseRecord['decisionPriority'] | undefined) ?? null,
     status: requiredString('status') as DentalCaseRecord['status'],
     version,
     closedAt: nullableDate('closedAt'),

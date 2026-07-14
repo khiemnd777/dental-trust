@@ -92,6 +92,7 @@ pnpm build
 ## Documentation
 
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [AI Care Guide to Booking](docs/AI_CARE_BOOKING.md)
 - [Architecture](docs/ARCHITECTURE.md), [domain model](docs/DOMAIN_MODEL.md), and [database](docs/DATABASE.md)
 - [API](docs/API.md) and [authorization](docs/AUTHORIZATION.md)
 - [Security](docs/SECURITY.md), [threat model](docs/THREAT_MODEL.md), [data classification](docs/DATA_CLASSIFICATION.md), and [privacy architecture](docs/PRIVACY_ARCHITECTURE.md)
