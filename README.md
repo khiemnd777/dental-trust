@@ -35,13 +35,17 @@ Prerequisites: Node.js 22 LTS or newer, Corepack, Docker Engine with Compose, an
 
 ```bash
 cp .env.example .env
-docker compose up --build -d
+make restart
 docker compose run --rm api pnpm db:seed
 ```
 
 Compose runs the complete local platform: the three product frontends, public/auth gateway,
 API, worker, migration job, PostgreSQL, Redis, MinIO, Mailpit, and ClamAV. Use `pnpm dev`
 only when intentionally running application processes on the host in watch mode.
+
+`make restart` stops the existing stack, rebuilds every local image, applies committed migrations
+through the Compose `migrate` service, recreates the platform, and waits for health checks. It does
+not delete volumes or reseed development data.
 
 Local endpoints:
 
@@ -62,6 +66,7 @@ Seed identities and development-only passwords are documented in [Local developm
 
 | Command                               | Purpose                                                         |
 | ------------------------------------- | --------------------------------------------------------------- |
+| `make restart`                        | Rebuild, migrate, restart, and health-check the local stack      |
 | `pnpm dev`                            | Run web, API, and worker in watch mode                          |
 | `pnpm build`                          | Create production builds for all workspaces                     |
 | `pnpm start`                          | Start built applications                                        |

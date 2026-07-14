@@ -3686,8 +3686,7 @@ textarea:focus-visible {
 .booking-summary__head,
 .booking-policy,
 .booking-help,
-.booking-notice,
-.ai-guide-card {
+.booking-notice {
   align-items: center;
   display: flex;
 }
@@ -3946,10 +3945,13 @@ textarea:focus-visible {
 }
 
 .ai-guide-card {
+  align-items: start;
   background: linear-gradient(135deg, #153f42, #0a7169);
   border-radius: var(--care-radius);
   color: white;
+  display: grid;
   gap: 0.85rem;
+  grid-template-columns: auto minmax(0, 1fr);
   margin: 1rem 0;
   padding: 1rem;
 }
@@ -3966,7 +3968,7 @@ textarea:focus-visible {
 }
 
 .ai-guide-card > div {
-  flex: 1;
+  min-width: 0;
 }
 .ai-guide-card h2 {
   font-size: 1rem;
@@ -3981,7 +3983,21 @@ textarea:focus-visible {
   background: white;
   border: 0;
   color: var(--care-teal-dark);
-  white-space: nowrap;
+  grid-column: 1 / -1;
+  justify-content: center;
+  width: 100%;
+}
+
+@media (min-width: 42rem) {
+  .ai-guide-card {
+    align-items: center;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .ai-guide-card .secondary-button {
+    grid-column: auto;
+    width: auto;
+  }
 }
 
 .booking-intro {
@@ -4152,10 +4168,6 @@ textarea:focus-visible {
 @media (max-width: 42rem) {
   .ai-guide-card {
     align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .ai-guide-card .secondary-button {
-    margin-left: 3.85rem;
   }
   .booking-intro {
     display: grid;
