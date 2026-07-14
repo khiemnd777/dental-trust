@@ -14,7 +14,9 @@ import { createMeetingProvider } from '../infrastructure/providers/meeting.provi
 import { createPayoutProvider } from '../infrastructure/providers/payout.provider.js';
 import { createCalendarSyncProvider } from '../infrastructure/providers/calendar-sync.provider.js';
 import { createAssistantModelProvider } from '../infrastructure/providers/assistant-model.provider.js';
+import { createAssistantAudioProvider } from '../infrastructure/providers/assistant-audio.provider.js';
 import {
+  ASSISTANT_AUDIO_PROVIDER,
   ASSISTANT_MODEL_PROVIDER,
   CALENDAR_SYNC_PROVIDER,
   ERROR_REPORTER,
@@ -38,6 +40,10 @@ const environment = parseServerEnvironment(process.env);
     {
       provide: ASSISTANT_MODEL_PROVIDER,
       useFactory: () => createAssistantModelProvider(environment),
+    },
+    {
+      provide: ASSISTANT_AUDIO_PROVIDER,
+      useFactory: () => createAssistantAudioProvider(environment),
     },
     { provide: METRICS, useValue: applicationMetrics },
     {
@@ -83,6 +89,7 @@ const environment = parseServerEnvironment(process.env);
     PAYOUT_PROVIDER,
     CALENDAR_SYNC_PROVIDER,
     ASSISTANT_MODEL_PROVIDER,
+    ASSISTANT_AUDIO_PROVIDER,
   ],
 })
 export class InfrastructureModule {}

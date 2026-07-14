@@ -84,6 +84,21 @@ export class AssistantRepository {
     });
   }
 
+  async findOwnedAssistantMessage(
+    userId: string,
+    sessionId: string,
+    messageId: string,
+  ): Promise<AssistantMessage | null> {
+    return this.db.assistantMessage.findFirst({
+      where: {
+        id: messageId,
+        sessionId,
+        role: 'ASSISTANT',
+        session: { userId },
+      },
+    });
+  }
+
   async recentMessages(userId: string, sessionId: string, limit: number) {
     return this.db.assistantMessage.findMany({
       where: { sessionId, session: { userId } },

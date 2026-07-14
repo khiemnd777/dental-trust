@@ -17,6 +17,9 @@ describe('server environment', () => {
     expect(environment.SMTP_SECURE).toBe(false);
     expect(environment.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
     expect(environment.OPENAI_MODEL).toBe('gpt-5.6-luna');
+    expect(environment.OPENAI_TRANSCRIPTION_MODEL).toBe('gpt-4o-mini-transcribe');
+    expect(environment.OPENAI_TTS_MODEL).toBe('gpt-4o-mini-tts');
+    expect(environment.OPENAI_TTS_VOICE).toBe('marin');
   });
 
   it('fails closed when an external passport renderer is incomplete', () => {

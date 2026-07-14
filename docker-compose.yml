@@ -16,6 +16,10 @@ x-backend-environment: &backend-environment
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
   OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
   OPENAI_TIMEOUT_MS: ${OPENAI_TIMEOUT_MS:-15000}
+  OPENAI_TRANSCRIPTION_MODEL: ${OPENAI_TRANSCRIPTION_MODEL:-gpt-4o-mini-transcribe}
+  OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-gpt-4o-mini-tts}
+  OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-marin}
+  OPENAI_AUDIO_TIMEOUT_MS: ${OPENAI_AUDIO_TIMEOUT_MS:-30000}
   S3_ENDPOINT: http://minio:9000
   S3_REGION: ${S3_REGION:-ap-southeast-1}
   S3_BUCKET: ${S3_BUCKET:-dental-trust-private}

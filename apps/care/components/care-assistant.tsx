@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useMemo, useState, useTransition } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { Icon } from '@/components/icon';
 
+type AssistantLocale = 'vi-VN' | 'en-US';
+type VoiceState = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'synthesizing' | 'speaking';
 type AssistantAction =
   | 'NONE'
   | 'START_REQUEST'
@@ -41,23 +43,136 @@ interface ChatMessage {
   readonly response?: AssistantReply;
 }
 
-const starterQuestions = [
-  'Tôi chưa biết nên bắt đầu từ đâu',
-  'Giúp tôi chuẩn bị yêu cầu Implant',
-  'Khi nào tôi có thể đặt lịch?',
-] as const;
+interface TranscriptionView {
+  readonly text: string;
+  readonly locale: AssistantLocale;
+}
 
-const actionLabels: Readonly<Record<AssistantAction, string>> = {
-  NONE: '',
-  START_REQUEST: 'Xem lại và tạo yêu cầu',
-  COMPLETE_INTAKE: 'Tiếp tục hồ sơ',
-  VIEW_MATCHES: 'Xem phòng khám phù hợp',
-  REQUEST_CONSULTATION: 'Nhắn điều phối viên',
-  REVIEW_PLAN: 'Xem hành trình',
-  OPEN_BOOKING: 'Kiểm tra và đặt lịch',
-  VIEW_JOURNEY: 'Xem hành trình',
-  HUMAN_SUPPORT: 'Gặp người hỗ trợ',
-  EMERGENCY_CARE: 'Gọi cấp cứu tại Việt Nam',
+const copy = {
+  'vi-VN': {
+    eyebrow: 'AI giọng nói · có người giám sát',
+    title: 'Bác cần hỗ trợ gì?',
+    subtitle: 'Chạm nút lớn bên dưới và nói tự nhiên. Không cần gõ chữ.',
+    noticeTitle: 'Trước khi bắt đầu',
+    noticeBody:
+      'AI có thể nhầm và chỉ hướng dẫn chung, không thay thế bác sĩ hoặc dùng cho cấp cứu. Nội dung được lưu bảo mật để duy trì phiên.',
+    noticeAccept: 'Tôi hiểu và muốn tiếp tục',
+    noticeRequired: 'Vui lòng chọn “Tôi hiểu và muốn tiếp tục” trước khi nói.',
+    language: 'Ngôn ngữ',
+    tapToTalk: 'Chạm để nói',
+    tapToStop: 'Chạm để dừng',
+    stopSpeaking: 'Chạm để ngừng đọc',
+    idleStatus: 'Tôi đang sẵn sàng nghe bác',
+    recordingStatus: 'Đang nghe… Bác cứ nói tự nhiên',
+    transcribingStatus: 'Đang nhận dạng lời nói…',
+    thinkingStatus: 'Đang tìm bước phù hợp…',
+    synthesizingStatus: 'Đang chuẩn bị câu trả lời bằng giọng nói…',
+    speakingStatus: 'AI đang trả lời…',
+    example: 'Ví dụ: “Tôi muốn về Việt Nam làm Implant vào tháng tới.”',
+    replay: 'Nghe lại',
+    slowSpeech: 'Nói chậm',
+    humanSupport: 'Gặp nhân viên',
+    aiVoiceDisclosure: 'Giọng nói này do AI tạo, không phải giọng người thật.',
+    heard: 'Tôi nghe bác nói',
+    answer: 'Hướng dẫn tiếp theo',
+    transcript: 'Xem nội dung cuộc trò chuyện',
+    keyboard: 'Dùng bàn phím',
+    keyboardPlaceholder: 'Nhập câu hỏi nếu bác không muốn dùng microphone…',
+    send: 'Gửi',
+    unsupported: 'Trình duyệt này chưa hỗ trợ thu âm. Bác có thể dùng bàn phím hoặc gặp nhân viên.',
+    permissionDenied:
+      'Microphone chưa được cho phép. Hãy bật quyền microphone rồi thử lại, hoặc gặp nhân viên.',
+    tooShort: 'Tôi chưa nghe rõ. Bác vui lòng chạm và nói lại.',
+    transcriptionFailed: 'Chưa thể nhận dạng lời nói. Bác vui lòng thử lại.',
+    assistantUnavailable: 'AI đang tạm nghỉ. Bác có thể gặp điều phối viên ngay.',
+    sendFailed: 'Chưa thể gửi nội dung. Bác vui lòng thử lại.',
+    speechUnavailable: 'Chưa thể tự phát âm thanh. Bác hãy chạm “Nghe lại”.',
+    urgentNote: 'Nếu đang ở ngoài Việt Nam, hãy gọi số cấp cứu tại nơi bác đang ở.',
+    welcome:
+      'Chào bác, tôi là AI Hướng dẫn của Dental Trust. Bác có thể nói nhu cầu; mọi quyết định y khoa và xác nhận lịch vẫn do bác cùng đội ngũ chăm sóc thực hiện.',
+  },
+  'en-US': {
+    eyebrow: 'Voice AI · human supervised',
+    title: 'How can we help?',
+    subtitle: 'Tap the large button below and speak naturally. No typing needed.',
+    noticeTitle: 'Before you begin',
+    noticeBody:
+      'AI can make mistakes and provides general guidance only. It does not replace a dentist and is not for emergencies. Your conversation is securely stored to maintain the session.',
+    noticeAccept: 'I understand and want to continue',
+    noticeRequired: 'Please select “I understand and want to continue” before speaking.',
+    language: 'Language',
+    tapToTalk: 'Tap to talk',
+    tapToStop: 'Tap to stop',
+    stopSpeaking: 'Tap to stop audio',
+    idleStatus: 'I am ready to listen',
+    recordingStatus: 'Listening… Speak naturally',
+    transcribingStatus: 'Understanding your speech…',
+    thinkingStatus: 'Finding the right next step…',
+    synthesizingStatus: 'Preparing a spoken answer…',
+    speakingStatus: 'AI is answering…',
+    example: 'For example: “I want to travel to Vietnam for an implant next month.”',
+    replay: 'Hear again',
+    slowSpeech: 'Speak slowly',
+    humanSupport: 'Talk to a person',
+    aiVoiceDisclosure: 'This is an AI-generated voice, not a human voice.',
+    heard: 'I heard you say',
+    answer: 'Your next step',
+    transcript: 'View conversation transcript',
+    keyboard: 'Use keyboard',
+    keyboardPlaceholder: 'Type a question if you prefer not to use the microphone…',
+    send: 'Send',
+    unsupported: 'This browser cannot record audio. You can use the keyboard or talk to a person.',
+    permissionDenied:
+      'Microphone access is not enabled. Allow microphone access and try again, or talk to a person.',
+    tooShort: 'I did not hear enough. Please tap and speak again.',
+    transcriptionFailed: 'I could not understand the recording. Please try again.',
+    assistantUnavailable: 'AI is temporarily unavailable. You can talk to a coordinator now.',
+    sendFailed: 'Your message could not be sent. Please try again.',
+    speechUnavailable: 'Audio could not autoplay. Tap “Hear again”.',
+    urgentNote: 'If you are outside Vietnam, call the emergency number where you are.',
+    welcome:
+      'Hello, I am the Dental Trust AI Guide. You can tell me what you need; medical decisions and appointment confirmation remain with you and the care team.',
+  },
+} as const;
+
+const starterQuestions: Readonly<Record<AssistantLocale, readonly string[]>> = {
+  'vi-VN': [
+    'Tôi chưa biết nên bắt đầu từ đâu',
+    'Giúp tôi chuẩn bị yêu cầu Implant',
+    'Khi nào tôi có thể đặt lịch?',
+  ],
+  'en-US': [
+    'I do not know where to start',
+    'Help me prepare an implant request',
+    'When can I book an appointment?',
+  ],
+};
+
+const actionLabels: Readonly<Record<AssistantLocale, Readonly<Record<AssistantAction, string>>>> = {
+  'vi-VN': {
+    NONE: '',
+    START_REQUEST: 'Xem lại và tạo yêu cầu',
+    COMPLETE_INTAKE: 'Tiếp tục hồ sơ',
+    VIEW_MATCHES: 'Xem phòng khám phù hợp',
+    REQUEST_CONSULTATION: 'Nhắn điều phối viên',
+    REVIEW_PLAN: 'Xem hành trình',
+    OPEN_BOOKING: 'Kiểm tra và đặt lịch',
+    VIEW_JOURNEY: 'Xem hành trình',
+    HUMAN_SUPPORT: 'Gặp người hỗ trợ',
+    EMERGENCY_CARE: 'Gọi cấp cứu tại Việt Nam',
+  },
+  'en-US': {
+    NONE: '',
+    START_REQUEST: 'Review and start request',
+    COMPLETE_INTAKE: 'Continue profile',
+    VIEW_MATCHES: 'View suitable clinics',
+    REQUEST_CONSULTATION: 'Message a coordinator',
+    REVIEW_PLAN: 'View care journey',
+    OPEN_BOOKING: 'Review and book',
+    VIEW_JOURNEY: 'View care journey',
+    HUMAN_SUPPORT: 'Talk to a person',
+    EMERGENCY_CARE: 'Call emergency services',
+  },
 };
 
 const emptyFields: CollectedFields = {
@@ -67,21 +182,54 @@ const emptyFields: CollectedFields = {
   decisionPriority: null,
 };
 
-export function CareAssistant() {
+export function CareAssistant({ initialLocale }: { readonly initialLocale: AssistantLocale }) {
+  const [locale, setLocale] = useState(initialLocale);
   const [noticeAccepted, setNoticeAccepted] = useState(false);
   const [sessionId, setSessionId] = useState<string>();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [collected, setCollected] = useState<CollectedFields>(emptyFields);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'ASSISTANT',
-      content:
-        'Chào bạn, tôi là AI Hướng dẫn của Dental Trust. Tôi có thể giúp bạn làm rõ nhu cầu và tìm đúng bước tiếp theo; quyết định y khoa và xác nhận lịch luôn do bạn cùng đội ngũ chăm sóc thực hiện.',
-    },
+    { id: 'welcome', role: 'ASSISTANT', content: copy[initialLocale].welcome },
   ]);
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [voiceSupported, setVoiceSupported] = useState(true);
+  const [slowSpeech, setSlowSpeech] = useState(true);
+  const [lastTranscript, setLastTranscript] = useState('');
+  const [lastAssistantReply, setLastAssistantReply] = useState<AssistantReply>();
   const [isPending, startTransition] = useTransition();
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
+  const discardRecordingRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef('');
+  const ui = copy[locale];
+
+  useEffect(() => {
+    setVoiceSupported('mediaDevices' in navigator && 'MediaRecorder' in window);
+    document.documentElement.lang = locale === 'vi-VN' ? 'vi' : 'en';
+  }, [locale]);
+
+  useEffect(
+    () => () => {
+      if (recordingTimerRef.current !== null) window.clearTimeout(recordingTimerRef.current);
+      const recorder = recorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        discardRecordingRef.current = true;
+        recorder.stop();
+      }
+      stopMediaStream(recordingStreamRef.current);
+      audioRef.current?.pause();
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = slowSpeech ? 0.86 : 1;
+  }, [slowSpeech]);
 
   const startHref = useMemo(() => {
     const parameters = new URLSearchParams();
@@ -93,11 +241,26 @@ export function CareAssistant() {
     return query ? `/start?${query}` : '/start';
   }, [collected]);
 
-  function send(message: string) {
+  const latestResponse = useMemo(
+    () => [...messages].reverse().find((message) => message.response),
+    [messages],
+  );
+
+  function selectLocale(nextLocale: AssistantLocale) {
+    if (nextLocale === locale) return;
+    setLocale(nextLocale);
+    setError('');
+    if (messages.length === 1) {
+      setMessages([{ id: 'welcome', role: 'ASSISTANT', content: copy[nextLocale].welcome }]);
+    }
+  }
+
+  function send(message: string, responseLocale = locale, speakReply = true) {
     const normalized = message.trim();
     if (!normalized || isPending) return;
     if (!noticeAccepted) {
-      setError('Vui lòng xác nhận bạn đã hiểu giới hạn của AI trước khi tiếp tục.');
+      setError(copy[responseLocale].noticeRequired);
+      setVoiceState('idle');
       return;
     }
     const clientMessageId = crypto.randomUUID();
@@ -107,6 +270,7 @@ export function CareAssistant() {
     ]);
     setInput('');
     setError('');
+    setVoiceState('thinking');
 
     startTransition(async () => {
       try {
@@ -116,7 +280,7 @@ export function CareAssistant() {
           body: JSON.stringify({
             clientMessageId,
             ...(sessionId ? { sessionId } : {}),
-            locale: 'vi-VN',
+            locale: responseLocale,
             message: normalized,
             acknowledgedAiNotice: true,
           }),
@@ -137,147 +301,395 @@ export function CareAssistant() {
             response: reply,
           },
         ]);
+        setLastAssistantReply(reply);
+        if (speakReply) {
+          await prepareSpeech(reply, responseLocale);
+        } else {
+          setVoiceState('idle');
+        }
       } catch (caught) {
+        setVoiceState('idle');
         setError(
           caught instanceof Error && caught.message === 'unavailable'
-            ? 'AI đang tạm nghỉ. Bạn có thể nhắn điều phối viên để được hỗ trợ ngay.'
-            : 'Chưa thể gửi tin nhắn. Vui lòng thử lại.',
+            ? copy[responseLocale].assistantUnavailable
+            : copy[responseLocale].sendFailed,
         );
       }
     });
   }
 
+  async function prepareSpeech(reply: AssistantReply, speechLocale = locale) {
+    setVoiceState('synthesizing');
+    stopAudio(false);
+    try {
+      const response = await fetch('/api/care/assistant/speech', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: reply.sessionId,
+          assistantMessageId: reply.assistantMessageId,
+          locale: speechLocale,
+        }),
+      });
+      if (!response.ok) throw new Error('speech');
+      const blob = await response.blob();
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = URL.createObjectURL(blob);
+      playCurrentAudio(speechLocale);
+    } catch {
+      setVoiceState('idle');
+      setError(copy[speechLocale].speechUnavailable);
+    }
+  }
+
+  function playCurrentAudio(speechLocale = locale) {
+    if (!audioUrlRef.current) {
+      if (lastAssistantReply) void prepareSpeech(lastAssistantReply, speechLocale);
+      return;
+    }
+    audioRef.current?.pause();
+    const audio = new Audio(audioUrlRef.current);
+    audio.playbackRate = slowSpeech ? 0.86 : 1;
+    audioRef.current = audio;
+    setVoiceState('speaking');
+    audio.onended = () => setVoiceState('idle');
+    audio.onerror = () => {
+      setVoiceState('idle');
+      setError(copy[speechLocale].speechUnavailable);
+    };
+    void audio.play().catch(() => {
+      setVoiceState('idle');
+      setError(copy[speechLocale].speechUnavailable);
+    });
+  }
+
+  function stopAudio(reset = true) {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      if (reset) audioRef.current.currentTime = 0;
+    }
+    if (reset) setVoiceState('idle');
+  }
+
+  async function startRecording() {
+    if (!noticeAccepted) {
+      setError(ui.noticeRequired);
+      return;
+    }
+    if (!voiceSupported) {
+      setError(ui.unsupported);
+      return;
+    }
+    stopAudio();
+    setError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
+      });
+      recordingStreamRef.current = stream;
+      recordingChunksRef.current = [];
+      discardRecordingRef.current = false;
+      const mimeType = preferredRecordingType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        discardRecordingRef.current = true;
+        stopMediaStream(stream);
+        setVoiceState('idle');
+        setError(ui.transcriptionFailed);
+      };
+      recorder.onstop = () => {
+        if (recordingTimerRef.current !== null) {
+          window.clearTimeout(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+        stopMediaStream(stream);
+        recordingStreamRef.current = null;
+        const discard = discardRecordingRef.current;
+        const blob = new Blob(recordingChunksRef.current, {
+          type: recorder.mimeType || mimeType || 'audio/webm',
+        });
+        recordingChunksRef.current = [];
+        if (discard) return;
+        if (blob.size < 256) {
+          setVoiceState('idle');
+          setError(ui.tooShort);
+          return;
+        }
+        void transcribe(blob, locale);
+      };
+      recorder.start(250);
+      setVoiceState('recording');
+      recordingTimerRef.current = window.setTimeout(() => stopRecording(), 45_000);
+    } catch {
+      stopMediaStream(recordingStreamRef.current);
+      recordingStreamRef.current = null;
+      setVoiceState('idle');
+      setError(ui.permissionDenied);
+    }
+  }
+
+  function stopRecording() {
+    const recorder = recorderRef.current;
+    if (recorder?.state === 'recording') recorder.stop();
+  }
+
+  async function transcribe(blob: Blob, localeHint: AssistantLocale) {
+    setVoiceState('transcribing');
+    setError('');
+    const form = new FormData();
+    form.append('file', blob, `voice-${Date.now()}.${extensionFor(blob.type)}`);
+    form.append('locale', localeHint);
+    try {
+      const response = await fetch('/api/care/assistant/transcriptions', {
+        method: 'POST',
+        body: form,
+      });
+      if (!response.ok) throw new Error('transcription');
+      const envelope = (await response.json()) as { readonly data: TranscriptionView };
+      const result = envelope.data;
+      setLastTranscript(result.text);
+      setLocale(result.locale);
+      send(result.text, result.locale, true);
+    } catch {
+      setVoiceState('idle');
+      setError(copy[localeHint].transcriptionFailed);
+    }
+  }
+
+  function handleVoiceButton() {
+    if (voiceState === 'recording') {
+      stopRecording();
+      return;
+    }
+    if (voiceState === 'speaking') {
+      stopAudio();
+      return;
+    }
+    void startRecording();
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    send(input);
+    send(input, locale, true);
   }
+
+  const busy = ['transcribing', 'thinking', 'synthesizing'].includes(voiceState) || isPending;
+  const voiceLabel =
+    voiceState === 'recording'
+      ? ui.tapToStop
+      : voiceState === 'speaking'
+        ? ui.stopSpeaking
+        : ui.tapToTalk;
+  const voiceStatus = statusFor(voiceState, ui);
 
   return (
     <main className="care-main assistant-page">
       <header className="assistant-intro">
         <span className="assistant-intro__icon">
-          <Icon name="sparkle" />
+          <Icon name="microphone" />
         </span>
         <div>
-          <p className="eyebrow">AI Hướng dẫn · có người giám sát</p>
-          <h1>Từ thắc mắc đến đúng bước chăm sóc</h1>
-          <p>Không chẩn đoán, không tự đặt lịch và không tự thanh toán.</p>
+          <p className="eyebrow">{ui.eyebrow}</p>
+          <h1>{ui.title}</h1>
+          <p>{ui.subtitle}</p>
         </div>
       </header>
 
       <section className="ai-notice" aria-labelledby="ai-notice-title">
         <Icon name="shield" />
         <div>
-          <strong id="ai-notice-title">Trước khi trò chuyện</strong>
-          <p>
-            AI có thể nhầm và chỉ cung cấp hướng dẫn chung. Không dùng cho cấp cứu. Nội dung trò
-            chuyện được lưu bảo mật để duy trì phiên và kiểm soát chất lượng.
-          </p>
+          <strong id="ai-notice-title">{ui.noticeTitle}</strong>
+          <p>{ui.noticeBody}</p>
           <label>
             <input
               checked={noticeAccepted}
-              onChange={(event) => setNoticeAccepted(event.target.checked)}
+              onChange={(event) => {
+                setNoticeAccepted(event.target.checked);
+                if (event.target.checked) setError('');
+              }}
               type="checkbox"
             />
-            <span>Tôi hiểu và muốn tiếp tục</span>
+            <span>{ui.noticeAccept}</span>
           </label>
         </div>
       </section>
 
-      <section aria-label="Cuộc trò chuyện với AI" className="assistant-chat">
-        <div className="assistant-chat__messages" aria-live="polite">
-          {messages.map((message) => (
-            <article
-              className={`chat-bubble chat-bubble--${message.role.toLowerCase()}`}
-              key={message.id}
+      <section className="assistant-voice" aria-labelledby="voice-assistant-title">
+        <div className="assistant-language" aria-label={ui.language}>
+          <span>{ui.language}</span>
+          <div>
+            <button
+              aria-pressed={locale === 'vi-VN'}
+              onClick={() => selectLocale('vi-VN')}
+              type="button"
             >
-              {message.role === 'ASSISTANT' ? (
-                <span>
-                  <Icon name="sparkle" />
-                </span>
-              ) : null}
-              <div>
-                <p>{message.content}</p>
-                {message.response?.safetyLevel === 'URGENT' ? (
-                  <small className="urgent-note">
-                    Nếu đang ở ngoài Việt Nam, gọi số cấp cứu tại nơi bạn đang ở.
-                  </small>
-                ) : null}
-                {message.response && message.response.suggestedAction !== 'NONE' ? (
-                  <AssistantActionLink
-                    action={message.response.suggestedAction}
-                    startHref={startHref}
-                  />
-                ) : null}
-              </div>
-            </article>
-          ))}
-          {isPending ? (
-            <article className="chat-bubble chat-bubble--assistant chat-bubble--typing">
-              <span>
-                <Icon name="sparkle" />
-              </span>
-              <div>
-                <i />
-                <i />
-                <i />
-              </div>
-            </article>
-          ) : null}
+              Tiếng Việt
+            </button>
+            <button
+              aria-pressed={locale === 'en-US'}
+              onClick={() => selectLocale('en-US')}
+              type="button"
+            >
+              English
+            </button>
+          </div>
         </div>
 
-        {messages.length === 1 ? (
-          <div className="assistant-starters">
-            {starterQuestions.map((question) => (
-              <button
-                disabled={isPending}
-                key={question}
-                onClick={() => send(question)}
-                type="button"
-              >
-                {question}
-              </button>
-            ))}
+        <p className="assistant-voice__status" id="voice-assistant-title" aria-live="polite">
+          <span className={`assistant-voice__dot assistant-voice__dot--${voiceState}`} />
+          {voiceStatus}
+        </p>
+
+        <button
+          aria-label={voiceLabel}
+          className={`assistant-voice__button assistant-voice__button--${voiceState}`}
+          disabled={busy || !voiceSupported}
+          onClick={handleVoiceButton}
+          type="button"
+        >
+          <Icon
+            name={voiceState === 'recording' || voiceState === 'speaking' ? 'close' : 'microphone'}
+          />
+        </button>
+        <strong className="assistant-voice__label">{voiceLabel}</strong>
+        <p className="assistant-voice__example">{voiceSupported ? ui.example : ui.unsupported}</p>
+
+        <div className="assistant-voice__actions">
+          <button
+            disabled={!lastAssistantReply || voiceState === 'recording' || busy}
+            onClick={() => playCurrentAudio(locale)}
+            type="button"
+          >
+            <Icon name="volume" /> {ui.replay}
+          </button>
+          <Link href="/messages">
+            <Icon name="support" /> {ui.humanSupport}
+          </Link>
+        </div>
+
+        <label className="assistant-slow-speech">
+          <input
+            checked={slowSpeech}
+            onChange={(event) => setSlowSpeech(event.target.checked)}
+            type="checkbox"
+          />
+          <span>{ui.slowSpeech}</span>
+        </label>
+        <small className="assistant-ai-voice-disclosure">{ui.aiVoiceDisclosure}</small>
+
+        {lastTranscript ? (
+          <div className="assistant-voice__heard">
+            <small>{ui.heard}</small>
+            <p>“{lastTranscript}”</p>
           </div>
         ) : null}
 
-        {error ? (
-          <p className="form-error" role="alert">
-            {error}{' '}
-            {error.includes('điều phối viên') ? <Link href="/messages">Mở tin nhắn</Link> : null}
-          </p>
+        {latestResponse ? (
+          <div className="assistant-voice__answer" aria-live="polite">
+            <small>{ui.answer}</small>
+            <p>{latestResponse.content}</p>
+            {latestResponse.response?.safetyLevel === 'URGENT' ? (
+              <span className="urgent-note">{ui.urgentNote}</span>
+            ) : null}
+            {latestResponse.response && latestResponse.response.suggestedAction !== 'NONE' ? (
+              <AssistantActionLink
+                action={latestResponse.response.suggestedAction}
+                locale={locale}
+                startHref={startHref}
+              />
+            ) : null}
+          </div>
         ) : null}
-
-        <form className="assistant-composer" onSubmit={submit}>
-          <textarea
-            aria-label="Tin nhắn cho AI"
-            disabled={isPending}
-            maxLength={2_000}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Ví dụ: Tôi mất một răng và muốn tìm hiểu Implant…"
-            rows={2}
-            value={input}
-          />
-          <button aria-label="Gửi" disabled={isPending || !input.trim()} type="submit">
-            <Icon name="arrow" />
-          </button>
-        </form>
       </section>
+
+      {error ? (
+        <div className="assistant-error" role="alert">
+          <p>{error}</p>
+          <Link href="/messages">{ui.humanSupport}</Link>
+        </div>
+      ) : null}
+
+      <details className="assistant-transcript">
+        <summary>{ui.transcript}</summary>
+        <section aria-label={ui.transcript} className="assistant-chat">
+          <div className="assistant-chat__messages" aria-live="polite">
+            {messages.map((message) => (
+              <article
+                className={`chat-bubble chat-bubble--${message.role.toLowerCase()}`}
+                key={message.id}
+              >
+                {message.role === 'ASSISTANT' ? (
+                  <span>
+                    <Icon name="sparkle" />
+                  </span>
+                ) : null}
+                <div>
+                  <p>{message.content}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </details>
+
+      <details className="assistant-keyboard">
+        <summary>
+          <Icon name="keyboard" /> {ui.keyboard}
+        </summary>
+        <div className="assistant-keyboard__body">
+          {messages.length === 1 ? (
+            <div className="assistant-starters">
+              {starterQuestions[locale].map((question) => (
+                <button
+                  disabled={isPending}
+                  key={question}
+                  onClick={() => send(question)}
+                  type="button"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <form className="assistant-composer" onSubmit={submit}>
+            <textarea
+              aria-label={ui.keyboard}
+              disabled={isPending}
+              maxLength={2_000}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={ui.keyboardPlaceholder}
+              rows={2}
+              value={input}
+            />
+            <button aria-label={ui.send} disabled={isPending || !input.trim()} type="submit">
+              <Icon name="arrow" />
+            </button>
+          </form>
+        </div>
+      </details>
     </main>
   );
 }
 
 function AssistantActionLink({
   action,
+  locale,
   startHref,
 }: {
-  action: AssistantAction;
-  startHref: string;
+  readonly action: AssistantAction;
+  readonly locale: AssistantLocale;
+  readonly startHref: string;
 }) {
   if (action === 'EMERGENCY_CARE') {
     return (
       <a className="assistant-action assistant-action--urgent" href="tel:115">
-        {actionLabels[action]}
+        {actionLabels[locale][action]}
       </a>
     );
   }
@@ -293,9 +705,46 @@ function AssistantActionLink({
             : '/messages';
   return (
     <Link className="assistant-action" href={href}>
-      {actionLabels[action]} <Icon name="arrow" />
+      {actionLabels[locale][action]} <Icon name="arrow" />
     </Link>
   );
+}
+
+function statusFor(state: VoiceState, ui: (typeof copy)[AssistantLocale]): string {
+  switch (state) {
+    case 'recording':
+      return ui.recordingStatus;
+    case 'transcribing':
+      return ui.transcribingStatus;
+    case 'thinking':
+      return ui.thinkingStatus;
+    case 'synthesizing':
+      return ui.synthesizingStatus;
+    case 'speaking':
+      return ui.speakingStatus;
+    default:
+      return ui.idleStatus;
+  }
+}
+
+function preferredRecordingType(): string {
+  return (
+    ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find((type) =>
+      MediaRecorder.isTypeSupported(type),
+    ) ?? ''
+  );
+}
+
+function extensionFor(contentType: string): string {
+  if (contentType.startsWith('audio/mp4')) return 'mp4';
+  if (contentType.startsWith('audio/mpeg')) return 'mp3';
+  if (contentType.startsWith('audio/wav')) return 'wav';
+  if (contentType.startsWith('audio/ogg')) return 'ogg';
+  return 'webm';
+}
+
+function stopMediaStream(stream: MediaStream | null): void {
+  stream?.getTracks().forEach((track) => track.stop());
 }
 
 function mergeFields(current: CollectedFields, incoming: CollectedFields): CollectedFields {

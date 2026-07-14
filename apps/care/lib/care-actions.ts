@@ -22,9 +22,31 @@ export async function forwardCareAction(
     cache: 'no-store',
     signal: AbortSignal.timeout(timeoutMs),
   });
-  const payload = await response.text();
-  return new Response(payload, {
-    status: response.status,
-    headers: { 'content-type': response.headers.get('content-type') ?? 'application/json' },
+  return proxiedResponse(response);
+}
+
+export async function forwardCareFormData(path: string, body: FormData, timeoutMs = 30_000) {
+  const token = (await cookies()).get('dt_session')?.value;
+  if (!token) return new Response('Unauthorized', { status: 401 });
+  const response = await fetch(`${apiBase()}${path}`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'x-idempotency-key': crypto.randomUUID(),
+    },
+    body,
+    cache: 'no-store',
+    signal: AbortSignal.timeout(timeoutMs),
   });
+  return proxiedResponse(response);
+}
+
+function proxiedResponse(response: Response): Response {
+  const headers = new Headers({
+    'cache-control': 'private, no-store',
+    'content-type': response.headers.get('content-type') ?? 'application/json',
+  });
+  const contentDisposition = response.headers.get('content-disposition');
+  if (contentDisposition) headers.set('content-disposition', contentDisposition);
+  return new Response(response.body, { status: response.status, headers });
 }

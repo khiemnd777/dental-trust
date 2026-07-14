@@ -14,6 +14,8 @@ import {
   createSupportElevationRequestSchema,
   processPrivacyRequestSchema,
   assistantMessageRequestSchema,
+  assistantSpeechRequestSchema,
+  assistantTranscriptionViewSchema,
 } from '@dental-trust/contracts';
 
 describe('HTTP contracts', () => {
@@ -134,5 +136,28 @@ describe('HTTP contracts', () => {
     expect(
       assistantMessageRequestSchema.safeParse({ ...request, acknowledgedAiNotice: true }).success,
     ).toBe(true);
+  });
+
+  it('bounds bilingual assistant voice payloads', () => {
+    expect(
+      assistantTranscriptionViewSchema.safeParse({
+        text: 'I need an implant consultation.',
+        locale: 'en-US',
+      }).success,
+    ).toBe(true);
+    expect(
+      assistantSpeechRequestSchema.safeParse({
+        sessionId: '00000000-0000-4000-8000-000000000001',
+        assistantMessageId: '00000000-0000-4000-8000-000000000002',
+        locale: 'vi-VN',
+      }).success,
+    ).toBe(true);
+    expect(
+      assistantSpeechRequestSchema.safeParse({
+        sessionId: 'not-a-session',
+        assistantMessageId: '00000000-0000-4000-8000-000000000002',
+        locale: 'vi-VN',
+      }).success,
+    ).toBe(false);
   });
 });

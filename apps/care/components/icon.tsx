@@ -20,6 +20,9 @@ export type IconName =
   | 'arrow'
   | 'plus'
   | 'send'
+  | 'microphone'
+  | 'volume'
+  | 'keyboard'
   | 'lock'
   | 'globe'
   | 'document'
@@ -200,6 +203,30 @@ export function Icon({ name, variant = 'outline', ...props }: IconProps) {
       <>
         <path d="m3 10.65 18.2-7.8-7.8 18.2-2.25-7.95Z" />
         <path d="m11.15 13.1 10.05-10.25" />
+      </>
+    );
+  } else if (name === 'microphone') {
+    content = (
+      <>
+        <rect height="12" rx="4" width="8" x="8" y="2.5" />
+        <path d="M5 10.75v.75a7 7 0 0 0 14 0v-.75M12 18.5v3M8.5 21.5h7" />
+      </>
+    );
+  } else if (name === 'volume') {
+    content = (
+      <>
+        <path d="M4 9.25h4L13 5v14l-5-4.25H4Z" />
+        <path d="M16 9a4.25 4.25 0 0 1 0 6M18.75 6.25a8.15 8.15 0 0 1 0 11.5" />
+      </>
+    );
+  } else if (name === 'keyboard') {
+    content = (
+      <>
+        <rect height="14" rx="2.25" width="20" x="2" y="5" />
+        <path
+          d="M5.25 9h.01M8.65 9h.01M12 9h.01M15.35 9h.01M18.75 9h.01M5.25 12.5h.01M8.65 12.5h.01M12 12.5h.01M15.35 12.5h.01M18.75 12.5h.01M7.5 16h9"
+          strokeWidth="2"
+        />
       </>
     );
   } else if (name === 'lock') {

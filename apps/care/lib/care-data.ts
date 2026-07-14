@@ -175,6 +175,10 @@ export async function getCareHomeData() {
   };
 }
 
+export async function getCareProfile() {
+  return careApi<CareProfile>('/patient/profile');
+}
+
 export async function getDiscoveryData() {
   const [clinics, saved] = await Promise.all([
     careApi<readonly ClinicOption[]>('/public/clinics?locale=vi-VN&limit=20', false),

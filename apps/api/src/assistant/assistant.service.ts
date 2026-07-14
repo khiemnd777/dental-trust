@@ -14,9 +14,12 @@ import type { ServerEnvironment } from '@dental-trust/config/server';
 import {
   assistantModelOutputSchema,
   assistantNoticeVersion,
+  type AssistantLocale,
   type AssistantMessageRequest,
   type AssistantMessageView,
   type AssistantModelOutput,
+  type AssistantSpeechRequest,
+  type AssistantTranscriptionView,
 } from '@dental-trust/contracts';
 import {
   AssistantRepository,
@@ -37,13 +40,34 @@ import {
 } from '@dental-trust/domain';
 import { SensitiveFieldCipher, sha256 } from '@dental-trust/security';
 
-import { ASSISTANT_MODEL_PROVIDER, PRISMA, SERVER_ENV } from '../common/tokens.js';
+import {
+  ASSISTANT_AUDIO_PROVIDER,
+  ASSISTANT_MODEL_PROVIDER,
+  PRISMA,
+  SERVER_ENV,
+} from '../common/tokens.js';
+import {
+  inferAssistantLocale,
+  type AssistantAudioInput,
+  type AssistantAudioProvider,
+} from '../infrastructure/providers/assistant-audio.provider.js';
 import type {
   AssistantHistoryItem,
   AssistantModelProvider,
 } from '../infrastructure/providers/assistant-model.provider.js';
 
 const promptVersion = 'care-guide-v1';
+const maximumVoiceBytes = 10 * 1024 * 1024;
+const supportedVoiceTypes = new Set([
+  'audio/aac',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/ogg',
+  'audio/wav',
+  'audio/webm',
+  'audio/x-m4a',
+  'audio/x-wav',
+]);
 const emptyFields = {
   procedureCode: null,
   preferredLocation: null,
@@ -62,11 +86,58 @@ export class AssistantService {
     @Inject(PRISMA) database: PrismaClient,
     @Inject(SERVER_ENV) environment: ServerEnvironment,
     @Inject(ASSISTANT_MODEL_PROVIDER) private readonly model: AssistantModelProvider,
+    @Inject(ASSISTANT_AUDIO_PROVIDER) private readonly audio: AssistantAudioProvider,
   ) {
     this.repository = new AssistantRepository(database);
     this.cases = new CaseRepository(database);
     this.bookings = new BookingRepository(database);
     this.cipher = new SensitiveFieldCipher(environment.FIELD_ENCRYPTION_KEY);
+  }
+
+  async transcribe(
+    access: AccessContext,
+    input: AssistantAudioInput,
+    localeHint: AssistantLocale,
+  ): Promise<AssistantTranscriptionView> {
+    this.assertAccess(access);
+    const contentType = input.contentType.split(';', 1)[0]?.toLocaleLowerCase('en-US') ?? '';
+    if (
+      input.bytes.byteLength === 0 ||
+      input.bytes.byteLength > maximumVoiceBytes ||
+      !supportedVoiceTypes.has(contentType)
+    ) {
+      throw new BadRequestException('Định dạng hoặc kích thước bản ghi âm không hợp lệ.');
+    }
+    try {
+      const text = await this.audio.transcribe({ ...input, contentType }, localeHint);
+      if (text.length > 2_000) {
+        throw new BadRequestException('Bản ghi âm quá dài. Vui lòng nói ngắn gọn hơn.');
+      }
+      return { text, locale: inferAssistantLocale(text, localeHint) };
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new ServiceUnavailableException(
+        'Chưa thể nhận dạng giọng nói. Vui lòng thử lại hoặc gặp điều phối viên.',
+      );
+    }
+  }
+
+  async speech(access: AccessContext, input: AssistantSpeechRequest): Promise<Buffer> {
+    this.assertAccess(access);
+    const message = await this.repository.findOwnedAssistantMessage(
+      access.userId,
+      input.sessionId,
+      input.assistantMessageId,
+    );
+    if (!message) throw new NotFoundException();
+    const view = this.decryptView(message);
+    try {
+      return await this.audio.synthesize(view.reply, input.locale);
+    } catch {
+      throw new ServiceUnavailableException(
+        'Chưa thể phát giọng nói AI. Nội dung chữ vẫn có thể được sử dụng.',
+      );
+    }
   }
 
   async message(

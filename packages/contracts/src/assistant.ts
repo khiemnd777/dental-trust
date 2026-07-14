@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { assistantActionCodes } from '@dental-trust/domain';
 
 export const assistantNoticeVersion = '2026-07-14';
+export const assistantLocaleSchema = z.enum(['vi-VN', 'en-US']);
 
 export const assistantIntentSchema = z.enum([
   'GENERAL_GUIDANCE',
@@ -39,9 +40,20 @@ export const assistantMessageRequestSchema = z.object({
   clientMessageId: z.uuid(),
   sessionId: z.uuid().optional(),
   caseId: z.uuid().optional(),
-  locale: z.enum(['vi-VN', 'en-US']).default('vi-VN'),
+  locale: assistantLocaleSchema.default('vi-VN'),
   message: z.string().trim().min(1).max(2_000),
   acknowledgedAiNotice: z.literal(true),
+});
+
+export const assistantTranscriptionViewSchema = z.object({
+  text: z.string().trim().min(1).max(2_000),
+  locale: assistantLocaleSchema,
+});
+
+export const assistantSpeechRequestSchema = z.object({
+  sessionId: z.uuid(),
+  assistantMessageId: z.uuid(),
+  locale: assistantLocaleSchema.default('vi-VN'),
 });
 
 export const assistantModelOutputSchema = z.object({
@@ -61,5 +73,8 @@ export const assistantMessageViewSchema = assistantModelOutputSchema.extend({
 });
 
 export type AssistantMessageRequest = z.infer<typeof assistantMessageRequestSchema>;
+export type AssistantLocale = z.infer<typeof assistantLocaleSchema>;
+export type AssistantTranscriptionView = z.infer<typeof assistantTranscriptionViewSchema>;
+export type AssistantSpeechRequest = z.infer<typeof assistantSpeechRequestSchema>;
 export type AssistantModelOutput = z.infer<typeof assistantModelOutputSchema>;
 export type AssistantMessageView = z.infer<typeof assistantMessageViewSchema>;

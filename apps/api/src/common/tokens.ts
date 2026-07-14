@@ -9,3 +9,4 @@ export const METRICS = Symbol('METRICS');
 export const TRACE_EXPORTER = Symbol('TRACE_EXPORTER');
 export const ERROR_REPORTER = Symbol('ERROR_REPORTER');
 export const ASSISTANT_MODEL_PROVIDER = Symbol('ASSISTANT_MODEL_PROVIDER');
+export const ASSISTANT_AUDIO_PROVIDER = Symbol('ASSISTANT_AUDIO_PROVIDER');
