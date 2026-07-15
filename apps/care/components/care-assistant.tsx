@@ -1,9 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Icon } from '@/components/icon';
+import { extensionFor, preferredRecordingType } from '@/lib/assistant-audio';
+import {
+  AssistantRequestError,
+  fetchAssistant,
+  type AssistantFailureKind,
+} from '@/lib/assistant-request';
 
 type AssistantLocale = 'vi-VN' | 'en-US';
 type VoiceState = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'synthesizing' | 'speaking';
@@ -48,6 +54,14 @@ interface TranscriptionView {
   readonly locale: AssistantLocale;
 }
 
+interface RetryRequest {
+  readonly clientMessageId: string;
+  readonly message: string;
+  readonly locale: AssistantLocale;
+  readonly speakReply: boolean;
+  readonly source: 'keyboard' | 'voice';
+}
+
 const copy = {
   'vi-VN': {
     eyebrow: 'AI giọng nói · có người giám sát',
@@ -86,7 +100,12 @@ const copy = {
     transcriptionFailed: 'Chưa thể nhận dạng lời nói. Bác vui lòng thử lại.',
     assistantUnavailable: 'AI đang tạm nghỉ. Bác có thể gặp điều phối viên ngay.',
     sendFailed: 'Chưa thể gửi nội dung. Bác vui lòng thử lại.',
+    requestTimeout: 'Hệ thống phản hồi hơi lâu. Nội dung của bác vẫn còn và có thể thử lại.',
+    rateLimited: 'AI đang nhận nhiều yêu cầu. Bác vui lòng đợi một chút rồi thử lại.',
+    sessionExpired: 'Phiên đăng nhập đã hết hạn. Bác vui lòng đăng nhập lại để tiếp tục.',
     speechUnavailable: 'Chưa thể tự phát âm thanh. Bác hãy chạm “Nghe lại”.',
+    retry: 'Thử lại',
+    signIn: 'Đăng nhập lại',
     urgentNote: 'Nếu đang ở ngoài Việt Nam, hãy gọi số cấp cứu tại nơi bác đang ở.',
     welcome:
       'Chào bác, tôi là AI Hướng dẫn của Dental Trust. Bác có thể nói nhu cầu; mọi quyết định y khoa và xác nhận lịch vẫn do bác cùng đội ngũ chăm sóc thực hiện.',
@@ -128,7 +147,12 @@ const copy = {
     transcriptionFailed: 'I could not understand the recording. Please try again.',
     assistantUnavailable: 'AI is temporarily unavailable. You can talk to a coordinator now.',
     sendFailed: 'Your message could not be sent. Please try again.',
+    requestTimeout: 'The response is taking longer than expected. Your message is ready to retry.',
+    rateLimited: 'The AI is receiving many requests. Please wait a moment and try again.',
+    sessionExpired: 'Your session has expired. Please sign in again to continue.',
     speechUnavailable: 'Audio could not autoplay. Tap “Hear again”.',
+    retry: 'Try again',
+    signIn: 'Sign in again',
     urgentNote: 'If you are outside Vietnam, call the emergency number where you are.',
     welcome:
       'Hello, I am the Dental Trust AI Guide. You can tell me what you need; medical decisions and appointment confirmation remain with you and the care team.',
@@ -182,12 +206,19 @@ const emptyFields: CollectedFields = {
   decisionPriority: null,
 };
 
-export function CareAssistant({ initialLocale }: { readonly initialLocale: AssistantLocale }) {
+export function CareAssistant({
+  initialLocale,
+  loginHref,
+}: {
+  readonly initialLocale: AssistantLocale;
+  readonly loginHref: string;
+}) {
   const [locale, setLocale] = useState(initialLocale);
   const [noticeAccepted, setNoticeAccepted] = useState(false);
   const [sessionId, setSessionId] = useState<string>();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [errorKind, setErrorKind] = useState<AssistantFailureKind>();
   const [collected, setCollected] = useState<CollectedFields>(emptyFields);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([
     { id: 'welcome', role: 'ASSISTANT', content: copy[initialLocale].welcome },
@@ -197,14 +228,19 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
   const [slowSpeech, setSlowSpeech] = useState(true);
   const [lastTranscript, setLastTranscript] = useState('');
   const [lastAssistantReply, setLastAssistantReply] = useState<AssistantReply>();
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [retryRequest, setRetryRequest] = useState<RetryRequest>();
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
+  const recordingStopFallbackRef = useRef<number | null>(null);
+  const recordingFinalizeRef = useRef<(() => void) | null>(null);
   const discardRecordingRef = useRef(false);
+  const requestInFlightRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef('');
+  const feedbackRef = useRef<HTMLDivElement | null>(null);
   const ui = copy[locale];
 
   useEffect(() => {
@@ -215,6 +251,8 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
   useEffect(
     () => () => {
       if (recordingTimerRef.current !== null) window.clearTimeout(recordingTimerRef.current);
+      if (recordingStopFallbackRef.current !== null)
+        window.clearTimeout(recordingStopFallbackRef.current);
       const recorder = recorderRef.current;
       if (recorder && recorder.state !== 'inactive') {
         discardRecordingRef.current = true;
@@ -246,35 +284,63 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
     [messages],
   );
 
+  useEffect(() => {
+    if (!error && !latestResponse) return;
+    const frame = window.requestAnimationFrame(() =>
+      feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [error, latestResponse]);
+
+  function clearError() {
+    setError('');
+    setErrorKind(undefined);
+  }
+
+  function showError(message: string, kind?: AssistantFailureKind) {
+    setError(message);
+    setErrorKind(kind);
+  }
+
   function selectLocale(nextLocale: AssistantLocale) {
     if (nextLocale === locale) return;
     setLocale(nextLocale);
-    setError('');
+    clearError();
     if (messages.length === 1) {
       setMessages([{ id: 'welcome', role: 'ASSISTANT', content: copy[nextLocale].welcome }]);
     }
   }
 
-  function send(message: string, responseLocale = locale, speakReply = true) {
+  async function send(
+    message: string,
+    responseLocale = locale,
+    speakReply = true,
+    source: RetryRequest['source'] = 'keyboard',
+    existingClientMessageId?: string,
+  ): Promise<boolean> {
     const normalized = message.trim();
-    if (!normalized || isPending) return;
+    if (!normalized || requestInFlightRef.current) return false;
     if (!noticeAccepted) {
-      setError(copy[responseLocale].noticeRequired);
+      showError(copy[responseLocale].noticeRequired);
       setVoiceState('idle');
-      return;
+      return false;
     }
-    const clientMessageId = crypto.randomUUID();
-    setMessages((current) => [
-      ...current,
-      { id: clientMessageId, role: 'USER', content: normalized },
-    ]);
-    setInput('');
-    setError('');
+    const clientMessageId = existingClientMessageId ?? crypto.randomUUID();
+    requestInFlightRef.current = true;
+    setIsSubmitting(true);
+    setMessages((current) =>
+      current.some((item) => item.id === clientMessageId)
+        ? current
+        : [...current, { id: clientMessageId, role: 'USER', content: normalized }],
+    );
+    clearError();
+    setRetryRequest(undefined);
     setVoiceState('thinking');
 
-    startTransition(async () => {
-      try {
-        const response = await fetch('/api/care/assistant', {
+    try {
+      const response = await fetchAssistant(
+        '/api/care/assistant',
+        {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -284,61 +350,87 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
             message: normalized,
             acknowledgedAiNotice: true,
           }),
-        });
-        if (!response.ok) {
-          throw new Error(response.status === 503 ? 'unavailable' : 'failed');
-        }
-        const envelope = (await response.json()) as { readonly data: AssistantReply };
-        const reply = envelope.data;
-        setSessionId(reply.sessionId);
-        setCollected((current) => mergeFields(current, reply.collectedFields));
-        setMessages((current) => [
-          ...current,
-          {
-            id: reply.assistantMessageId,
-            role: 'ASSISTANT',
-            content: reply.reply,
-            response: reply,
-          },
-        ]);
-        setLastAssistantReply(reply);
-        if (speakReply) {
-          await prepareSpeech(reply, responseLocale);
-        } else {
-          setVoiceState('idle');
-        }
-      } catch (caught) {
-        setVoiceState('idle');
-        setError(
-          caught instanceof Error && caught.message === 'unavailable'
-            ? copy[responseLocale].assistantUnavailable
-            : copy[responseLocale].sendFailed,
-        );
+        },
+        25_000,
+      );
+      const envelope = (await response.json()) as { readonly data: AssistantReply };
+      const reply = envelope.data;
+      setSessionId(reply.sessionId);
+      setCollected((current) => mergeFields(current, reply.collectedFields));
+      setMessages((current) =>
+        current.some((item) => item.id === reply.assistantMessageId)
+          ? current
+          : [
+              ...current,
+              {
+                id: reply.assistantMessageId,
+                role: 'ASSISTANT',
+                content: reply.reply,
+                response: reply,
+              },
+            ],
+      );
+      setLastAssistantReply(reply);
+      if (source === 'keyboard') {
+        setInput((current) => (current.trim() === normalized ? '' : current));
       }
-    });
+      if (speakReply) {
+        await prepareSpeech(reply, responseLocale);
+      } else {
+        setVoiceState('idle');
+      }
+      return true;
+    } catch (caught) {
+      setMessages((current) => current.filter((item) => item.id !== clientMessageId));
+      setVoiceState('idle');
+      setRetryRequest({
+        clientMessageId,
+        message: normalized,
+        locale: responseLocale,
+        speakReply,
+        source,
+      });
+      showError(
+        errorMessage(caught, copy[responseLocale], copy[responseLocale].sendFailed),
+        failureKind(caught),
+      );
+      return false;
+    } finally {
+      requestInFlightRef.current = false;
+      setIsSubmitting(false);
+    }
   }
 
   async function prepareSpeech(reply: AssistantReply, speechLocale = locale) {
     setVoiceState('synthesizing');
     stopAudio(false);
     try {
-      const response = await fetch('/api/care/assistant/speech', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: reply.sessionId,
-          assistantMessageId: reply.assistantMessageId,
-          locale: speechLocale,
-        }),
-      });
-      if (!response.ok) throw new Error('speech');
+      const response = await fetchAssistant(
+        '/api/care/assistant/speech',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: reply.sessionId,
+            assistantMessageId: reply.assistantMessageId,
+            locale: speechLocale,
+          }),
+        },
+        40_000,
+      );
       const blob = await response.blob();
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = URL.createObjectURL(blob);
       playCurrentAudio(speechLocale);
-    } catch {
+    } catch (caught) {
       setVoiceState('idle');
-      setError(copy[speechLocale].speechUnavailable);
+      const kind = failureKind(caught);
+      showError(
+        kind === 'SESSION_EXPIRED'
+          ? copy[speechLocale].sessionExpired
+          : copy[speechLocale].speechUnavailable,
+        kind,
+      );
     }
   }
 
@@ -355,11 +447,11 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
     audio.onended = () => setVoiceState('idle');
     audio.onerror = () => {
       setVoiceState('idle');
-      setError(copy[speechLocale].speechUnavailable);
+      showError(copy[speechLocale].speechUnavailable);
     };
     void audio.play().catch(() => {
       setVoiceState('idle');
-      setError(copy[speechLocale].speechUnavailable);
+      showError(copy[speechLocale].speechUnavailable);
     });
   }
 
@@ -373,15 +465,15 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
 
   async function startRecording() {
     if (!noticeAccepted) {
-      setError(ui.noticeRequired);
+      showError(ui.noticeRequired);
       return;
     }
     if (!voiceSupported) {
-      setError(ui.unsupported);
+      showError(ui.unsupported);
       return;
     }
     stopAudio();
-    setError('');
+    clearError();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
@@ -389,27 +481,27 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
       recordingStreamRef.current = stream;
       recordingChunksRef.current = [];
       discardRecordingRef.current = false;
-      const mimeType = preferredRecordingType();
+      const mimeType = preferredRecordingType((type) => MediaRecorder.isTypeSupported(type));
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
-      recorderRef.current = recorder;
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) recordingChunksRef.current.push(event.data);
-      };
-      recorder.onerror = () => {
-        discardRecordingRef.current = true;
-        stopMediaStream(stream);
-        setVoiceState('idle');
-        setError(ui.transcriptionFailed);
-      };
-      recorder.onstop = () => {
+      const recordingLocale = locale;
+      let finalized = false;
+      const finalizeRecording = () => {
+        if (finalized) return;
+        finalized = true;
         if (recordingTimerRef.current !== null) {
           window.clearTimeout(recordingTimerRef.current);
           recordingTimerRef.current = null;
         }
+        if (recordingStopFallbackRef.current !== null) {
+          window.clearTimeout(recordingStopFallbackRef.current);
+          recordingStopFallbackRef.current = null;
+        }
         stopMediaStream(stream);
         recordingStreamRef.current = null;
+        recorderRef.current = null;
+        recordingFinalizeRef.current = null;
         const discard = discardRecordingRef.current;
         const blob = new Blob(recordingChunksRef.current, {
           type: recorder.mimeType || mimeType || 'audio/webm',
@@ -418,11 +510,23 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
         if (discard) return;
         if (blob.size < 256) {
           setVoiceState('idle');
-          setError(ui.tooShort);
+          showError(copy[recordingLocale].tooShort);
           return;
         }
-        void transcribe(blob, locale);
+        void transcribe(blob, recordingLocale);
       };
+      recorderRef.current = recorder;
+      recordingFinalizeRef.current = finalizeRecording;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        discardRecordingRef.current = true;
+        finalizeRecording();
+        setVoiceState('idle');
+        showError(copy[recordingLocale].transcriptionFailed);
+      };
+      recorder.onstop = finalizeRecording;
       recorder.start(250);
       setVoiceState('recording');
       recordingTimerRef.current = window.setTimeout(() => stopRecording(), 45_000);
@@ -430,35 +534,54 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
       stopMediaStream(recordingStreamRef.current);
       recordingStreamRef.current = null;
       setVoiceState('idle');
-      setError(ui.permissionDenied);
+      showError(ui.permissionDenied);
     }
   }
 
   function stopRecording() {
     const recorder = recorderRef.current;
-    if (recorder?.state === 'recording') recorder.stop();
+    if (!recorder) return;
+    if (recordingTimerRef.current !== null) {
+      window.clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setVoiceState('transcribing');
+    try {
+      if (recorder.state === 'recording') recorder.requestData();
+      if (recorder.state !== 'inactive') recorder.stop();
+      else recordingFinalizeRef.current?.();
+    } catch {
+      recordingFinalizeRef.current?.();
+    }
+    recordingStopFallbackRef.current = window.setTimeout(
+      () => recordingFinalizeRef.current?.(),
+      1_500,
+    );
   }
 
   async function transcribe(blob: Blob, localeHint: AssistantLocale) {
     setVoiceState('transcribing');
-    setError('');
+    clearError();
     const form = new FormData();
     form.append('file', blob, `voice-${Date.now()}.${extensionFor(blob.type)}`);
     form.append('locale', localeHint);
     try {
-      const response = await fetch('/api/care/assistant/transcriptions', {
-        method: 'POST',
-        body: form,
-      });
-      if (!response.ok) throw new Error('transcription');
+      const response = await fetchAssistant(
+        '/api/care/assistant/transcriptions',
+        { method: 'POST', body: form },
+        40_000,
+      );
       const envelope = (await response.json()) as { readonly data: TranscriptionView };
       const result = envelope.data;
       setLastTranscript(result.text);
       setLocale(result.locale);
-      send(result.text, result.locale, true);
-    } catch {
+      await send(result.text, result.locale, true, 'voice');
+    } catch (caught) {
       setVoiceState('idle');
-      setError(copy[localeHint].transcriptionFailed);
+      showError(
+        errorMessage(caught, copy[localeHint], copy[localeHint].transcriptionFailed),
+        failureKind(caught),
+      );
     }
   }
 
@@ -476,10 +599,16 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    send(input, locale, true);
+    void send(input, locale, true, 'keyboard');
   }
 
-  const busy = ['transcribing', 'thinking', 'synthesizing'].includes(voiceState) || isPending;
+  function handleKeyboardKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
+
+  const busy = ['transcribing', 'thinking', 'synthesizing'].includes(voiceState) || isSubmitting;
   const voiceLabel =
     voiceState === 'recording'
       ? ui.tapToStop
@@ -511,7 +640,7 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
               checked={noticeAccepted}
               onChange={(event) => {
                 setNoticeAccepted(event.target.checked);
-                if (event.target.checked) setError('');
+                if (event.target.checked) clearError();
               }}
               type="checkbox"
             />
@@ -589,29 +718,54 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
             <p>“{lastTranscript}”</p>
           </div>
         ) : null}
-
-        {latestResponse ? (
-          <div className="assistant-voice__answer" aria-live="polite">
-            <small>{ui.answer}</small>
-            <p>{latestResponse.content}</p>
-            {latestResponse.response?.safetyLevel === 'URGENT' ? (
-              <span className="urgent-note">{ui.urgentNote}</span>
-            ) : null}
-            {latestResponse.response && latestResponse.response.suggestedAction !== 'NONE' ? (
-              <AssistantActionLink
-                action={latestResponse.response.suggestedAction}
-                locale={locale}
-                startHref={startHref}
-              />
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
-      {error ? (
-        <div className="assistant-error" role="alert">
-          <p>{error}</p>
-          <Link href="/messages">{ui.humanSupport}</Link>
+      {error || latestResponse ? (
+        <div className="assistant-feedback" ref={feedbackRef}>
+          {error ? (
+            <div className="assistant-error" role="alert">
+              <p>{error}</p>
+              <div className="assistant-error__actions">
+                {errorKind === 'SESSION_EXPIRED' ? (
+                  <a href={loginHref}>{ui.signIn}</a>
+                ) : retryRequest ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void send(
+                        retryRequest.message,
+                        retryRequest.locale,
+                        retryRequest.speakReply,
+                        retryRequest.source,
+                        retryRequest.clientMessageId,
+                      )
+                    }
+                    type="button"
+                  >
+                    {ui.retry}
+                  </button>
+                ) : null}
+                <Link href="/messages">{ui.humanSupport}</Link>
+              </div>
+            </div>
+          ) : null}
+
+          {latestResponse ? (
+            <div className="assistant-voice__answer" aria-live="polite">
+              <small>{ui.answer}</small>
+              <p>{latestResponse.content}</p>
+              {latestResponse.response?.safetyLevel === 'URGENT' ? (
+                <span className="urgent-note">{ui.urgentNote}</span>
+              ) : null}
+              {latestResponse.response && latestResponse.response.suggestedAction !== 'NONE' ? (
+                <AssistantActionLink
+                  action={latestResponse.response.suggestedAction}
+                  locale={locale}
+                  startHref={startHref}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -647,9 +801,9 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
             <div className="assistant-starters">
               {starterQuestions[locale].map((question) => (
                 <button
-                  disabled={isPending}
+                  disabled={busy}
                   key={question}
-                  onClick={() => send(question)}
+                  onClick={() => void send(question)}
                   type="button"
                 >
                   {question}
@@ -660,17 +814,24 @@ export function CareAssistant({ initialLocale }: { readonly initialLocale: Assis
           <form className="assistant-composer" onSubmit={submit}>
             <textarea
               aria-label={ui.keyboard}
-              disabled={isPending}
+              disabled={busy}
               maxLength={2_000}
               onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyboardKeyDown}
               placeholder={ui.keyboardPlaceholder}
               rows={2}
               value={input}
             />
-            <button aria-label={ui.send} disabled={isPending || !input.trim()} type="submit">
+            <button aria-label={ui.send} disabled={busy || !input.trim()} type="submit">
               <Icon name="arrow" />
             </button>
           </form>
+          {busy ? (
+            <p className="assistant-keyboard__status" role="status">
+              <span className={`assistant-voice__dot assistant-voice__dot--${voiceState}`} />
+              {voiceStatus}
+            </p>
+          ) : null}
         </div>
       </details>
     </main>
@@ -727,20 +888,27 @@ function statusFor(state: VoiceState, ui: (typeof copy)[AssistantLocale]): strin
   }
 }
 
-function preferredRecordingType(): string {
-  return (
-    ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find((type) =>
-      MediaRecorder.isTypeSupported(type),
-    ) ?? ''
-  );
+function failureKind(error: unknown): AssistantFailureKind | undefined {
+  return error instanceof AssistantRequestError ? error.kind : undefined;
 }
 
-function extensionFor(contentType: string): string {
-  if (contentType.startsWith('audio/mp4')) return 'mp4';
-  if (contentType.startsWith('audio/mpeg')) return 'mp3';
-  if (contentType.startsWith('audio/wav')) return 'wav';
-  if (contentType.startsWith('audio/ogg')) return 'ogg';
-  return 'webm';
+function errorMessage(
+  error: unknown,
+  ui: (typeof copy)[AssistantLocale],
+  fallback: string,
+): string {
+  switch (failureKind(error)) {
+    case 'SESSION_EXPIRED':
+      return ui.sessionExpired;
+    case 'RATE_LIMITED':
+      return ui.rateLimited;
+    case 'TIMEOUT':
+      return ui.requestTimeout;
+    case 'UNAVAILABLE':
+      return ui.assistantUnavailable;
+    default:
+      return fallback;
+  }
 }
 
 function stopMediaStream(stream: MediaStream | null): void {

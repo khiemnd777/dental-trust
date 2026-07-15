@@ -10,35 +10,43 @@ export async function forwardCareAction(
   timeoutMs = 8_000,
 ) {
   const token = (await cookies()).get('dt_session')?.value;
-  if (!token) return new Response('Unauthorized', { status: 401 });
-  const response = await fetch(`${apiBase()}${path}`, {
-    method,
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-      'x-idempotency-key': crypto.randomUUID(),
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    cache: 'no-store',
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  return proxiedResponse(response);
+  if (!token) return careProxyError(401, 'AUTHENTICATION_REQUIRED', false);
+  try {
+    const response = await fetch(`${apiBase()}${path}`, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'x-idempotency-key': crypto.randomUUID(),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return proxiedResponse(response);
+  } catch (error) {
+    return proxyTransportError(error);
+  }
 }
 
 export async function forwardCareFormData(path: string, body: FormData, timeoutMs = 30_000) {
   const token = (await cookies()).get('dt_session')?.value;
-  if (!token) return new Response('Unauthorized', { status: 401 });
-  const response = await fetch(`${apiBase()}${path}`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'x-idempotency-key': crypto.randomUUID(),
-    },
-    body,
-    cache: 'no-store',
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  return proxiedResponse(response);
+  if (!token) return careProxyError(401, 'AUTHENTICATION_REQUIRED', false);
+  try {
+    const response = await fetch(`${apiBase()}${path}`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-idempotency-key': crypto.randomUUID(),
+      },
+      body,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return proxiedResponse(response);
+  } catch (error) {
+    return proxyTransportError(error);
+  }
 }
 
 function proxiedResponse(response: Response): Response {
@@ -49,4 +57,36 @@ function proxiedResponse(response: Response): Response {
   const contentDisposition = response.headers.get('content-disposition');
   if (contentDisposition) headers.set('content-disposition', contentDisposition);
   return new Response(response.body, { status: response.status, headers });
+}
+
+function proxyTransportError(error: unknown): Response {
+  const timedOut =
+    error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+  return timedOut
+    ? careProxyError(504, 'CARE_UPSTREAM_TIMEOUT', true)
+    : careProxyError(502, 'CARE_UPSTREAM_UNAVAILABLE', true);
+}
+
+function careProxyError(status: number, code: string, retryable: boolean): Response {
+  const requestId = crypto.randomUUID();
+  return Response.json(
+    {
+      error: {
+        code,
+        message:
+          status === 401
+            ? 'Authentication is required.'
+            : 'The Care service is temporarily unavailable.',
+        requestId,
+        retryable,
+      },
+    },
+    {
+      status,
+      headers: {
+        'cache-control': 'private, no-store',
+        'x-request-id': requestId,
+      },
+    },
+  );
 }

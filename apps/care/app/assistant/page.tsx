@@ -7,5 +7,11 @@ export const metadata: Metadata = { title: 'AI Hướng dẫn' };
 
 export default async function AssistantPage() {
   const profile = await getCareProfile();
-  return <CareAssistant initialLocale={profile?.preferredLocale ?? 'vi-VN'} />;
+  const publicAppUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:3003';
+  return (
+    <CareAssistant
+      initialLocale={profile?.preferredLocale ?? 'vi-VN'}
+      loginHref={`${publicAppUrl}/vi/auth/login?product=care`}
+    />
+  );
 }

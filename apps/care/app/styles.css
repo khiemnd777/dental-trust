@@ -4026,15 +4026,36 @@ textarea:focus-visible {
   padding: 0.8rem 0.9rem;
 }
 
+.assistant-feedback {
+  scroll-margin-block: 6rem;
+}
+
 .assistant-error p {
   line-height: 1.4;
   margin: 0;
 }
 
-.assistant-error a {
-  color: var(--care-danger);
+.assistant-error__actions {
+  align-items: center;
+  display: flex;
   flex: 0 0 auto;
+  gap: 0.65rem;
+}
+
+.assistant-error a,
+.assistant-error button {
+  background: transparent;
+  border: 0;
+  color: var(--care-danger);
+  cursor: pointer;
   font-weight: 800;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.assistant-error button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .assistant-transcript,
@@ -4072,6 +4093,16 @@ textarea:focus-visible {
 .assistant-keyboard__body {
   border-top: 1px solid var(--care-border);
   padding: 0 0.9rem 0.9rem;
+}
+
+.assistant-keyboard__status {
+  align-items: center;
+  color: var(--care-ink-soft);
+  display: flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
 }
 
 .assistant-chat {
