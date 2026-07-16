@@ -34,7 +34,7 @@ jobs:
           created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           echo "created=$created" >> "$GITHUB_OUTPUT"
           node -e "require('node:fs').writeFileSync('build-version.json', JSON.stringify({commit:process.env.COMMIT_SHA,repository:process.env.REPOSITORY,runId:process.env.RUN_ID,created:process.argv[1]},null,2)+'\n')" "$created"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: build-version-${{ github.sha }}
           path: build-version.json
