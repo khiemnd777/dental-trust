@@ -132,6 +132,9 @@ importers:
 
   apps/care:
     dependencies:
+      '@dental-trust/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@dental-trust/ui':
         specifier: workspace:*
         version: link:../../packages/ui

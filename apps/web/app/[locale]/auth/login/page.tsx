@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getMessages, isLocale } from '@dental-trust/i18n';
 import { Alert, Button, Card, Checkbox, Field, Icon } from '@dental-trust/ui';
 import { AuthShell } from '@/components/auth-shell';
+import { authContinuationFromQuery, authUrl } from '@/lib/auth-continuation';
 import { loginAction } from '../actions';
 
 export default async function LoginPage({
@@ -10,12 +11,20 @@ export default async function LoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string; returnTo?: string; product?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    returnTo?: string;
+    product?: string;
+    intent?: string;
+    clinic?: string;
+    dentist?: string;
+  }>;
 }) {
   const { locale } = await params;
   const query = await searchParams;
   if (!isLocale(locale)) notFound();
   const messages = getMessages(locale);
+  const continuation = authContinuationFromQuery(locale, query);
   const action = loginAction.bind(null, locale);
   const error =
     query.error === 'permission'
@@ -44,8 +53,11 @@ export default async function LoginPage({
           className="auth-form"
           style={{ marginTop: error ? '1rem' : undefined }}
         >
-          <input name="returnTo" type="hidden" value={query.returnTo ?? ''} />
-          <input name="product" type="hidden" value={query.product ?? ''} />
+          <input name="returnTo" type="hidden" value={continuation.returnTo ?? ''} />
+          <input name="product" type="hidden" value={continuation.product ?? ''} />
+          <input name="intent" type="hidden" value={continuation.intent ?? ''} />
+          <input name="clinic" type="hidden" value={continuation.clinic ?? ''} />
+          <input name="dentist" type="hidden" value={continuation.dentist ?? ''} />
           <Field
             label={messages.auth.email}
             name="email"
@@ -74,7 +86,7 @@ export default async function LoginPage({
         </form>
         <p className="auth-form__footer">
           {messages.auth.noAccount}{' '}
-          <Link className="text-link" href={`/${locale}/auth/register`}>
+          <Link className="text-link" href={authUrl(`/${locale}/auth/register`, continuation)}>
             {messages.auth.register}
           </Link>
         </p>
@@ -85,7 +97,10 @@ export default async function LoginPage({
             <div className="demo-buttons">
               {demoAreas.map(([area, label]) => (
                 <form action={action} key={area}>
-                  <input name="product" type="hidden" value={query.product ?? ''} />
+                  <input name="product" type="hidden" value={continuation.product ?? ''} />
+                  <input name="intent" type="hidden" value={continuation.intent ?? ''} />
+                  <input name="clinic" type="hidden" value={continuation.clinic ?? ''} />
+                  <input name="dentist" type="hidden" value={continuation.dentist ?? ''} />
                   <input name="demoArea" type="hidden" value={area} />
                   <input name="email" type="hidden" value={`${area}@dentaltrust.local`} />
                   <input name="password" type="hidden" value="DentalTrust!2026" />

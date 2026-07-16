@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isSameOriginRequest } from './request-origin';
 
-function request(
-  url: string,
-  headers: Record<string, string>,
-): Request {
+function request(url: string, headers: Record<string, string>): Request {
   return new Request(url, { headers, method: 'POST' });
 }
 

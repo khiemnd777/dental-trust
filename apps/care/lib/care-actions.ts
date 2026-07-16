@@ -8,6 +8,7 @@ export async function forwardCareAction(
   method: 'POST' | 'DELETE' | 'PUT' | 'PATCH',
   body?: unknown,
   timeoutMs = 8_000,
+  idempotencyKey = crypto.randomUUID(),
 ) {
   const token = (await cookies()).get('dt_session')?.value;
   if (!token) return careProxyError(401, 'AUTHENTICATION_REQUIRED', false);
@@ -17,7 +18,7 @@ export async function forwardCareAction(
       headers: {
         authorization: `Bearer ${token}`,
         'content-type': 'application/json',
-        'x-idempotency-key': crypto.randomUUID(),
+        'x-idempotency-key': idempotencyKey,
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       cache: 'no-store',
@@ -29,7 +30,12 @@ export async function forwardCareAction(
   }
 }
 
-export async function forwardCareFormData(path: string, body: FormData, timeoutMs = 30_000) {
+export async function forwardCareFormData(
+  path: string,
+  body: FormData,
+  timeoutMs = 30_000,
+  idempotencyKey = crypto.randomUUID(),
+) {
   const token = (await cookies()).get('dt_session')?.value;
   if (!token) return careProxyError(401, 'AUTHENTICATION_REQUIRED', false);
   try {
@@ -37,7 +43,7 @@ export async function forwardCareFormData(path: string, body: FormData, timeoutM
       method: 'POST',
       headers: {
         authorization: `Bearer ${token}`,
-        'x-idempotency-key': crypto.randomUUID(),
+        'x-idempotency-key': idempotencyKey,
       },
       body,
       cache: 'no-store',
@@ -47,6 +53,11 @@ export async function forwardCareFormData(path: string, body: FormData, timeoutM
   } catch (error) {
     return proxyTransportError(error);
   }
+}
+
+export function careIdempotencyKey(request: Request): string {
+  const value = request.headers.get('x-idempotency-key');
+  return value && /^[A-Za-z0-9_-]{16,220}$/u.test(value) ? value : crypto.randomUUID();
 }
 
 function proxiedResponse(response: Response): Response {

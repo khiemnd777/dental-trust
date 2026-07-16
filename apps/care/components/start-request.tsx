@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { Icon, type IconName } from '@/components/icon';
+import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
 
 const needs = [
   { code: 'DENTAL_IMPLANT', label: 'Mất răng / Implant', icon: 'implant' },
@@ -27,7 +28,17 @@ const priorityOptions = [
   ['AFTERCARE', 'Hỗ trợ sau điều trị', 'Có người theo dõi khi tôi đã về nhà', 'support'],
 ] as const;
 
-export function StartRequest() {
+export function StartRequest({
+  initialLocation,
+  preferredClinic,
+}: {
+  readonly initialLocation: string;
+  readonly preferredClinic: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  } | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
@@ -42,17 +53,20 @@ export function StartRequest() {
     : 'TRUST';
   const [need, setNeed] = useState(initialNeed);
   const [location, setLocation] = useState(
-    searchParams.get('location')?.slice(0, 120) || 'TP. Hồ Chí Minh',
+    searchParams.get('location')?.slice(0, 120) || initialLocation,
   );
   const [timing, setTiming] = useState(initialTiming);
   const [priority, setPriority] = useState(initialPriority);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const clinic = searchParams.get('clinic');
 
   function next() {
     if (step === 1 && !need) {
       setError('Chọn điều bạn đang quan tâm để tiếp tục.');
+      return;
+    }
+    if (step === 2 && location.trim().length < 2) {
+      setError('Nhập thành phố hoặc khu vực có ít nhất 2 ký tự.');
       return;
     }
     setError('');
@@ -60,22 +74,32 @@ export function StartRequest() {
   }
 
   function submit() {
+    if (!need || location.trim().length < 2) {
+      setError('Kiểm tra lại nhu cầu và khu vực trước khi tạo yêu cầu.');
+      return;
+    }
     startTransition(async () => {
       const label = needs.find((item) => item.code === need)?.label ?? 'Yêu cầu chăm sóc nha khoa';
-      const response = await fetch('/api/care/cases', {
+      const result = await careMutation<Record<string, unknown>>('/api/care/cases', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          title: `${label}${clinic ? ` · ${clinic}` : ''}`,
+          title: `${label}${preferredClinic ? ` · ${preferredClinic.name}` : ''}`,
           desiredProcedureCode: need,
-          preferredLocation: location,
+          preferredLocation: location.trim(),
           preferredCurrency: 'VND',
           timingPreference: timing,
           decisionPriority: priority,
+          ...(preferredClinic ? { preferredClinicId: preferredClinic.id } : {}),
         }),
       });
-      if (!response.ok) {
-        setError('Chưa thể tạo yêu cầu. Vui lòng thử lại hoặc nhắn điều phối viên.');
+      if (!result.ok) {
+        setError(
+          careMutationErrorMessage(
+            result.error,
+            'Chưa thể tạo yêu cầu. Vui lòng thử lại hoặc nhắn điều phối viên.',
+          ),
+        );
         return;
       }
       router.push('/journey?created=1');
@@ -86,7 +110,7 @@ export function StartRequest() {
   return (
     <main className="request-flow">
       <header className="request-flow__header">
-        <Link aria-label="Đóng" href={clinic ? `/discover/${clinic}` : '/'}>
+        <Link aria-label="Đóng" href={preferredClinic ? `/discover/${preferredClinic.slug}` : '/'}>
           <Icon name="close" />
         </Link>
         <div className="request-progress" aria-label={`Bước ${step} trên 4`}>
@@ -137,7 +161,13 @@ export function StartRequest() {
               <Icon name="location" />
               <span>
                 <small>Thành phố / khu vực</small>
-                <input onChange={(event) => setLocation(event.target.value)} value={location} />
+                <input
+                  aria-invalid={Boolean(error) && location.trim().length < 2}
+                  maxLength={120}
+                  onChange={(event) => setLocation(event.target.value)}
+                  required
+                  value={location}
+                />
               </span>
             </label>
             <div className="request-options">
@@ -217,6 +247,12 @@ export function StartRequest() {
                   {priorityOptions.find(([value]) => value === priority)?.[1] ?? 'Độ tin cậy'}
                 </strong>
               </span>
+              {preferredClinic ? (
+                <span>
+                  <small>Phòng khám quan tâm</small>
+                  <strong>{preferredClinic.name}</strong>
+                </span>
+              ) : null}
             </div>
             <div className="privacy-note">
               <Icon name="lock" />

@@ -4,6 +4,10 @@ const realApi = Boolean(process.env.E2E_REAL_API);
 const api = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:4000/api/v1';
 const seedPassword = 'DentalTrustDev!2026';
 
+function createValidRegistrationInput() {
+  return String.fromCharCode(65) + crypto.randomUUID() + String.fromCharCode(122);
+}
+
 test.describe('real API boundary', () => {
   test.skip(!realApi, 'Requires the isolated migrated and seeded E2E database.');
 
@@ -41,6 +45,40 @@ test.describe('real API boundary', () => {
     const firstBody = (await first.json()) as { data: { id: string } };
     const replayBody = (await replay.json()) as { data: { id: string } };
     expect(replayBody.data.id).toBe(firstBody.data.id);
+  });
+
+  test('registration rejects a weak password at the shared API contract', async ({ request }) => {
+    const response = await request.post(`${api}/auth/register`, {
+      data: {
+        email: `weak-${Date.now()}@example.com`,
+        password: 'a'.repeat(12),
+        preferredLocale: 'en-US',
+        termsVersion: '2026-07-12',
+        privacyVersion: '2026-07-12',
+      },
+    });
+
+    expect(response.status()).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'VALIDATION_ERROR', fieldErrors: { password: expect.any(Array) } },
+    });
+  });
+
+  test('registration Save reaches the real API and preserves Care context', async ({ page }) => {
+    const credential = createValidRegistrationInput();
+    await page.goto(
+      '/en/auth/register?product=care&intent=consultation&clinic=minh-an-dental-center',
+    );
+    await page.getByLabel('Email').fill(`care-save-${Date.now()}@example.com`);
+    await page.locator('input[name="password"]').fill(credential);
+    await page.getByLabel('Confirm password').fill(credential);
+    await page.getByLabel(/I agree to the Terms/u).check();
+    await page.getByRole('button', { name: 'Create account' }).click();
+
+    await expect(page).toHaveURL(
+      /\/en\/auth\/verify-email\?product=care&intent=consultation&clinic=minh-an-dental-center$/u,
+    );
+    await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible();
   });
 
   test('clinic access requires an explicitly selected active organization', async ({ request }) => {

@@ -3,7 +3,14 @@ import Link from 'next/link';
 
 import { Icon } from '@/components/icon';
 import { getCareHomeData } from '@/lib/care-data';
-import { actionFor, actionHref, firstName, formatDateTime, stageLabel } from '@/lib/presentation';
+import {
+  actionFor,
+  actionHref,
+  dayPeriodGreeting,
+  firstName,
+  formatDateTime,
+  stageLabel,
+} from '@/lib/presentation';
 
 export const metadata: Metadata = { title: 'Hôm nay' };
 
@@ -17,11 +24,21 @@ export default async function TodayPage() {
     <main className="care-main today-page">
       <header className="page-intro today-intro">
         <div>
-          <p className="eyebrow">Chào buổi sáng, {greeting}</p>
-          <h1>{journey ? 'Mọi thứ đang đúng tiến độ' : 'Bắt đầu khi bạn sẵn sàng'}</h1>
+          <p className="eyebrow">
+            {dayPeriodGreeting()}, {greeting}
+          </p>
+          <h1>
+            {!journey
+              ? 'Bắt đầu khi bạn sẵn sàng'
+              : journey.urgency === 'ROUTINE'
+                ? 'Mọi thứ đang đúng tiến độ'
+                : journey.urgency === 'URGENT'
+                  ? 'Có yêu cầu cần được ưu tiên'
+                  : 'Có việc cần bạn chú ý'}
+          </h1>
         </div>
-        <span className="today-intro__weather" aria-label="Thời tiết dễ chịu, 29 độ">
-          <Icon name="sparkle" /> 29°
+        <span className="today-intro__weather" aria-label="Phiên Care được bảo vệ">
+          <Icon name="shield" /> Bảo mật
         </span>
       </header>
 
@@ -37,7 +54,11 @@ export default async function TodayPage() {
           <div className="journey-hero__content">
             <div className="status-row">
               <span className={`status-pill status-pill--${journey.urgency.toLowerCase()}`}>
-                {journey.urgency === 'ROUTINE' ? 'Đang tiến hành' : 'Cần chú ý'}
+                {journey.urgency === 'ROUTINE'
+                  ? 'Đang tiến hành'
+                  : journey.urgency === 'URGENT'
+                    ? 'Cần hỗ trợ khẩn cấp'
+                    : 'Cần chú ý'}
               </span>
               <span>{journey.caseNumber}</span>
             </div>
@@ -89,7 +110,7 @@ export default async function TodayPage() {
         </div>
         <Link
           className="primary-button primary-button--wide"
-          href={actionHref(journey?.primaryAction.code ?? 'NONE')}
+          href={actionHref(journey?.primaryAction.code ?? 'NONE', journey?.caseId)}
         >
           {action.label} <Icon name="arrow" />
         </Link>
@@ -144,15 +165,14 @@ export default async function TodayPage() {
 
       <section className="support-card">
         <div className="support-avatar">
-          <span>AN</span>
-          <i aria-label="Đang trực tuyến" />
+          <span>DT</span>
         </div>
         <div>
           <p className="eyebrow">Luôn có người hỗ trợ</p>
-          <h2>An · Điều phối viên</h2>
+          <h2>Đội ngũ chăm sóc Dental Trust</h2>
           <p>Hỏi bất cứ điều gì về hành trình của bạn.</p>
         </div>
-        <Link aria-label="Nhắn tin cho An" className="round-action" href="/messages">
+        <Link aria-label="Nhắn tin cho đội ngũ chăm sóc" className="round-action" href="/messages">
           <Icon name="message" />
         </Link>
       </section>

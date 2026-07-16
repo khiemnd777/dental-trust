@@ -75,10 +75,7 @@ export function ProviderShell({
         <div className="provider-nav-label provider-nav-label--management">Quản lý</div>
         <nav aria-label="Provider management navigation" className="provider-management-nav">
           {managementNavigation.map((item) => (
-            <a
-              href={item.href}
-              key={item.href}
-            >
+            <a href={item.href} key={item.href}>
               <span className="provider-nav-icon">
                 <ProviderIcon name={item.icon} />
               </span>

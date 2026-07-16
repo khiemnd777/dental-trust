@@ -62,16 +62,37 @@ test('contact request is acknowledged only after the local adapter accepts it', 
 test('patient registration, email verification, and profile entry are connected', async ({
   page,
 }) => {
+  const credential = String.fromCharCode(65) + crypto.randomUUID() + String.fromCharCode(122);
+
   await page.goto('/en/auth/register');
   await page.getByLabel('Email').fill(`patient-${Date.now()}@example.com`);
-  await page.locator('input[name="password"]').fill('DentalTrust2026');
-  await page.getByLabel('Confirm password').fill('DentalTrust2026');
+  await page.locator('input[name="password"]').fill(credential);
+  await page.getByLabel('Confirm password').fill(credential);
   await page.getByLabel(/I agree to the Terms/).check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/en\/auth\/verify-email/);
   await page.getByLabel('6-digit code').fill('246810');
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page).toHaveURL(/\/en\/app$/);
+});
+
+test('registration blocks a weak password before Save reaches the API', async ({ page }) => {
+  const weakCredential = 'a'.repeat(12);
+
+  await page.goto('/en/auth/register?product=care');
+  await expect(page.getByText(/upper-case, lower-case, and a number/u)).toBeVisible();
+  await page.getByLabel('Email').fill(`weak-${Date.now()}@example.com`);
+  await page.locator('input[name="password"]').fill(weakCredential);
+  await page.getByLabel('Confirm password').fill(weakCredential);
+  await page.getByLabel(/I agree to the Terms/).check();
+  await page.getByRole('button', { name: 'Create account' }).click();
+
+  await expect(page).toHaveURL(/\/en\/auth\/register\?product=care$/);
+  expect(
+    await page
+      .locator('input[name="password"]')
+      .evaluate((input: HTMLInputElement) => input.validity.valid),
+  ).toBe(false);
 });
 
 test('privacy mutation receives adapter acknowledgement and updates the workspace', async ({
@@ -133,7 +154,6 @@ for (const access of [
       const response = await page.goto(href as string);
       expect(response?.status(), href as string).toBeLessThan(400);
       await expect(page.locator('main#main-content:not([aria-busy])')).toBeVisible();
-      await page.waitForLoadState('networkidle');
     }
   });
 }

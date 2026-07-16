@@ -19,15 +19,14 @@ export default async function MessagesPage() {
 
       <section className="coordinator-card">
         <div className="support-avatar support-avatar--large">
-          <span>AN</span>
-          <i aria-label="Đang trực tuyến" />
+          <span>DT</span>
         </div>
         <div>
-          <small>Điều phối viên của bạn</small>
-          <h2>An Nguyễn</h2>
-          <p>Thường phản hồi trong vòng 15 phút</p>
+          <small>Kênh hỗ trợ theo hành trình</small>
+          <h2>Đội ngũ chăm sóc Dental Trust</h2>
+          <p>Phản hồi được ưu tiên theo lịch hẹn và mức độ cần hỗ trợ.</p>
         </div>
-        <span className="online-pill">Đang trực tuyến</span>
+        <span className="online-pill">Kênh bảo mật</span>
       </section>
 
       <section className="conversation-list" aria-labelledby="conversation-title">

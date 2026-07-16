@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { Icon } from '@/components/icon';
+import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
 
 export function MessageComposer({ caseId, threadId }: { caseId: string; threadId: string }) {
   const router = useRouter();
@@ -12,15 +13,16 @@ export function MessageComposer({ caseId, threadId }: { caseId: string; threadId
   const [isPending, startTransition] = useTransition();
 
   function send() {
-    if (!message.trim()) return;
+    const messageBody = message.trim();
+    if (!messageBody) return;
     startTransition(async () => {
-      const response = await fetch('/api/care/messages', {
+      const result = await careMutation<Record<string, unknown>>('/api/care/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ caseId, threadId, messageBody: message }),
+        body: JSON.stringify({ caseId, threadId, messageBody }),
       });
-      if (!response.ok) {
-        setError('Chưa gửi được. Vui lòng thử lại.');
+      if (!result.ok) {
+        setError(careMutationErrorMessage(result.error, 'Chưa gửi được. Vui lòng thử lại.'));
         return;
       }
       setMessage('');

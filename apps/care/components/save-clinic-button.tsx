@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 
 import { Icon } from '@/components/icon';
+import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
 
 export function SaveClinicButton({
   clinicId,
@@ -21,19 +22,18 @@ export function SaveClinicButton({
     setSavedId(saved ? null : `optimistic-${clinicId}`);
     setFeedback(saved ? 'Đã bỏ lưu' : 'Đã lưu để xem sau');
     startTransition(async () => {
-      const response = await fetch('/api/care/saved-clinics', {
+      const result = await careMutation<{ readonly id?: string }>('/api/care/saved-clinics', {
         method: saved ? 'DELETE' : 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(saved ? { savedClinicId: savedId } : { clinicId }),
       });
-      if (!response.ok) {
+      if (!result.ok) {
         setSavedId(previous);
-        setFeedback('Chưa thể cập nhật. Vui lòng thử lại.');
+        setFeedback(careMutationErrorMessage(result.error, 'Chưa thể cập nhật. Vui lòng thử lại.'));
         return;
       }
       if (!saved) {
-        const payload = (await response.json()) as { data?: { id?: string } };
-        setSavedId(payload.data?.id ?? `saved-${clinicId}`);
+        setSavedId(result.data.id ?? `saved-${clinicId}`);
       }
     });
   }

@@ -66,7 +66,7 @@ Seed identities and development-only passwords are documented in [Local developm
 
 | Command                               | Purpose                                                         |
 | ------------------------------------- | --------------------------------------------------------------- |
-| `make restart`                        | Rebuild, migrate, restart, and health-check the local stack      |
+| `make restart`                        | Rebuild, migrate, restart, and health-check the local stack     |
 | `pnpm dev`                            | Run web, API, and worker in watch mode                          |
 | `pnpm build`                          | Create production builds for all workspaces                     |
 | `pnpm start`                          | Start built applications                                        |

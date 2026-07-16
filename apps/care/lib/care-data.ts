@@ -139,27 +139,62 @@ export interface BookingCheckoutOption {
 }
 
 interface Envelope<T> {
-  readonly data?: T;
+  readonly data: T;
+}
+
+interface ErrorEnvelope {
+  readonly error?: {
+    readonly code?: string;
+    readonly message?: string;
+    readonly retryable?: boolean;
+  };
+}
+
+export class CareDataError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    readonly retryable: boolean,
+  ) {
+    super(`Care data request failed: ${code}`);
+    this.name = 'CareDataError';
+  }
 }
 
 const apiBase = () =>
   process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
-async function careApi<T>(path: string, authenticated = true): Promise<T | null> {
+async function careApi<T>(path: string, authenticated = true): Promise<T> {
   const token = authenticated ? (await cookies()).get('dt_session')?.value : undefined;
-  if (authenticated && !token) return null;
+  if (authenticated && !token) throw new CareDataError(401, 'AUTHENTICATION_REQUIRED', false);
+  let response: Response;
   try {
-    const response = await fetch(`${apiBase()}${path}`, {
+    response = await fetch(`${apiBase()}${path}`, {
       ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}),
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
     });
-    if (!response.ok) return null;
-    const envelope = (await response.json()) as Envelope<T>;
-    return envelope.data ?? null;
-  } catch {
-    return null;
+  } catch (error) {
+    const timedOut =
+      error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+    throw new CareDataError(
+      timedOut ? 504 : 502,
+      timedOut ? 'CARE_UPSTREAM_TIMEOUT' : 'CARE_UPSTREAM_UNAVAILABLE',
+      true,
+    );
   }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as ErrorEnvelope | null;
+    throw new CareDataError(
+      response.status,
+      payload?.error?.code ?? `HTTP_${response.status}`,
+      payload?.error?.retryable ?? response.status >= 500,
+    );
+  }
+  const envelope = (await response.json().catch(() => null)) as Envelope<T> | null;
+  if (!envelope || !Object.hasOwn(envelope, 'data'))
+    throw new CareDataError(502, 'CARE_INVALID_RESPONSE', true);
+  return envelope.data;
 }
 
 export async function getCareHomeData() {
@@ -170,8 +205,8 @@ export async function getCareHomeData() {
   ]);
   return {
     profile,
-    journeys: journeys ?? [],
-    notifications: notifications ?? [],
+    journeys,
+    notifications,
   };
 }
 
@@ -184,7 +219,7 @@ export async function getDiscoveryData() {
     careApi<readonly ClinicOption[]>('/public/clinics?locale=vi-VN&limit=20', false),
     careApi<readonly SavedClinic[]>('/saved-clinics?limit=50'),
   ]);
-  return { clinics: clinics ?? [], saved: saved ?? [] };
+  return { clinics, saved };
 }
 
 export async function getClinic(slug: string) {
@@ -192,15 +227,15 @@ export async function getClinic(slug: string) {
     '/public/clinics?locale=vi-VN&limit=50',
     false,
   );
-  return clinics?.find((clinic) => clinic.slug === slug) ?? null;
+  return clinics.find((clinic) => clinic.slug === slug) ?? null;
 }
 
 export async function getSavedClinics() {
-  return (await careApi<readonly SavedClinic[]>('/saved-clinics?limit=50')) ?? [];
+  return careApi<readonly SavedClinic[]>('/saved-clinics?limit=50');
 }
 
 export async function getJourneyData(caseId?: string) {
-  const journeys = (await careApi<readonly JourneySummary[]>('/cases/today?limit=25')) ?? [];
+  const journeys = await careApi<readonly JourneySummary[]>('/cases/today?limit=25');
   const selected = journeys.find((journey) => journey.caseId === caseId) ?? journeys[0] ?? null;
   const detail = selected
     ? await careApi<Record<string, unknown>>(`/cases/${selected.caseId}/journey`)
@@ -215,7 +250,9 @@ export async function getMessageData() {
       const result = await careApi<{ readonly threads?: readonly MessageThread[] }>(
         `/cases/${journey.caseId}/threads`,
       );
-      return result?.threads ?? [];
+      if (!Array.isArray(result.threads))
+        throw new CareDataError(502, 'CARE_INVALID_RESPONSE', true);
+      return result.threads;
     }),
   );
   return { journeys, threads: threadGroups.flat() };
@@ -225,7 +262,8 @@ export async function getThreadData(caseId: string, threadId: string) {
   const result = await careApi<{ readonly messages?: readonly CareMessage[] }>(
     `/cases/${caseId}/threads/${threadId}/messages`,
   );
-  return result?.messages ?? [];
+  if (!Array.isArray(result.messages)) throw new CareDataError(502, 'CARE_INVALID_RESPONSE', true);
+  return result.messages;
 }
 
 export async function getAccountData() {
@@ -233,13 +271,13 @@ export async function getAccountData() {
     careApi<CareProfile>('/patient/profile'),
     careApi<readonly SavedClinic[]>('/saved-clinics?limit=50'),
   ]);
-  return { profile, saved: saved ?? [] };
+  return { profile, saved };
 }
 
 export async function getNotifications() {
-  return (await careApi<readonly CareNotification[]>('/notifications?limit=50')) ?? [];
+  return careApi<readonly CareNotification[]>('/notifications?limit=50');
 }
 
 export async function getBookingOptions() {
-  return (await careApi<readonly BookingCheckoutOption[]>('/bookings/checkout-options')) ?? [];
+  return careApi<readonly BookingCheckoutOption[]>('/bookings/checkout-options');
 }

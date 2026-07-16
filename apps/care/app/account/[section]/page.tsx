@@ -75,7 +75,7 @@ const content: Readonly<
     icon: 'support',
     description: 'Nếu có dấu hiệu khẩn cấp, hãy liên hệ dịch vụ y tế tại nơi bạn đang ở.',
     rows: [
-      { label: 'Nhắn điều phối viên', value: 'Thường trả lời trong 15 phút' },
+      { label: 'Nhắn đội ngũ chăm sóc', value: 'Phản hồi theo mức độ ưu tiên' },
       { label: 'Báo cáo sự cố', value: 'Ưu tiên an toàn và bảo mật' },
       { label: 'Câu hỏi thường gặp', value: 'Điều trị, thanh toán và dữ liệu' },
     ],
@@ -96,6 +96,7 @@ export default async function AccountSectionPage({
   const item = content[section];
   if (!item) notFound();
   const { profile, saved } = await getAccountData();
+  const publicAppUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:3003';
   const rows =
     section === 'saved'
       ? saved.map((clinic) => ({ label: clinic.clinicName, value: 'Đã xác minh' }))
@@ -141,6 +142,32 @@ export default async function AccountSectionPage({
           </div>
         ) : null}
       </section>
+      {section === 'profile' ? (
+        <Link
+          className="primary-button primary-button--wide"
+          href={`${publicAppUrl}/vi/app/onboarding`}
+        >
+          Cập nhật hồ sơ bảo mật
+        </Link>
+      ) : section === 'preferences' ? (
+        <Link
+          className="primary-button primary-button--wide"
+          href={`${publicAppUrl}/vi/app/settings`}
+        >
+          Mở trung tâm cài đặt
+        </Link>
+      ) : section === 'privacy' ? (
+        <Link
+          className="primary-button primary-button--wide"
+          href={`${publicAppUrl}/vi/app/privacy`}
+        >
+          Quản lý quyền riêng tư
+        </Link>
+      ) : section === 'help' ? (
+        <Link className="primary-button primary-button--wide" href="/messages">
+          Nhắn đội ngũ chăm sóc
+        </Link>
+      ) : null}
     </main>
   );
 }

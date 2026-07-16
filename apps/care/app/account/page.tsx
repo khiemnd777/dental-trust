@@ -128,7 +128,10 @@ export default async function AccountPage() {
 
       <footer className="account-footer">
         <strong>Dental Trust Care</strong>
-        <span>Phiên bản 0.1 · Môi trường phát triển</span>
+        <span>
+          Phiên bản 0.1
+          {process.env.NODE_ENV !== 'production' ? ' · Môi trường phát triển' : ''}
+        </span>
         <form action={logoutCareAction}>
           <button type="submit">Đăng xuất</button>
         </form>

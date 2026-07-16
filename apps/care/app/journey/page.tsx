@@ -4,18 +4,16 @@ import type { CSSProperties } from 'react';
 
 import { Icon } from '@/components/icon';
 import { getJourneyData } from '@/lib/care-data';
-import { actionFor, actionHref, formatDateTime, stageLabel } from '@/lib/presentation';
+import {
+  actionFor,
+  actionHref,
+  formatDateTime,
+  journeyStageIndex,
+  journeyStageSteps,
+  stageLabel,
+} from '@/lib/presentation';
 
 export const metadata: Metadata = { title: 'Hành trình' };
-
-const stages = [
-  { key: 'INTAKE', label: 'Hồ sơ', description: 'Thông tin sức khỏe và mong muốn' },
-  { key: 'MATCHING', label: 'Lựa chọn', description: 'Tìm nơi phù hợp và đáng tin' },
-  { key: 'PLAN_REVIEW', label: 'Phương án', description: 'Hiểu điều trị, thời gian và chi phí' },
-  { key: 'BOOKING', label: 'Đặt lịch', description: 'Tư vấn và xác nhận kế hoạch' },
-  { key: 'TREATMENT', label: 'Điều trị', description: 'Hướng dẫn trong từng buổi hẹn' },
-  { key: 'AFTERCARE', label: 'Hồi phục', description: 'Theo dõi và hồ sơ nha khoa' },
-] as const;
 
 export default async function JourneyPage({
   searchParams,
@@ -25,12 +23,7 @@ export default async function JourneyPage({
   const params = await searchParams;
   const { journeys, selected } = await getJourneyData(params.caseId);
   const action = actionFor(selected?.primaryAction.code ?? 'NONE');
-  const stageIndex = selected
-    ? Math.max(
-        0,
-        stages.findIndex((stage) => stage.key === selected.stage),
-      )
-    : 0;
+  const stageIndex = selected ? journeyStageIndex(selected.stage) : null;
 
   return (
     <main className="care-main journey-page">
@@ -79,7 +72,11 @@ export default async function JourneyPage({
             </div>
             <div>
               <span className={`status-pill status-pill--${selected.urgency.toLowerCase()}`}>
-                {selected.urgency === 'ROUTINE' ? 'Đúng tiến độ' : 'Cần chú ý'}
+                {selected.urgency === 'ROUTINE'
+                  ? 'Đúng tiến độ'
+                  : selected.urgency === 'URGENT'
+                    ? 'Cần hỗ trợ khẩn cấp'
+                    : 'Cần chú ý'}
               </span>
               <h2>{selected.title}</h2>
               <p>{stageLabel(selected.stage)}</p>
@@ -96,7 +93,10 @@ export default async function JourneyPage({
               <h2>{action.title}</h2>
               <p>{action.description}</p>
             </div>
-            <Link className="primary-button" href={actionHref(selected.primaryAction.code)}>
+            <Link
+              className="primary-button"
+              href={actionHref(selected.primaryAction.code, selected.caseId)}
+            >
               {action.label} <Icon name="arrow" />
             </Link>
           </section>
@@ -109,9 +109,9 @@ export default async function JourneyPage({
               </div>
             </div>
             <div className="journey-stages">
-              {stages.map((stage, index) => {
-                const complete = index < stageIndex;
-                const current = index === stageIndex;
+              {journeyStageSteps.map((stage, index) => {
+                const complete = stageIndex !== null && index < stageIndex;
+                const current = stageIndex !== null && index === stageIndex;
                 return (
                   <article
                     className={complete ? 'is-complete' : current ? 'is-current' : ''}
@@ -122,7 +122,7 @@ export default async function JourneyPage({
                       <small>
                         {complete ? 'Đã hoàn thành' : current ? 'Đang diễn ra' : 'Tiếp theo'}
                       </small>
-                      <h3>{stage.label}</h3>
+                      <h3>{stage.shortLabel}</h3>
                       <p>{stage.description}</p>
                       {current && selected.expectedAt ? (
                         <em>

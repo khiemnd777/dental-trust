@@ -2,8 +2,17 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { apiErrorSchema, registerRequestSchema } from '@dental-trust/contracts';
 import type { Locale } from '@dental-trust/i18n';
 import type { PortalArea } from '@/lib/routing';
+import {
+  authContinuationFromForm,
+  authUrl,
+  careContinuationPath,
+  safeReturnTo,
+  type AuthContinuation,
+  type ProductTarget,
+} from '@/lib/auth-continuation';
 import {
   clearSession,
   createDevelopmentToken,
@@ -27,15 +36,13 @@ const destinations: Record<PortalArea, string> = {
   admin: 'admin',
 };
 
-type ProductTarget = 'care' | 'provider' | 'operations';
-
-function requestedProduct(value: FormDataEntryValue | null): ProductTarget | null {
-  return value === 'care' || value === 'provider' || value === 'operations' ? value : null;
-}
-
-function productDestination(product: ProductTarget | null, area: PortalArea): string | null {
+function productDestination(
+  product: ProductTarget | undefined,
+  area: PortalArea,
+  continuation: AuthContinuation = {},
+): string | null {
   if (product === 'care' && area === 'patient')
-    return process.env.CARE_APP_URL ?? 'http://localhost:3000';
+    return `${process.env.CARE_APP_URL ?? 'http://localhost:3000'}${careContinuationPath(continuation)}`;
   if (product === 'provider' && area === 'clinic')
     return process.env.PROVIDER_APP_URL ?? 'http://localhost:3001';
   if (
@@ -44,12 +51,6 @@ function productDestination(product: ProductTarget | null, area: PortalArea): st
   )
     return process.env.OPERATIONS_APP_URL ?? 'http://localhost:3002';
   return null;
-}
-
-function safeReturnTo(locale: Locale, value: FormDataEntryValue | null, fallback: string) {
-  if (typeof value !== 'string' || !value.startsWith(`/${locale}/`) || value.includes('//'))
-    return fallback;
-  return value;
 }
 
 function areaFromEmail(email: string): PortalArea | null {
@@ -108,42 +109,47 @@ export async function loginAction(locale: Locale, formData: FormData) {
     .toLowerCase();
   const password = String(formData.get('password') ?? '');
   const requestedArea = String(formData.get('demoArea') ?? '') as PortalArea;
-  const product = requestedProduct(formData.get('product'));
+  const continuation = authContinuationFromForm(locale, formData);
+  const product = continuation.product;
   let area: PortalArea;
   if (useDevelopmentAuthAdapter()) {
     const resolvedArea = requestedArea in destinations ? requestedArea : areaFromEmail(email);
-    if (!resolvedArea || password !== demoPassword) redirect(`/${locale}/auth/login?error=invalid`);
+    if (!resolvedArea || password !== demoPassword)
+      redirect(authUrl(`/${locale}/auth/login`, continuation, { error: 'invalid' }));
     area = resolvedArea;
     await setSessionToken(await createDevelopmentToken(demoSessionFor(resolvedArea)));
   } else {
     const result = await productionLogin(email, password);
-    if (!result?.accessToken) redirect(`/${locale}/auth/login?error=unavailable`);
+    if (!result?.accessToken)
+      redirect(authUrl(`/${locale}/auth/login`, continuation, { error: 'unavailable' }));
     await setSessionToken(result.accessToken);
     const session = await getSession();
-    if (!session) redirect(`/${locale}/auth/login?error=unavailable`);
+    if (!session)
+      redirect(authUrl(`/${locale}/auth/login`, continuation, { error: 'unavailable' }));
     if (session.mfaRequired && !session.mfaVerified) {
-      const requested = safeReturnTo(locale, formData.get('returnTo'), `/${locale}/app`);
-      redirect(`/${locale}/auth/mfa?returnTo=${encodeURIComponent(requested)}`);
+      const requested = continuation.returnTo ?? `/${locale}/app`;
+      redirect(authUrl(`/${locale}/auth/mfa`, { ...continuation, returnTo: requested }));
     }
     const resolvedArea = areaFromRoles(session.roles);
     if (!resolvedArea) {
       if (session.availableMemberships?.length) {
-        const requested = safeReturnTo(locale, formData.get('returnTo'), '');
+        const requested = continuation.returnTo ?? '';
         const organizationQuery = new URLSearchParams({
           ...(requested ? { returnTo: requested } : {}),
           ...(product ? { product } : {}),
         });
         redirect(`/${locale}/auth/organization?${organizationQuery.toString()}`);
       }
-      redirect(`/${locale}/auth/login?error=permission`);
+      redirect(authUrl(`/${locale}/auth/login`, continuation, { error: 'permission' }));
     }
     area = resolvedArea;
   }
-  const productUrl = productDestination(product, area);
-  if (product && !productUrl) redirect(`/${locale}/auth/login?error=permission&product=${product}`);
+  const productUrl = productDestination(product, area, continuation);
+  if (product && !productUrl)
+    redirect(authUrl(`/${locale}/auth/login`, continuation, { error: 'permission' }));
   if (productUrl) redirect(productUrl);
   const destination = `/${locale}/${destinations[area]}`;
-  redirect(safeReturnTo(locale, formData.get('returnTo'), destination));
+  redirect(safeReturnTo(locale, continuation.returnTo, destination));
 }
 
 export async function selectOrganizationAction(locale: Locale, formData: FormData) {
@@ -158,7 +164,7 @@ export async function selectOrganizationAction(locale: Locale, formData: FormDat
   const fallback = `/${locale}/${
     membership.role === 'CONCIERGE_AGENT' ? destinations.concierge : destinations.clinic
   }`;
-  const product = requestedProduct(formData.get('product'));
+  const product = authContinuationFromForm(locale, formData).product;
   const area: PortalArea = membership.role === 'CONCIERGE_AGENT' ? 'concierge' : 'clinic';
   const productUrl = productDestination(product, area);
   if (productUrl) redirect(productUrl);
@@ -230,55 +236,76 @@ export async function registerAction(locale: Locale, formData: FormData) {
     .toLowerCase();
   const password = String(formData.get('password') ?? '');
   const confirmation = String(formData.get('confirmPassword') ?? '');
-  if (
-    !email.includes('@') ||
-    password.length < 12 ||
-    password !== confirmation ||
-    formData.get('accept') !== 'on'
-  )
-    redirect(`/${locale}/auth/register?error=invalid`);
+  const continuation = authContinuationFromForm(locale, formData);
+  const registration = registerRequestSchema.safeParse({
+    email,
+    password,
+    preferredLocale: locale === 'vi' ? 'vi-VN' : 'en-US',
+    termsVersion,
+    privacyVersion,
+  });
+  const registrationCookies = await cookies();
+  const fail = (error: string): never => {
+    registrationCookies.set('dt_registration_email', email, {
+      httpOnly: true,
+      maxAge: 15 * 60,
+      path: `/${locale}/auth`,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    redirect(authUrl(`/${locale}/auth/register`, continuation, { error }));
+  };
+  if (!registration.success) {
+    const field = registration.error.issues[0]?.path[0];
+    fail(field === 'email' ? 'email' : 'password');
+  }
+  if (password !== confirmation) fail('confirmation');
+  if (formData.get('accept') !== 'on') fail('accept');
   if (!useDevelopmentAuthAdapter()) {
     const api = process.env.NEXT_PUBLIC_API_URL;
-    if (!api) redirect(`/${locale}/auth/register?error=unavailable`);
-    let response: Response;
-    try {
-      response = await fetch(`${api}/auth/register`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          preferredLocale: locale === 'vi' ? 'vi-VN' : 'en-US',
-          termsVersion,
-          privacyVersion,
-        }),
-        cache: 'no-store',
-        signal: AbortSignal.timeout(5_000),
-      });
-    } catch {
-      redirect(`/${locale}/auth/register?error=unavailable`);
+    if (!api) fail('unavailable');
+    const response = await fetch(`${api}/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...registration.data,
+      }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5_000),
+    }).catch(() => fail('unavailable'));
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const apiError = apiErrorSchema.safeParse(payload);
+      if (response.status === 409 || (apiError.success && apiError.data.error.code === 'CONFLICT'))
+        fail('email-in-use');
+      if (apiError.success && apiError.data.error.fieldErrors?.email) fail('email');
+      if (apiError.success && apiError.data.error.fieldErrors?.password) fail('password');
+      fail(response.status >= 500 ? 'unavailable' : 'invalid');
     }
-    if (!response.ok) redirect(`/${locale}/auth/register?error=invalid`);
   }
-  (await cookies()).set('dt_pending_email', email, {
+  registrationCookies.delete('dt_registration_email');
+  registrationCookies.set('dt_pending_email', email, {
     httpOnly: true,
     maxAge: 15 * 60,
     path: `/${locale}/auth`,
     sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production',
   });
-  redirect(`/${locale}/auth/verify-email`);
+  redirect(authUrl(`/${locale}/auth/verify-email`, continuation));
 }
 
 export async function verifyEmailAction(locale: Locale, formData: FormData) {
   const token = String(formData.get('token') ?? formData.get('code') ?? '').trim();
+  const continuation = authContinuationFromForm(locale, formData);
   const pending = (await cookies()).get('dt_pending_email')?.value;
   if (useDevelopmentAuthAdapter() && (!pending || token !== '246810'))
-    redirect(`/${locale}/auth/verify-email?error=invalid`);
+    redirect(authUrl(`/${locale}/auth/verify-email`, continuation, { error: 'invalid' }));
   if (!useDevelopmentAuthAdapter()) {
-    if (token.length < 32) redirect(`/${locale}/auth/verify-email?error=invalid`);
+    if (token.length < 32)
+      redirect(authUrl(`/${locale}/auth/verify-email`, continuation, { error: 'invalid' }));
     const api = process.env.NEXT_PUBLIC_API_URL;
-    if (!api) redirect(`/${locale}/auth/verify-email?error=unavailable`);
+    if (!api)
+      redirect(authUrl(`/${locale}/auth/verify-email`, continuation, { error: 'unavailable' }));
     let response: Response;
     try {
       response = await fetch(`${api}/auth/email-verification/consume`, {
@@ -289,11 +316,12 @@ export async function verifyEmailAction(locale: Locale, formData: FormData) {
         signal: AbortSignal.timeout(5_000),
       });
     } catch {
-      redirect(`/${locale}/auth/verify-email?error=unavailable`);
+      redirect(authUrl(`/${locale}/auth/verify-email`, continuation, { error: 'unavailable' }));
     }
-    if (!response.ok) redirect(`/${locale}/auth/verify-email?error=invalid`);
+    if (!response.ok)
+      redirect(authUrl(`/${locale}/auth/verify-email`, continuation, { error: 'invalid' }));
     (await cookies()).delete('dt_pending_email');
-    redirect(`/${locale}/auth/login?verified=1`);
+    redirect(authUrl(`/${locale}/auth/login`, continuation, { verified: '1' }));
   } else {
     if (!pending) redirect(`/${locale}/auth/verify-email?error=invalid`);
     await setSessionToken(
@@ -301,7 +329,8 @@ export async function verifyEmailAction(locale: Locale, formData: FormData) {
     );
   }
   (await cookies()).delete('dt_pending_email');
-  redirect(`/${locale}/app`);
+  const productUrl = productDestination(continuation.product, 'patient', continuation);
+  redirect(productUrl ?? continuation.returnTo ?? `/${locale}/app`);
 }
 
 export async function logoutAction(locale: Locale) {

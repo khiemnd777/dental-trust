@@ -31,9 +31,15 @@ export default async function ComparePage({
 
       {selected.length ? (
         <>
+          <p className="compare-scroll-hint">
+            <Icon name="arrow" /> Vuốt ngang hoặc dùng phím mũi tên để xem đủ các cột.
+          </p>
           <div
+            aria-label={`Bảng so sánh ${selected.length} phòng khám`}
             className="compare-columns"
+            role="region"
             style={{ '--compare-count': selected.length } as CSSProperties}
+            tabIndex={0}
           >
             <div className="compare-label" />
             {selected.map((clinic, index) => (

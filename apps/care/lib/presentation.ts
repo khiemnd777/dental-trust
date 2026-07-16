@@ -1,82 +1,247 @@
-export const stageLabels: Readonly<Record<string, string>> = {
-  DISCOVERY: 'Tìm hiểu nhu cầu',
-  INTAKE: 'Hoàn thiện hồ sơ',
-  MATCHING: 'Tìm lựa chọn phù hợp',
-  PLAN_REVIEW: 'Xem phương án điều trị',
-  BOOKING: 'Xác nhận lịch hẹn',
-  PREPARATION: 'Chuẩn bị điều trị',
-  TREATMENT: 'Đang điều trị',
-  RECOVERY: 'Hồi phục',
-  AFTERCARE: 'Chăm sóc sau điều trị',
-  COMPLETE: 'Hoàn thành',
-};
+import {
+  journeyActionCodes,
+  journeyStages,
+  type JourneyActionCode,
+  type JourneyStage,
+} from '@dental-trust/domain';
 
-export const actionCopy: Readonly<
-  Record<string, { readonly title: string; readonly description: string; readonly label: string }>
-> = {
+interface JourneyStageCopy {
+  readonly label: string;
+  readonly shortLabel: string;
+  readonly description: string;
+}
+
+const stageCopy = {
+  INTAKE: {
+    label: 'Hoàn thiện hồ sơ',
+    shortLabel: 'Hồ sơ',
+    description: 'Thông tin sức khỏe và mong muốn',
+  },
+  MATCHING: {
+    label: 'Tìm lựa chọn phù hợp',
+    shortLabel: 'Lựa chọn',
+    description: 'Tìm nơi phù hợp và đáng tin',
+  },
+  PLAN_REVIEW: {
+    label: 'Xem phương án điều trị',
+    shortLabel: 'Phương án',
+    description: 'Hiểu điều trị, thời gian và chi phí',
+  },
+  CONSULTATION: {
+    label: 'Tư vấn với nha sĩ',
+    shortLabel: 'Tư vấn',
+    description: 'Trao đổi trực tiếp và làm rõ phương án',
+  },
+  BOOKING: {
+    label: 'Xác nhận lịch hẹn',
+    shortLabel: 'Đặt lịch',
+    description: 'Kiểm tra lịch, múi giờ và xác nhận',
+  },
+  TREATMENT: {
+    label: 'Đang điều trị',
+    shortLabel: 'Điều trị',
+    description: 'Hướng dẫn trong từng buổi hẹn',
+  },
+  AFTERCARE: {
+    label: 'Chăm sóc sau điều trị',
+    shortLabel: 'Hồi phục',
+    description: 'Theo dõi hồi phục và hồ sơ nha khoa',
+  },
+  WARRANTY: {
+    label: 'Hỗ trợ bảo hành',
+    shortLabel: 'Bảo hành',
+    description: 'Theo dõi vấn đề và phản hồi của đội ngũ',
+  },
+  CLOSED: {
+    label: 'Hành trình đã hoàn thành',
+    shortLabel: 'Hoàn thành',
+    description: 'Hồ sơ và các mốc chăm sóc đã được lưu lại',
+  },
+} satisfies Readonly<Record<JourneyStage, JourneyStageCopy>>;
+
+export const journeyStageSteps = journeyStages.map((key) => ({ key, ...stageCopy[key] }));
+
+interface JourneyActionCopy {
+  readonly title: string;
+  readonly description: string;
+  readonly label: string;
+}
+
+export const actionCopy = {
   COMPLETE_INTAKE: {
     title: 'Bổ sung một vài thông tin sức khỏe',
     description: 'Khoảng 4 phút. Bạn có thể dừng và tiếp tục bất cứ lúc nào.',
     label: 'Tiếp tục hồ sơ',
   },
-  REVIEW_OPTIONS: {
+  UPLOAD_RECORDS: {
+    title: 'Bổ sung hồ sơ nha khoa',
+    description: 'Tải lên hình ảnh hoặc tài liệu hiện có để đội ngũ có đủ thông tin xem xét.',
+    label: 'Bổ sung hồ sơ',
+  },
+  ADD_INFORMATION: {
+    title: 'Đội ngũ cần thêm thông tin',
+    description: 'Xem nội dung được yêu cầu và bổ sung để hành trình tiếp tục.',
+    label: 'Xem yêu cầu',
+  },
+  REVIEW_CASE: {
+    title: 'Hồ sơ của bạn đang được xem xét',
+    description: 'Theo dõi tiến độ và các cập nhật mới nhất trong hành trình.',
+    label: 'Xem hành trình',
+  },
+  VIEW_MATCHES: {
     title: 'Các lựa chọn đã sẵn sàng để xem',
     description: 'So sánh chi phí, thời gian và mức độ phù hợp trước khi quyết định.',
     label: 'Xem lựa chọn',
   },
-  REVIEW_PLAN: {
+  COMPARE_CLINICS: {
+    title: 'So sánh các phòng khám phù hợp',
+    description: 'Đặt các tín hiệu xác minh, chi phí và hỗ trợ sau điều trị cạnh nhau.',
+    label: 'So sánh lựa chọn',
+  },
+  REVIEW_INTAKE: {
+    title: 'Hồ sơ đang được kiểm tra',
+    description: 'Bạn có thể xem trạng thái và sẽ được báo nếu cần bổ sung.',
+    label: 'Xem hành trình',
+  },
+  PREPARE_PLAN: {
+    title: 'Phòng khám đang chuẩn bị phương án',
+    description: 'Chúng tôi sẽ thông báo khi có phương án điều trị để bạn xem.',
+    label: 'Xem hành trình',
+  },
+  REVIEW_PLANS: {
     title: 'Phương án điều trị đã sẵn sàng',
     description: 'Xem phần tóm tắt dễ hiểu trước, rồi mở chi tiết khi bạn cần.',
     label: 'Xem phương án',
+  },
+  VIEW_APPOINTMENT: {
+    title: 'Kiểm tra lịch tư vấn sắp tới',
+    description: 'Xem thời gian, múi giờ và thông tin tham gia buổi tư vấn.',
+    label: 'Xem lịch tư vấn',
+  },
+  VIEW_SCHEDULE: {
+    title: 'Lịch chăm sóc đã được cập nhật',
+    description: 'Xem các mốc đã xác nhận và thông tin cần chuẩn bị.',
+    label: 'Xem lịch',
   },
   CONFIRM_BOOKING: {
     title: 'Xác nhận lịch tư vấn của bạn',
     description: 'Kiểm tra múi giờ và cách tham gia trước khi xác nhận.',
     label: 'Kiểm tra lịch',
   },
-  PREPARE_FOR_VISIT: {
-    title: 'Chuẩn bị cho buổi hẹn sắp tới',
-    description: 'Chúng tôi đã gom giấy tờ và hướng dẫn vào một nơi.',
-    label: 'Xem hướng dẫn',
+  REVIEW_BOOKING: {
+    title: 'Lịch hẹn đang được xác nhận',
+    description: 'Theo dõi trạng thái lịch và các cập nhật từ phòng khám.',
+    label: 'Xem lịch',
   },
-  VIEW_AFTERCARE: {
+  VIEW_JOURNEY: {
+    title: 'Theo dõi hành trình chăm sóc',
+    description: 'Xem mốc hiện tại, lịch sắp tới và người đang phụ trách.',
+    label: 'Xem hành trình',
+  },
+  UPDATE_TREATMENT: {
+    title: 'Điều trị đang được cập nhật',
+    description: 'Xem mốc điều trị và hướng dẫn mới nhất từ đội ngũ.',
+    label: 'Xem hành trình',
+  },
+  COMPLETE_CHECK_IN: {
     title: 'Hôm nay bạn cảm thấy thế nào?',
     description: 'Theo dõi hồi phục và báo cho đội ngũ chăm sóc nếu có điều bất thường.',
     label: 'Cập nhật hồi phục',
+  },
+  REVIEW_AFTERCARE: {
+    title: 'Đội ngũ đang theo dõi hồi phục',
+    description: 'Xem các mốc hậu mãi và hướng dẫn chăm sóc mới nhất.',
+    label: 'Xem hậu mãi',
+  },
+  VIEW_INCIDENT: {
+    title: 'Yêu cầu hỗ trợ đang được xử lý',
+    description: 'Theo dõi trạng thái, thời hạn phản hồi và người đang phụ trách.',
+    label: 'Xem yêu cầu hỗ trợ',
+  },
+  REVIEW_INCIDENT: {
+    title: 'Vấn đề đang được đội ngũ xem xét',
+    description: 'Theo dõi tiến độ xử lý và các cập nhật mới nhất.',
+    label: 'Xem hành trình',
+  },
+  VIEW_CASE: {
+    title: 'Xem lại hành trình chăm sóc',
+    description: 'Các mốc và cập nhật của hồ sơ được lưu tại một nơi.',
+    label: 'Xem hành trình',
   },
   NONE: {
     title: 'Bạn chưa cần làm gì lúc này',
     description: 'Chúng tôi đang xử lý bước tiếp theo và sẽ báo ngay khi cần bạn.',
     label: 'Xem hành trình',
   },
-};
+} satisfies Readonly<Record<JourneyActionCode | 'NONE', JourneyActionCopy>>;
+
+const actionHrefs = {
+  COMPLETE_INTAKE: '/start',
+  UPLOAD_RECORDS: '/journey',
+  ADD_INFORMATION: '/journey',
+  REVIEW_CASE: '/journey',
+  VIEW_MATCHES: '/discover',
+  COMPARE_CLINICS: '/discover',
+  REVIEW_INTAKE: '/journey',
+  PREPARE_PLAN: '/journey',
+  REVIEW_PLANS: '/journey',
+  VIEW_APPOINTMENT: '/booking',
+  VIEW_SCHEDULE: '/booking',
+  CONFIRM_BOOKING: '/booking',
+  REVIEW_BOOKING: '/booking',
+  VIEW_JOURNEY: '/journey',
+  UPDATE_TREATMENT: '/journey',
+  COMPLETE_CHECK_IN: '/journey',
+  REVIEW_AFTERCARE: '/journey',
+  VIEW_INCIDENT: '/journey',
+  REVIEW_INCIDENT: '/journey',
+  VIEW_CASE: '/journey',
+} satisfies Readonly<Record<JourneyActionCode, string>>;
 
 export function actionFor(code: string) {
-  return (
-    actionCopy[code] ?? {
-      title: 'Bạn chưa cần làm gì lúc này',
-      description: 'Chúng tôi đang xử lý bước tiếp theo và sẽ báo ngay khi cần bạn.',
-      label: 'Xem hành trình',
-    }
-  );
+  return isJourneyActionCode(code) ? actionCopy[code] : actionCopy.NONE;
 }
 
-export function actionHref(code: string) {
-  if (code === 'COMPLETE_INTAKE') return '/start';
-  if (code === 'REVIEW_OPTIONS') return '/discover';
-  if (code === 'NONE') return '/journey';
-  if (code === 'CONFIRM_BOOKING') return '/booking';
-  return '/messages';
+export function actionHref(code: string, caseId?: string) {
+  const href = isJourneyActionCode(code) ? actionHrefs[code] : '/journey';
+  return href === '/journey' && caseId ? `${href}?caseId=${encodeURIComponent(caseId)}` : href;
 }
 
 export function stageLabel(stage: string) {
-  return stageLabels[stage] ?? 'Đang được chăm sóc';
+  return isJourneyStage(stage) ? stageCopy[stage].label : 'Đang được chăm sóc';
+}
+
+export function journeyStageIndex(stage: string): number | null {
+  const index = journeyStages.indexOf(stage as JourneyStage);
+  return index >= 0 ? index : null;
+}
+
+function isJourneyStage(value: string): value is JourneyStage {
+  return journeyStages.includes(value as JourneyStage);
+}
+
+function isJourneyActionCode(value: string): value is JourneyActionCode {
+  return journeyActionCodes.includes(value as JourneyActionCode);
 }
 
 export function firstName(fullName?: string | null) {
   const normalized = fullName?.trim();
   if (!normalized) return 'bạn';
   return normalized.split(/\s+/u).at(-1) ?? normalized;
+}
+
+export function dayPeriodGreeting(date = new Date(), timezone = 'Asia/Ho_Chi_Minh'): string {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      hourCycle: 'h23',
+      timeZone: timezone,
+    }).format(date),
+  );
+  if (hour < 11) return 'Chào buổi sáng';
+  if (hour < 14) return 'Chào buổi trưa';
+  if (hour < 18) return 'Chào buổi chiều';
+  return 'Chào buổi tối';
 }
 
 export function formatMoney(minor: string, currency: string) {
@@ -169,7 +334,7 @@ export function notificationHref(target?: string | null, resourceId?: string | n
   if (target === 'CASE') return resourceId ? `/journey?caseId=${resourceId}` : '/journey';
   if (target === 'TODAY') return '/';
   if (target === 'APPOINTMENTS' || target === 'AFTERCARE') return '/journey';
-  if (target === 'INCIDENTS') return '/messages';
+  if (target === 'INCIDENTS') return resourceId ? `/journey?caseId=${resourceId}` : '/journey';
   if (target === 'PAYMENTS') return '/account';
   return '/journey';
 }
@@ -182,4 +347,8 @@ export function initials(value: string) {
     .map((part) => part[0])
     .join('')
     .toLocaleUpperCase('vi');
+}
+
+export function isMessageMine(authorUserId: string, currentUserId: string) {
+  return authorUserId === currentUserId;
 }

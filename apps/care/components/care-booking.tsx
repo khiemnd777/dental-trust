@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 
 import { Icon } from '@/components/icon';
 import type { BookingCheckoutOption } from '@/lib/care-data';
+import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
 
 export function CareBooking({ options }: { readonly options: readonly BookingCheckoutOption[] }) {
   const [selected, setSelected] = useState(options[0]?.treatmentPlanAcceptanceId ?? '');
@@ -19,29 +20,32 @@ export function CareBooking({ options }: { readonly options: readonly BookingChe
     if (!option || !confirmed || isPending) return;
     setError('');
     startTransition(async () => {
-      try {
-        const response = await fetch('/api/care/bookings', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            treatmentPlanAcceptanceId: option.treatmentPlanAcceptanceId,
-            expectedDepositBasisPoints: option.depositBasisPoints,
-            expectedCancellationPolicyVersion: option.cancellationPolicy.policyVersion,
-          }),
-        });
-        const envelope = (await response.json()) as {
-          readonly data?: { readonly depositIntent?: { readonly clientSecret?: string | null } };
-        };
-        if (!response.ok || !envelope.data) throw new Error('failed');
-        const secret = envelope.data.depositIntent?.clientSecret ?? null;
-        setClientSecret(secret);
-        if (!secret) {
-          setNotice(
-            'Booking đã được tạo trong môi trường thử nghiệm. Không có khoản tiền thật nào bị thu.',
-          );
-        }
-      } catch {
-        setError('Chưa thể chuẩn bị thanh toán. Dữ liệu chưa được gửi lại; vui lòng thử lần nữa.');
+      const result = await careMutation<{
+        readonly depositIntent?: { readonly clientSecret?: string | null };
+      }>('/api/care/bookings', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          treatmentPlanAcceptanceId: option.treatmentPlanAcceptanceId,
+          expectedDepositBasisPoints: option.depositBasisPoints,
+          expectedCancellationPolicyVersion: option.cancellationPolicy.policyVersion,
+        }),
+      });
+      if (!result.ok) {
+        setError(
+          careMutationErrorMessage(
+            result.error,
+            'Chưa thể chuẩn bị thanh toán. Dữ liệu chưa được gửi lại; vui lòng thử lần nữa.',
+          ),
+        );
+        return;
+      }
+      const secret = result.data.depositIntent?.clientSecret ?? null;
+      setClientSecret(secret);
+      if (!secret) {
+        setNotice(
+          'Booking đã được tạo trong môi trường thử nghiệm. Không có khoản tiền thật nào bị thu.',
+        );
       }
     });
   }

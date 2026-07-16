@@ -3,6 +3,7 @@ import { getMessages, isLocale } from '@dental-trust/i18n';
 import { Alert, Button, Card, Field, Icon } from '@dental-trust/ui';
 import { AuthShell } from '@/components/auth-shell';
 import { SimpleAuthForm } from '@/components/simple-auth-form';
+import { authContinuationFromQuery } from '@/lib/auth-continuation';
 import { verifyEmailAction } from '../actions';
 
 const flows = ['verify-email', 'password-reset', 'mfa', 'sessions'] as const;
@@ -12,12 +13,21 @@ export default async function AuthFlowPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; flow: string }>;
-  searchParams: Promise<{ error?: string; token?: string; returnTo?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    token?: string;
+    returnTo?: string;
+    product?: string;
+    intent?: string;
+    clinic?: string;
+    dentist?: string;
+  }>;
 }) {
   const { locale, flow } = await params;
   const query = await searchParams;
   if (!isLocale(locale) || !flows.includes(flow as (typeof flows)[number])) notFound();
   const messages = getMessages(locale);
+  const continuation = authContinuationFromQuery(locale, query);
   const config =
     flow === 'verify-email'
       ? [messages.auth.verifyTitle, messages.auth.verifyBody]
@@ -46,6 +56,11 @@ export default async function AuthFlowPage({
         ) : null}
         {flow === 'verify-email' ? (
           <form action={verifyEmailAction.bind(null, locale)} className="auth-form">
+            <input name="returnTo" type="hidden" value={continuation.returnTo ?? ''} />
+            <input name="product" type="hidden" value={continuation.product ?? ''} />
+            <input name="intent" type="hidden" value={continuation.intent ?? ''} />
+            <input name="clinic" type="hidden" value={continuation.clinic ?? ''} />
+            <input name="dentist" type="hidden" value={continuation.dentist ?? ''} />
             <Field
               label={messages.auth.codeLabel}
               name="token"

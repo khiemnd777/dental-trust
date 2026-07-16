@@ -34,6 +34,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
       - run: pnpm format:check
       - run: node scripts/check-placeholders.mjs
       - run: pnpm check:frontend-boundaries
@@ -55,6 +56,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
       - run: pnpm test
 
   integration:
@@ -159,7 +161,7 @@ jobs:
       - run: pnpm db:generate
       - run: pnpm db:migrate:deploy
       - run: pnpm db:seed
-      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm --filter @dental-trust/web exec playwright install --with-deps chromium webkit
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()

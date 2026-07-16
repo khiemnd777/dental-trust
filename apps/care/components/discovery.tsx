@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { Icon, type IconName } from '@/components/icon';
 import type { ClinicOption, SavedClinic } from '@/lib/care-data';
+import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
 import { formatMoney } from '@/lib/presentation';
 
 const treatments = [
@@ -18,9 +19,10 @@ const treatments = [
 interface DiscoveryProps {
   readonly clinics: readonly ClinicOption[];
   readonly initialSaved: readonly SavedClinic[];
+  readonly locationLabel: string;
 }
 
-export function Discovery({ clinics, initialSaved }: DiscoveryProps) {
+export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryProps) {
   const [treatment, setTreatment] = useState<(typeof treatments)[number]['code']>('ALL');
   const [query, setQuery] = useState('');
   const [saved, setSaved] = useState(initialSaved);
@@ -32,6 +34,47 @@ export function Discovery({ clinics, initialSaved }: DiscoveryProps) {
   const [sort, setSort] = useState<'recommended' | 'rating' | 'price'>('recommended');
   const [feedback, setFeedback] = useState('');
   const [isPending, startTransition] = useTransition();
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterSheetRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const sheet = filterSheetRef.current;
+    const focusable = () =>
+      Array.from(
+        sheet?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]',
+        ) ?? [],
+      );
+    focusable()[0]?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setFilterOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const elements = focusable();
+      const first = elements[0];
+      const last = elements.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      filterTriggerRef.current?.focus();
+    };
+  }, [filterOpen]);
 
   const results = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('vi');
@@ -84,19 +127,18 @@ export function Discovery({ clinics, initialSaved }: DiscoveryProps) {
           ],
     );
     startTransition(async () => {
-      const response = await fetch('/api/care/saved-clinics', {
+      const result = await careMutation<{ readonly id?: string }>('/api/care/saved-clinics', {
         method: existing ? 'DELETE' : 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(existing ? { savedClinicId: existing.id } : { clinicId: clinic.id }),
       });
-      if (!response.ok) {
+      if (!result.ok) {
         setSaved(previous);
-        setFeedback('Chưa thể cập nhật. Vui lòng thử lại.');
+        setFeedback(careMutationErrorMessage(result.error, 'Chưa thể cập nhật. Vui lòng thử lại.'));
         return;
       }
       if (!existing) {
-        const payload = (await response.json()) as { data?: { id?: string } };
-        const savedId = payload.data?.id;
+        const savedId = result.data.id;
         if (savedId) {
           setSaved((current) =>
             current.map((item) => (item.clinicId === clinic.id ? { ...item, id: savedId } : item)),
@@ -134,7 +176,14 @@ export function Discovery({ clinics, initialSaved }: DiscoveryProps) {
           type="search"
           value={query}
         />
-        <button aria-label="Mở bộ lọc" onClick={() => setFilterOpen(true)} type="button">
+        <button
+          aria-controls="care-filter-sheet"
+          aria-expanded={filterOpen}
+          aria-label="Mở bộ lọc"
+          onClick={() => setFilterOpen(true)}
+          ref={filterTriggerRef}
+          type="button"
+        >
           <Icon name="filter" />
           {activeFilters > 0 ? <span>{activeFilters}</span> : null}
         </button>
@@ -166,14 +215,14 @@ export function Discovery({ clinics, initialSaved }: DiscoveryProps) {
           <Icon name="location" />
           <span>
             <small>Khu vực</small>
-            <strong>TP. Hồ Chí Minh</strong>
+            <strong>{locationLabel}</strong>
           </span>
         </div>
         <div>
           <Icon name="calendar" />
           <span>
-            <small>Thời gian</small>
-            <strong>Linh hoạt</strong>
+            <small>Bộ lọc</small>
+            <strong>{activeFilters ? `${activeFilters} tiêu chí` : 'Chưa giới hạn'}</strong>
           </span>
         </div>
       </div>
@@ -269,7 +318,9 @@ export function Discovery({ clinics, initialSaved }: DiscoveryProps) {
             aria-labelledby="filter-title"
             aria-modal="true"
             className="filter-sheet"
+            id="care-filter-sheet"
             onMouseDown={(event) => event.stopPropagation()}
+            ref={filterSheetRef}
             role="dialog"
           >
             <div className="sheet-handle" />

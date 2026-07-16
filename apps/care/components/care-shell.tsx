@@ -7,7 +7,13 @@ import type { ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { careNavigation } from '@/lib/navigation';
 
-export function CareShell({ children }: { children: ReactNode }) {
+export function CareShell({
+  children,
+  hasUnreadNotifications,
+}: {
+  readonly children: ReactNode;
+  readonly hasUnreadNotifications: boolean | null;
+}) {
   const pathname = usePathname();
   return (
     <div className="care-app">
@@ -25,9 +31,13 @@ export function CareShell({ children }: { children: ReactNode }) {
           <Link aria-label="Mở AI Hướng dẫn" className="care-icon-button" href="/assistant">
             <Icon name="sparkle" />
           </Link>
-          <Link aria-label="Thông báo mới" className="care-icon-button" href="/notifications">
+          <Link
+            aria-label={hasUnreadNotifications ? 'Thông báo mới' : 'Thông báo'}
+            className="care-icon-button"
+            href="/notifications"
+          >
             <Icon name="bell" />
-            <span className="care-notification-dot" />
+            {hasUnreadNotifications ? <span className="care-notification-dot" /> : null}
           </Link>
         </div>
       </header>

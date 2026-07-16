@@ -4,8 +4,10 @@ import { notFound } from 'next/navigation';
 
 import { MessageComposer } from '@/components/message-composer';
 import { Icon } from '@/components/icon';
+import { ThreadReadMarker } from '@/components/thread-read-marker';
 import { getMessageData, getThreadData } from '@/lib/care-data';
-import { formatDateTime } from '@/lib/presentation';
+import { formatDateTime, isMessageMine } from '@/lib/presentation';
+import { requireCareSession } from '@/lib/require-session';
 
 export const metadata: Metadata = { title: 'Cuộc trò chuyện' };
 
@@ -19,12 +21,17 @@ export default async function ThreadPage({
   const threadId = (await params).threadId;
   const caseId = (await searchParams).caseId;
   if (!caseId) notFound();
-  const [{ threads }, messages] = await Promise.all([
+  const [identity, { threads }, messages] = await Promise.all([
+    requireCareSession(),
     getMessageData(),
     getThreadData(caseId, threadId),
   ]);
+  if (!identity) throw new Error('Care identity is temporarily unavailable.');
   const thread = threads.find((item) => item.id === threadId);
   if (!thread) notFound();
+  const unreadMessageIds = messages
+    .filter((message) => message.authorUserId !== identity.id && !message.readByCurrentUser)
+    .map((message) => message.id);
 
   return (
     <main className="chat-page">
@@ -35,9 +42,7 @@ export default async function ThreadPage({
         <span className="conversation-avatar conversation-avatar--1">AN</span>
         <span>
           <strong>{thread.threadSubject}</strong>
-          <small>
-            <i /> Đội ngũ chăm sóc
-          </small>
+          <small>Đội ngũ chăm sóc</small>
         </span>
         <span aria-label="Cuộc trò chuyện được bảo vệ" className="chat-header__security" role="img">
           <Icon name="shield" />
@@ -50,8 +55,8 @@ export default async function ThreadPage({
 
       <section aria-label="Nội dung cuộc trò chuyện" className="chat-messages">
         <time>Hôm nay</time>
-        {messages.map((message, index) => {
-          const mine = index === messages.length - 1 && !message.readByCurrentUser;
+        {messages.map((message) => {
+          const mine = isMessageMine(message.authorUserId, identity.id);
           return (
             <article className={mine ? 'is-mine' : ''} key={message.id}>
               {!mine ? (
@@ -74,6 +79,7 @@ export default async function ThreadPage({
           </div>
         ) : null}
       </section>
+      <ThreadReadMarker caseId={caseId} messageIds={unreadMessageIds} threadId={threadId} />
       <MessageComposer caseId={caseId} threadId={threadId} />
     </main>
   );
