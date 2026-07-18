@@ -155,6 +155,7 @@ export class ClinicOperationsService {
         address: input.address,
         city: input.city,
         ...(input.district ? { district: input.district } : {}),
+        ...(input.coordinates !== undefined ? { coordinates: input.coordinates } : {}),
         timezone: input.timezone,
         encryptedBusinessContact: this.cipher.encrypt(
           JSON.stringify(input.businessContact),
@@ -1087,6 +1088,10 @@ export class ClinicOperationsService {
         address: location.address,
         city: location.city,
         district: location.district,
+        coordinates:
+          location.latitude !== null && location.longitude !== null
+            ? { latitude: location.latitude, longitude: location.longitude }
+            : null,
         timezone: location.timezone,
         active: location.active,
         businessContact: location.encryptedBusinessContact

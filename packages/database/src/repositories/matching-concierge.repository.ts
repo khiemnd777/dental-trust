@@ -1647,7 +1647,7 @@ const discoveryClinicSelect = {
   locations: {
     where: { active: true },
     orderBy: { createdAt: 'asc' as const },
-    select: { city: true, district: true, address: true },
+    select: { city: true, district: true, address: true, latitude: true, longitude: true },
   },
   discoveryProfile: true,
   services: {
@@ -1712,6 +1712,13 @@ function discoveryClinicView(clinic: DiscoveryClinicRecord, locale: 'vi-VN' | 'e
     name: clinic.name,
     locationLabel: [location?.district, location?.city].filter(Boolean).join(', '),
     address: location?.address ?? '',
+    coordinates:
+      location?.latitude !== null &&
+      location?.latitude !== undefined &&
+      location.longitude !== null &&
+      location.longitude !== undefined
+        ? { latitude: location.latitude, longitude: location.longitude }
+        : null,
     verificationStatus: 'VERIFIED',
     verificationDate:
       activeVerification?.decidedAt?.toISOString() ?? clinic.verifiedAt?.toISOString() ?? '',

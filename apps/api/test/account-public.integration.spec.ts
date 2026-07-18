@@ -188,7 +188,13 @@ describe.skipIf(!databaseAvailable)('account lifecycle and public directory inte
       .get('/api/v1/public/clinics?locale=en-US')
       .expect(200);
     expect(clinics.body.data).toEqual(
-      expect.arrayContaining([expect.objectContaining({ slug: 'saigon-smiles' })]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: 'saigon-smiles',
+          coordinates: { latitude: expect.any(Number), longitude: expect.any(Number) },
+          evidence: expect.any(Array),
+        }),
+      ]),
     );
     await supertest(app.getHttpServer())
       .get('/api/v1/public/clinics/saigon-smiles?locale=en-US')

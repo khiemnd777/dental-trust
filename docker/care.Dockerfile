@@ -11,7 +11,10 @@ RUN --mount=type=cache,id=dental-trust-pnpm,target=/pnpm/store pnpm install --fr
 FROM dependencies AS build
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 ARG PUBLIC_APP_URL=http://localhost:3003
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL PUBLIC_APP_URL=$PUBLIC_APP_URL
+ARG NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    PUBLIC_APP_URL=$PUBLIC_APP_URL \
+    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=$NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 COPY . .
 RUN pnpm exec turbo run build --filter=@dental-trust/care...
 FROM node:22.23.1-bookworm-slim AS runtime

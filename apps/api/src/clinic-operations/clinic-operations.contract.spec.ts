@@ -6,6 +6,7 @@ import {
   createAppointmentRequestSchema,
   createAvailabilityBlockRequestSchema,
   publishClinicServiceRequestSchema,
+  upsertClinicLocationRequestSchema,
 } from '@dental-trust/contracts';
 
 const clinicId = '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01';
@@ -47,6 +48,33 @@ describe('clinic operations contracts', () => {
         reason: 'Maintenance window',
       }).success,
     ).toBe(true);
+  });
+
+  it('accepts complete clinic coordinates and rejects out-of-range map positions', () => {
+    const location = {
+      name: 'Main clinic',
+      address: '1 Nguyen Hue Street',
+      city: 'Ho Chi Minh City',
+      timezone: 'Asia/Ho_Chi_Minh',
+      businessContact: {
+        email: 'clinic@example.com',
+        phone: '+842812345678',
+        contactName: 'Clinic Team',
+      },
+      active: true,
+    };
+    expect(
+      upsertClinicLocationRequestSchema.safeParse({
+        ...location,
+        coordinates: { latitude: 10.776, longitude: 106.7 },
+      }).success,
+    ).toBe(true);
+    expect(
+      upsertClinicLocationRequestSchema.safeParse({
+        ...location,
+        coordinates: { latitude: 91, longitude: 106.7 },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects an inverted clinic price range before persistence', () => {

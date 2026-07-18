@@ -300,6 +300,7 @@ export class ClinicOperationsRepository {
       readonly address: string;
       readonly city: string;
       readonly district?: string;
+      readonly coordinates?: { readonly latitude: number; readonly longitude: number } | null;
       readonly timezone: string;
       readonly encryptedBusinessContact: string;
       readonly active: boolean;
@@ -317,6 +318,12 @@ export class ClinicOperationsRepository {
             address: input.address,
             city: input.city,
             district: input.district ?? null,
+            ...(input.coordinates !== undefined
+              ? {
+                  latitude: input.coordinates?.latitude ?? null,
+                  longitude: input.coordinates?.longitude ?? null,
+                }
+              : {}),
             timezone: input.timezone,
             encryptedBusinessContact: input.encryptedBusinessContact,
             active: input.active,
@@ -331,6 +338,12 @@ export class ClinicOperationsRepository {
             address: input.address,
             city: input.city,
             ...(input.district ? { district: input.district } : {}),
+            ...(input.coordinates
+              ? {
+                  latitude: input.coordinates.latitude,
+                  longitude: input.coordinates.longitude,
+                }
+              : {}),
             timezone: input.timezone,
             encryptedBusinessContact: input.encryptedBusinessContact,
             active: input.active,

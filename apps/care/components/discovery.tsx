@@ -162,9 +162,14 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
   return (
     <main className="care-main discovery-page">
       <header className="page-intro discover-intro">
-        <p className="eyebrow">Được kiểm tra bởi Dental Trust</p>
-        <h1>Tìm nơi khiến bạn an tâm</h1>
-        <p>Chọn điều bạn quan tâm. Chúng tôi giúp bạn hiểu phần còn lại.</p>
+        <div>
+          <p className="eyebrow">Được kiểm tra bởi Dental Trust</p>
+          <h1>Tìm nơi khiến bạn an tâm</h1>
+          <p>Chọn điều bạn quan tâm. Chúng tôi giúp bạn hiểu phần còn lại.</p>
+        </div>
+        <Link className="discover-map-link" href="/discover/map">
+          <Icon name="location" /> Bản đồ
+        </Link>
       </header>
 
       <div className="discover-searchbar">

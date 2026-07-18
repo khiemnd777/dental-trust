@@ -62,6 +62,11 @@ export const clinicBusinessContactSchema = z.object({
   contactName: boundedText(160),
 });
 
+export const clinicLocationCoordinatesSchema = z.object({
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+});
+
 export const updateClinicProfileRequestSchema = z.object({
   expectedVersion: z.number().int().positive(),
   legalEntityName: boundedText(200),
@@ -82,6 +87,7 @@ export const upsertClinicLocationRequestSchema = z.object({
   address: boundedText(500),
   city: boundedText(120),
   district: z.string().trim().max(120).optional(),
+  coordinates: clinicLocationCoordinatesSchema.nullable().optional(),
   timezone: timeZoneSchema,
   businessContact: clinicBusinessContactSchema,
   active: z.boolean().default(true),
@@ -372,6 +378,7 @@ export const clinicOnboardingViewSchema = z.object({
       address: z.string(),
       city: z.string(),
       district: z.string().nullable(),
+      coordinates: clinicLocationCoordinatesSchema.nullable(),
       timezone: z.string(),
       active: z.boolean(),
       businessContact: clinicBusinessContactSchema.nullable(),

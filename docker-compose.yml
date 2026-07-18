@@ -258,9 +258,11 @@ services:
       args:
         NEXT_PUBLIC_API_URL: http://api:4000/api/v1
         PUBLIC_APP_URL: http://localhost:3003
+        NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
     restart: unless-stopped
     environment:
       <<: *frontend-environment
+      NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
     ports:
       - '${CARE_PORT:-3000}:3000'
     depends_on:

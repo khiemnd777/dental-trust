@@ -6,7 +6,7 @@ Web, API, and worker are independently runnable, non-root containers built from 
 
 ## Required configuration
 
-Populate the exact variables validated by `@dental-trust/config`: `NODE_ENV=production`, `PORT`, `APP_URL`, `API_URL`, `CORS_ORIGINS`, `DATABASE_URL`, `DIRECT_DATABASE_URL`, `REDIS_URL`, authentication issuer/audience/secret, field-encryption key, S3 endpoint/region/bucket/access credentials/path style, ClamAV host/port, SMTP host/port/from plus `SMTP_SECURE=true` and username/password, `PAYMENT_ADAPTER=stripe`, Stripe secret/webhook signing secret, and optional paired SMS/messaging, OTel, and error-tracking endpoints/credentials. Public Next.js variables are build-time inputs.
+Populate the exact variables validated by `@dental-trust/config`: `NODE_ENV=production`, `PORT`, `APP_URL`, `API_URL`, `CORS_ORIGINS`, `DATABASE_URL`, `DIRECT_DATABASE_URL`, `REDIS_URL`, authentication issuer/audience/secret, field-encryption key, S3 endpoint/region/bucket/access credentials/path style, ClamAV host/port, SMTP host/port/from plus `SMTP_SECURE=true` and username/password, `PAYMENT_ADAPTER=stripe`, Stripe secret/webhook signing secret, a URL-restricted Mapbox public access token, and optional paired SMS/messaging, OTel, and error-tracking endpoints/credentials. Public Next.js variables are build-time inputs.
 
 Run `node scripts/verify-env.mjs` in the release environment without printing values. Store secrets in the platform secret manager, not image layers, CI logs, manifests, or `.env` artifacts.
 

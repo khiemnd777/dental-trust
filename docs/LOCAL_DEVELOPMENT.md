@@ -24,6 +24,11 @@ scan requirement.
 
 Care runs at `http://localhost:3000`, Provider at `http://localhost:3001`, Operations at `http://localhost:3002`, and the transitional public/auth gateway at `http://localhost:3003`. API runs at `http://localhost:4000`, with versioned routes under `/api/v1` and documentation at `/api/docs`.
 
+The Care clinic map uses Mapbox GL JS. Set `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` to a public
+browser token (`pk.`) restricted to `http://localhost:3000/*` and the minimum style/tile
+scopes needed by the application. When the token is absent or Mapbox cannot load, Care keeps
+clinic discovery and the user's position usable through the OpenStreetMap continuity fallback.
+
 ## Development accounts
 
 The deterministic database seed is the source of truth for these identities. It fails when `NODE_ENV=production`. All seeded users use the shared local-only password `DentalTrustDev!2026`.

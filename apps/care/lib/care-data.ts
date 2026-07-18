@@ -54,6 +54,7 @@ export interface ClinicOption {
   readonly name: string;
   readonly locationLabel: string;
   readonly address: string;
+  readonly coordinates: { readonly latitude: number; readonly longitude: number } | null;
   readonly verificationStatus: string;
   readonly verificationDate: string | null;
   readonly evidence: readonly { readonly id: string; readonly category: string }[];

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import '@dental-trust/ui/styles.css';
+import 'leaflet/dist/leaflet.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import './styles.css';
 import { CareShell } from '@/components/care-shell';
 import { ServiceUnavailable } from '@/components/service-unavailable';

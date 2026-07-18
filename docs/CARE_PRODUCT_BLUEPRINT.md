@@ -9,7 +9,10 @@ what do I need to do, and who can help me.
 ## Primary information architecture
 
 1. **Today** — one prioritized next action, current journey, appointment and human support.
-2. **Discover** — treatment-first clinic discovery, transparent trust evidence, save and compare.
+2. **Discover** — treatment-first clinic discovery, a location-aware Google map, transparent trust
+   evidence, save and compare. Advanced markers and clusters keep patient ratings separate from
+   explainable verification coverage; viewport padding preserves map context behind the details sheet,
+   selecting a node reveals the evidence groups and verification date.
 3. **Journey** — visual progress from request through aftercare, instructions and records.
 4. **Messages** — secure case-based communication with the coordinator and clinic.
 5. **Account** — identity, health profile, saved clinics, preferences, consent and privacy.

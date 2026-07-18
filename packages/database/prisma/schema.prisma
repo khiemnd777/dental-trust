@@ -809,6 +809,8 @@ model ClinicLocation {
   address                  String
   city                     String
   district                 String?
+  latitude                 Float?
+  longitude                Float?
   timezone                 String
   encryptedBusinessContact String?       @map("encrypted_business_contact")
   active                   Boolean       @default(true)

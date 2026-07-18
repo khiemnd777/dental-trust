@@ -23,7 +23,11 @@ const requiredAlways = [
   'SMTP_FROM',
 ];
 
-const requiredProduction = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'];
+const requiredProduction = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN',
+];
 
 const developmentMarkers = ['development-only', 'dev_only', 'replace_me', 'localhost', '.invalid'];
 
@@ -73,6 +77,9 @@ if (production) {
   }
   if (!process.env.STRIPE_WEBHOOK_SECRET?.startsWith('whsec_')) {
     problems.push('STRIPE_WEBHOOK_SECRET must be a Stripe webhook signing secret');
+  }
+  if (!/^pk\.[A-Za-z0-9._-]{20,}$/u.test(process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '')) {
+    problems.push('NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN must be a Mapbox public browser token');
   }
 }
 

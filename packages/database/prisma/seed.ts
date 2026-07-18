@@ -194,6 +194,78 @@ async function main(): Promise<void> {
   });
   await seedAdminGovernance(admin.id);
 
+  const clinicLocations = [
+    {
+      name: 'Cơ sở Nguyễn Huệ',
+      address: '22 Nguyễn Huệ, Phường Bến Nghé',
+      district: 'Quận 1',
+      latitude: 10.77392,
+      longitude: 106.70335,
+    },
+    {
+      name: 'Cơ sở Lê Lợi',
+      address: '65 Lê Lợi, Phường Bến Nghé',
+      district: 'Quận 1',
+      latitude: 10.77337,
+      longitude: 106.70033,
+    },
+    {
+      name: 'Cơ sở Võ Văn Tần',
+      address: '157 Võ Văn Tần, Phường Võ Thị Sáu',
+      district: 'Quận 3',
+      latitude: 10.77565,
+      longitude: 106.69083,
+    },
+    {
+      name: 'Cơ sở Nguyễn Thị Minh Khai',
+      address: '41 Nguyễn Thị Minh Khai, Phường Bến Nghé',
+      district: 'Quận 1',
+      latitude: 10.78178,
+      longitude: 106.69808,
+    },
+    {
+      name: 'Cơ sở Nguyễn Du',
+      address: '92 Nguyễn Du, Phường Bến Nghé',
+      district: 'Quận 1',
+      latitude: 10.77922,
+      longitude: 106.69679,
+    },
+    {
+      name: 'Cơ sở Hai Bà Trưng',
+      address: '74 Hai Bà Trưng, Phường Bến Nghé',
+      district: 'Quận 1',
+      latitude: 10.78074,
+      longitude: 106.70286,
+    },
+    {
+      name: 'Cơ sở Đinh Tiên Hoàng',
+      address: '12 Đinh Tiên Hoàng, Phường Đa Kao',
+      district: 'Quận 1',
+      latitude: 10.78854,
+      longitude: 106.70227,
+    },
+    {
+      name: 'Cơ sở Cách Mạng Tháng Tám',
+      address: '258 Cách Mạng Tháng Tám, Phường 10',
+      district: 'Quận 3',
+      latitude: 10.78394,
+      longitude: 106.67965,
+    },
+    {
+      name: 'Cơ sở Trần Hưng Đạo',
+      address: '20 Trần Hưng Đạo, Phường Cầu Kho',
+      district: 'Quận 1',
+      latitude: 10.76392,
+      longitude: 106.6937,
+    },
+    {
+      name: 'Cơ sở Phạm Ngũ Lão',
+      address: '189 Nguyễn Thị Minh Khai, Phường Phạm Ngũ Lão',
+      district: 'Quận 1',
+      latitude: 10.77062,
+      longitude: 106.68888,
+    },
+  ] as const;
   const clinicRecords = [];
   for (let index = 1; index <= 10; index += 1) {
     const slug = index === 1 ? 'saigon-smiles' : `verified-dental-clinic-${index}`;
@@ -259,18 +331,29 @@ async function main(): Promise<void> {
         verifiedAt: new Date('2026-06-01T00:00:00Z'),
       },
     });
-    const location =
-      (await db.clinicLocation.findFirst({ where: { clinicId: clinic.id } })) ??
-      (await db.clinicLocation.create({
-        data: {
-          clinicId: clinic.id,
-          name: 'Main clinic',
-          address: `${index} Nguyen Hue Street`,
-          city: 'Ho Chi Minh City',
-          district: index % 2 === 0 ? 'District 3' : 'District 1',
-          timezone: 'Asia/Ho_Chi_Minh',
-        },
-      }));
+    const clinicLocation = clinicLocations[index - 1];
+    if (!clinicLocation) {
+      throw new Error(`Missing development location for clinic ${index}.`);
+    }
+    const existingLocation = await db.clinicLocation.findFirst({ where: { clinicId: clinic.id } });
+    const location = existingLocation
+      ? await db.clinicLocation.update({
+          where: { id: existingLocation.id },
+          data: {
+            ...clinicLocation,
+            city: 'TP. Hồ Chí Minh',
+            timezone: 'Asia/Ho_Chi_Minh',
+            active: true,
+          },
+        })
+      : await db.clinicLocation.create({
+          data: {
+            clinicId: clinic.id,
+            ...clinicLocation,
+            city: 'TP. Hồ Chí Minh',
+            timezone: 'Asia/Ho_Chi_Minh',
+          },
+        });
     const warranty =
       (await db.warrantyPolicy.findFirst({
         where: { clinicId: clinic.id, name: 'Standard implant warranty' },

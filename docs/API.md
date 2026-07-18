@@ -56,6 +56,12 @@ Message threads are case-scoped. Access is limited to the patient owner, a curre
 
 The current appointment, thread, message, and internal-note reads return at most 100 records. They do not yet expose a continuation cursor, so accessing older collaboration history remains a documented release gap rather than silently triggering an unbounded read.
 
+Public clinic discovery includes an optional bounded latitude/longitude pair for the active primary
+location. Coordinates are written through clinic onboarding, constrained as a complete pair in both
+the transport contract and PostgreSQL, and omitted from map placement when a clinic has not supplied
+them. Public trust evidence remains category-based so the Care map can show explainable verification
+coverage separately from patient review ratings.
+
 ## Clinic operations API
 
 Clinic organization creation requires a verified, current-MFA user without an existing selected tenant. Every subsequent clinic operation resolves an active selected organization membership and clinic-staff record. Named clinic permissions govern onboarding, team, case inbox, scheduling, services, analytics, and billing; role names alone do not authorize a write. High-value mutations require `X-Idempotency-Key`, use optimistic versions where records are editable, and write audit/outbox evidence without copying protected contact, payout, invitation, or availability-reason plaintext.
