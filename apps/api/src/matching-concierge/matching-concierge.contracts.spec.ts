@@ -28,6 +28,25 @@ describe('matching and concierge transport contracts', () => {
         maximumPriceMinor: '100',
       }),
     ).toThrow(/Maximum price/);
+    expect(
+      clinicDiscoveryQuerySchema.parse({
+        west: '106.62',
+        south: '10.70',
+        east: '106.82',
+        north: '10.88',
+      }),
+    ).toMatchObject({ west: 106.62, south: 10.7, east: 106.82, north: 10.88 });
+    expect(() => clinicDiscoveryQuerySchema.parse({ west: '106.62', east: '106.82' })).toThrow(
+      /Map bounds/,
+    );
+    expect(() =>
+      clinicDiscoveryQuerySchema.parse({
+        west: '106.82',
+        south: '10.70',
+        east: '106.62',
+        north: '10.88',
+      }),
+    ).toThrow(/East longitude/);
   });
 
   it('requires an explicit affirmative consent assertion for clinic introduction', () => {

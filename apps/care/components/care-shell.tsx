@@ -41,7 +41,7 @@ export function CareShell({
           </Link>
         </div>
       </header>
-      {children}
+      <div className="care-shell__content">{children}</div>
       <nav aria-label="Điều hướng chính" className="care-bottom-nav">
         {careNavigation.map((item) => {
           const active =

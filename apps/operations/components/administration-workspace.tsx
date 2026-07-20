@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { CustomSelect } from '@dental-trust/ui';
 import type {
   AdminNotificationJobView,
   AdminOrganizationView,
@@ -957,14 +958,14 @@ function PrivilegedActionDialog({
           {action.kind === 'user' ? (
             <label>
               <span>Trạng thái mới</span>
-              <select
+              <CustomSelect
                 defaultValue={action.item.accountStatus === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'}
                 name="toStatus"
               >
                 <option value="ACTIVE">Kích hoạt</option>
                 <option value="LOCKED">Khóa tài khoản</option>
                 <option value="SUSPENDED">Tạm ngưng</option>
-              </select>
+              </CustomSelect>
             </label>
           ) : (
             <div className="ops-dialog-record">

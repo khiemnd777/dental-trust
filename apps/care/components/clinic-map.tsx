@@ -7,12 +7,16 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '@/components/icon';
 import { MapboxClinicMap } from '@/components/mapbox-clinic-map';
 import type { ClinicOption } from '@/lib/care-data';
+import { loadClinicsInMapBounds, mergeClinicsIntoMapCache } from '@/lib/clinic-map-data';
 import {
   clinicHasMapLocation,
   clinicTrustSignals,
   clinicTrustSignalCount,
+  clinicViewportQueryBounds,
+  clinicViewportRequestKey,
   straightLineDistanceKm,
   type MapCoordinates,
+  type MapViewportSnapshot,
 } from '@/lib/clinic-map';
 import { formatDateTime, formatMoney } from '@/lib/presentation';
 
@@ -27,18 +31,28 @@ export function ClinicMap({
   readonly currentCity: string;
   readonly mapboxAccessToken: string;
 }) {
-  const mappableClinics = useMemo(() => clinics.filter(clinicHasMapLocation), [clinics]);
-  const [selectedId, setSelectedId] = useState(mappableClinics[0]?.id ?? '');
+  const [loadedClinics, setLoadedClinics] = useState(clinics);
+  const mappableClinics = useMemo(
+    () => loadedClinics.filter(clinicHasMapLocation),
+    [loadedClinics],
+  );
+  const [selectedId, setSelectedId] = useState('');
   const [userCoordinates, setUserCoordinates] = useState<MapCoordinates | null>(null);
   const [locationStatus, setLocationStatus] = useState('');
   const [locating, setLocating] = useState(false);
-  const [sheetState, setSheetState] = useState<ClinicMapSheetState>('expanded');
+  const [sheetState, setSheetState] = useState<ClinicMapSheetState>('hidden');
   const locationRequestInFlight = useRef(false);
   const sheetDragStartY = useRef<number | null>(null);
   const suppressSheetToggle = useRef(false);
+  const selectedIdRef = useRef(selectedId);
+  const viewportTimerRef = useRef<number | null>(null);
+  const viewportRequestRef = useRef<AbortController | null>(null);
+  const viewportVersionRef = useRef(0);
+  const lastViewportKeyRef = useRef('');
 
-  const selected =
-    mappableClinics.find((clinic) => clinic.id === selectedId) ?? mappableClinics[0] ?? null;
+  selectedIdRef.current = selectedId;
+
+  const selected = mappableClinics.find((clinic) => clinic.id === selectedId) ?? null;
   const trustSignals = selected ? clinicTrustSignals(selected.evidence) : [];
   const verifiedTrustCount = trustSignals.filter(({ verified }) => verified).length;
   const distance =
@@ -80,6 +94,44 @@ export function ClinicMap({
     setSheetState('expanded');
   }, []);
 
+  const loadViewport = useCallback((viewport: MapViewportSnapshot) => {
+    const queryBounds = clinicViewportQueryBounds(viewport.bounds);
+    const requestKey = clinicViewportRequestKey({ bounds: queryBounds, zoom: viewport.zoom });
+    if (requestKey === lastViewportKeyRef.current) return;
+    lastViewportKeyRef.current = requestKey;
+
+    viewportVersionRef.current += 1;
+    const version = viewportVersionRef.current;
+    viewportRequestRef.current?.abort();
+    if (viewportTimerRef.current !== null) window.clearTimeout(viewportTimerRef.current);
+
+    viewportTimerRef.current = window.setTimeout(() => {
+      viewportTimerRef.current = null;
+      const controller = new AbortController();
+      viewportRequestRef.current = controller;
+
+      void loadClinicsInMapBounds(queryBounds, controller.signal)
+        .then((nextClinics) => {
+          if (controller.signal.aborted || version !== viewportVersionRef.current) return;
+          setLoadedClinics((currentClinics) =>
+            mergeClinicsIntoMapCache(currentClinics, nextClinics, selectedIdRef.current),
+          );
+        })
+        .catch(() => {
+          if (controller.signal.aborted || version !== viewportVersionRef.current) return;
+          lastViewportKeyRef.current = '';
+        });
+    }, 220);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (viewportTimerRef.current !== null) window.clearTimeout(viewportTimerRef.current);
+      viewportRequestRef.current?.abort();
+    },
+    [],
+  );
+
   const toggleSheet = useCallback(() => {
     if (suppressSheetToggle.current) return;
     setSheetState((current) => (current === 'expanded' ? 'collapsed' : 'expanded'));
@@ -118,6 +170,7 @@ export function ClinicMap({
           accessToken={mapboxAccessToken}
           clinics={mappableClinics}
           onClinicSelect={selectClinic}
+          onViewportSettled={loadViewport}
           selectedId={selected?.id ?? ''}
           userCoordinates={userCoordinates}
         />
@@ -126,8 +179,7 @@ export function ClinicMap({
           <Link aria-label="Về danh sách nha khoa" className="clinic-map-tool" href="/discover">
             <Icon className="icon-back" name="arrow" />
             <span>
-              <small>Khu vực</small>
-              <strong>{mapAreaLabel}</strong>
+              <strong>Quay lại</strong>
             </span>
           </Link>
           <button
@@ -209,7 +261,7 @@ export function ClinicMap({
                   </span>
                   <div>
                     <strong>
-                      {verifiedTrustCount}/{clinicTrustSignalCount} nhóm hồ sơ đạt
+                      {verifiedTrustCount}/{clinicTrustSignalCount} nhóm bằng chứng được ghi nhận
                     </strong>
                     <small>
                       Kiểm tra {verificationDate(selected.verificationDate)} · Xem được từng phạm vi

@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react';
 
 import { Icon, type IconName } from '@/components/icon';
 import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
+import styles from './care-flows.module.css';
 
 const needs = [
   { code: 'DENTAL_IMPLANT', label: 'Mất răng / Implant', icon: 'implant' },
@@ -108,7 +109,7 @@ export function StartRequest({
   }
 
   return (
-    <main className="request-flow">
+    <main className={`${styles.requestFlow} request-flow`}>
       <header className="request-flow__header">
         <Link aria-label="Đóng" href={preferredClinic ? `/discover/${preferredClinic.slug}` : '/'}>
           <Icon name="close" />

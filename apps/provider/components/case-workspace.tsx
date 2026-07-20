@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { CustomSelect } from '@dental-trust/ui';
 import type { TreatmentPlanVersionView } from '@dental-trust/contracts';
 import { ProviderDialog } from '@/components/provider-dialog';
 import { ProviderIcon } from '@/components/provider-icon';
@@ -813,7 +814,7 @@ function AssignDentist({
     <div className="provider-assign-dentist">
       <label htmlFor="assigned-dentist">Nha sĩ phụ trách</label>
       <div>
-        <select
+        <CustomSelect
           disabled={disabled || !data.dentists.length}
           id="assigned-dentist"
           onChange={(event) => setValue(event.target.value)}
@@ -827,7 +828,7 @@ function AssignDentist({
                 {dentist.fullName}
               </option>
             ))}
-        </select>
+        </CustomSelect>
         <button
           disabled={disabled || !value || value === data.opportunity?.assignedDentistId}
           onClick={() => onAssign(value)}
@@ -974,14 +975,14 @@ function AppointmentDialog({
       >
         <label>
           <span>Loại lịch hẹn</span>
-          <select defaultValue="CONSULTATION" name="kind">
+          <CustomSelect defaultValue="CONSULTATION" name="kind">
             <option value="CONSULTATION">Tư vấn trực tuyến</option>
             <option value="CLINICAL_VISIT">Khám tại phòng khám</option>
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Nha sĩ</span>
-          <select name="dentistId" required>
+          <CustomSelect name="dentistId" required>
             {data.dentists
               .filter((item) => item.active)
               .map((item) => (
@@ -989,11 +990,11 @@ function AppointmentDialog({
                   {item.fullName}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Cơ sở</span>
-          <select name="clinicLocationId" required>
+          <CustomSelect name="clinicLocationId" required>
             {data.onboarding.locations
               .filter((item) => item.active)
               .map((item) => (
@@ -1001,7 +1002,7 @@ function AppointmentDialog({
                   {item.name}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Bắt đầu</span>
@@ -1009,12 +1010,12 @@ function AppointmentDialog({
         </label>
         <label>
           <span>Thời lượng</span>
-          <select defaultValue="45" name="duration">
+          <CustomSelect defaultValue="45" name="duration">
             <option value="30">30 phút</option>
             <option value="45">45 phút</option>
             <option value="60">60 phút</option>
             <option value="90">90 phút</option>
-          </select>
+          </CustomSelect>
         </label>
         <footer>
           <button onClick={onClose} type="button">
@@ -1092,7 +1093,7 @@ function PlanDialog({
       >
         <label>
           <span>Nha sĩ lập phương án</span>
-          <select name="dentistId" required>
+          <CustomSelect name="dentistId" required>
             {data.dentists
               .filter((item) => item.active)
               .map((item) => (
@@ -1100,7 +1101,7 @@ function PlanDialog({
                   {item.fullName}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Hiệu lực đến</span>
@@ -1164,10 +1165,10 @@ function PlanDialog({
             </label>
             <label>
               <span>Tiền tệ</span>
-              <select defaultValue={data.dentalCase.preferredCurrency} name="currency">
+              <CustomSelect defaultValue={data.dentalCase.preferredCurrency} name="currency">
                 <option value="VND">VND</option>
                 <option value="USD">USD</option>
-              </select>
+              </CustomSelect>
             </label>
             <label>
               <span>Đơn giá</span>

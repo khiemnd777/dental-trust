@@ -5,8 +5,12 @@ import {
   clinicMapInitialCenter,
   clinicMapShortName,
   clinicMapViewportPadding,
+  clinicViewportQueryBounds,
+  clinicViewportRequestKey,
   clinicTrustSignals,
   clinicTrustSignalCount,
+  expandMapBoundingBox,
+  mapMarkerCollisionOffset,
   straightLineDistanceKm,
 } from './clinic-map';
 
@@ -77,6 +81,39 @@ describe('clinic map presentation', () => {
     expect(clinicMapShortName('Saigon Smiles Dental Center')).toBe('Saigon Smiles');
     expect(clinicMapShortName('Dental Clinic')).toBe('Dental Clinic');
     expect(clinicMapShortName('Verified Dental Clinic 7')).toBe('Nha khoa 7');
+  });
+
+  it('keeps clusters mounted beyond the visible viewport while the map is moving', () => {
+    const expanded = expandMapBoundingBox([106.68, 10.76, 106.72, 10.8], 0.5);
+    expect(expanded[0]).toBeCloseTo(106.66, 8);
+    expect(expanded[1]).toBeCloseTo(10.74, 8);
+    expect(expanded[2]).toBeCloseTo(106.74, 8);
+    expect(expanded[3]).toBeCloseTo(10.82, 8);
+    expect(expandMapBoundingBox([-180, -85, 180, 85], 1)).toEqual([
+      -180, -85.051129, 180, 85.051129,
+    ]);
+  });
+
+  it('creates stable overscanned viewport queries without coupling them to cluster math', () => {
+    const bounds = clinicViewportQueryBounds([106.68, 10.76, 106.72, 10.8], 0.25);
+    expect(bounds[0]).toBeCloseTo(106.67, 8);
+    expect(bounds[1]).toBeCloseTo(10.75, 8);
+    expect(bounds[2]).toBeCloseTo(106.73, 8);
+    expect(bounds[3]).toBeCloseTo(10.81, 8);
+    expect(clinicViewportQueryBounds([-200, -20, 200, 20])).toEqual([-180, -20, 180, 20]);
+    expect(clinicViewportRequestKey({ bounds: [106.68, 10.76, 106.72, 10.8], zoom: 13.9 })).toBe(
+      '13:106.68000:10.76000:106.72000:10.80000',
+    );
+  });
+
+  it('separates a cluster from a selected marker without moving distant clusters', () => {
+    const cluster = { x: 75, y: 89 };
+    const selected = { x: 100, y: 100 };
+    const offset = mapMarkerCollisionOffset(cluster, selected);
+    expect(
+      Math.hypot(cluster.x + offset[0] - selected.x, cluster.y + offset[1] - selected.y),
+    ).toBeCloseTo(124, 8);
+    expect(mapMarkerCollisionOffset({ x: 260, y: 100 }, selected)).toEqual([0, 0]);
   });
 
   it('calculates distance without presenting it as road travel time', () => {

@@ -6,6 +6,7 @@ import {
   AdminDirectoryWorkspace,
   isAdminDirectoryWorkspace,
 } from '@/components/admin-directory-workspace';
+import { selectCustomOption } from './custom-select-helpers';
 
 const userId = '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01';
 const createdAt = '2026-07-12T08:00:00.000Z';
@@ -71,9 +72,7 @@ describe('admin user management', () => {
       .getByRole('heading', { name: 'Account status' })
       .closest('form');
     if (!statusForm) throw new Error('Expected account status form.');
-    fireEvent.change(within(statusForm).getByLabelText('Account status'), {
-      target: { value: 'SUSPENDED' },
-    });
+    selectCustomOption(within(statusForm).getByLabelText('Account status'), 'SUSPENDED');
     fireEvent.change(within(statusForm).getByLabelText(/Reason for privileged change/u), {
       target: { value: 'Confirmed security investigation ticket DT-42.' },
     });
@@ -116,9 +115,7 @@ describe('admin user management', () => {
       .getByRole('heading', { name: 'Vai trò hệ thống' })
       .closest('form');
     if (!roleForm) throw new Error('Expected role form.');
-    fireEvent.change(within(roleForm).getByLabelText('Vai trò hệ thống'), {
-      target: { value: 'VERIFICATION_OFFICER' },
-    });
+    selectCustomOption(within(roleForm).getByLabelText('Vai trò hệ thống'), 'VERIFICATION_OFFICER');
     fireEvent.change(within(roleForm).getByLabelText(/Lý do thay đổi đặc quyền/u), {
       target: { value: 'Phân công đã được phê duyệt theo yêu cầu DT-99.' },
     });

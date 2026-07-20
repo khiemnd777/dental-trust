@@ -49,6 +49,14 @@ export interface DiscoverySearchInput {
   readonly accessibility?: string;
   readonly minimumRating?: number;
   readonly followUpDataAvailable?: boolean;
+  readonly bounds?: DiscoveryMapBounds;
+}
+
+export interface DiscoveryMapBounds {
+  readonly west: number;
+  readonly south: number;
+  readonly east: number;
+  readonly north: number;
 }
 
 export interface CriteriaPersistenceInput {
@@ -114,6 +122,17 @@ export class MatchingConciergeRepository {
       ? new Date(`${input.consultationAvailableBy}T23:59:59.999Z`)
       : undefined;
     const scanLimit = Math.min(input.limit * 3 + 1, 301);
+    const locationFilter: Prisma.ClinicLocationWhereInput = {
+      active: true,
+      ...(input.city ? { city: { equals: input.city, mode: 'insensitive' } } : {}),
+      ...(input.district ? { district: { equals: input.district, mode: 'insensitive' } } : {}),
+      ...(input.bounds
+        ? {
+            latitude: { gte: input.bounds.south, lte: input.bounds.north },
+            longitude: { gte: input.bounds.west, lte: input.bounds.east },
+          }
+        : {}),
+    };
     const records = await this.db.clinic.findMany({
       where: {
         verificationStatus: 'VERIFIED',
@@ -133,16 +152,10 @@ export class MatchingConciergeRepository {
             OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
           },
         },
-        ...(input.city || input.district
+        ...(input.city || input.district || input.bounds
           ? {
               locations: {
-                some: {
-                  active: true,
-                  ...(input.city ? { city: { equals: input.city, mode: 'insensitive' } } : {}),
-                  ...(input.district
-                    ? { district: { equals: input.district, mode: 'insensitive' } }
-                    : {}),
-                },
+                some: locationFilter,
               },
             }
           : {}),
@@ -235,7 +248,9 @@ export class MatchingConciergeRepository {
       ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
       select: discoveryClinicSelect,
     });
-    const mapped = records.map((clinic) => discoveryClinicView(clinic, input.locale, now));
+    const mapped = records.map((clinic) =>
+      discoveryClinicView(clinic, input.locale, now, input.bounds),
+    );
     const filtered = mapped.filter(
       ({ rating, warrantyAvailable }) =>
         (input.minimumRating === undefined || Number(rating || 0) >= input.minimumRating) &&
@@ -1681,8 +1696,17 @@ const discoveryClinicSelect = {
 
 type DiscoveryClinicRecord = Prisma.ClinicGetPayload<{ select: typeof discoveryClinicSelect }>;
 
-function discoveryClinicView(clinic: DiscoveryClinicRecord, locale: 'vi-VN' | 'en-US', now: Date) {
-  const location = clinic.locations[0];
+function discoveryClinicView(
+  clinic: DiscoveryClinicRecord,
+  locale: 'vi-VN' | 'en-US',
+  now: Date,
+  bounds?: DiscoveryMapBounds,
+) {
+  const location = bounds
+    ? clinic.locations.find(({ latitude, longitude }) =>
+        locationFallsWithinBounds(latitude, longitude, bounds),
+      )
+    : clinic.locations[0];
   const activeVerification = clinic.verificationCases.find(
     ({ expiresAt }) => expiresAt !== null && expiresAt > now,
   );
@@ -1745,6 +1769,21 @@ function discoveryClinicView(clinic: DiscoveryClinicRecord, locale: 'vi-VN' | 'e
           }
         : null,
   };
+}
+
+function locationFallsWithinBounds(
+  latitude: number | null,
+  longitude: number | null,
+  bounds: DiscoveryMapBounds,
+): boolean {
+  return (
+    latitude !== null &&
+    longitude !== null &&
+    latitude >= bounds.south &&
+    latitude <= bounds.north &&
+    longitude >= bounds.west &&
+    longitude <= bounds.east
+  );
 }
 
 const conciergeDetailInclude = {

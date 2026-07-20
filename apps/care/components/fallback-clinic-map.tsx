@@ -194,7 +194,9 @@ function fitFallbackMap(
   if (userCoordinates) positions.push([userCoordinates.latitude, userCoordinates.longitude]);
   if (positions.length === 0) return;
   if (positions.length === 1) {
-    map.setView(positions[0]!, 15, { animate: true });
+    const onlyPosition = positions[0];
+    if (!onlyPosition) return;
+    map.setView(onlyPosition, 15, { animate: true });
     return;
   }
 

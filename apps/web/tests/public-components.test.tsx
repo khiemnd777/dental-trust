@@ -13,6 +13,7 @@ import { PublicHeader } from '@/components/public-header';
 import { ServiceWorkerRegistration } from '@/components/service-worker-registration';
 import { SimpleAuthForm } from '@/components/simple-auth-form';
 import type { PublicClinic } from '@/lib/public-data';
+import { selectCustomOption } from './custom-select-helpers';
 
 const navigation = vi.hoisted(() => ({ pathname: '/en/clinics', push: vi.fn() }));
 vi.mock('next/navigation', () => ({
@@ -145,9 +146,7 @@ function fillContactForm() {
   fireEvent.change(screen.getByLabelText(labelPattern(messages.forms.contactEmail)), {
     target: { value: 'patient@example.test' },
   });
-  fireEvent.change(screen.getByLabelText(labelPattern(messages.forms.topic)), {
-    target: { value: 'Case support' },
-  });
+  selectCustomOption(screen.getByLabelText(labelPattern(messages.forms.topic)), 'Case support');
   fireEvent.change(screen.getByLabelText(labelPattern(messages.forms.message)), {
     target: { value: 'A sufficiently detailed non-urgent support request.' },
   });

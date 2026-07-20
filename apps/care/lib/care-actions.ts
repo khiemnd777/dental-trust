@@ -30,6 +30,18 @@ export async function forwardCareAction(
   }
 }
 
+export async function forwardPublicCareRead(path: string, timeoutMs = 8_000) {
+  try {
+    const response = await fetch(`${apiBase()}${path}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return proxiedResponse(response);
+  } catch (error) {
+    return proxyTransportError(error);
+  }
+}
+
 export async function forwardCareFormData(
   path: string,
   body: FormData,

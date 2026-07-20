@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { CustomSelect } from '@dental-trust/ui';
 import type {
   ClinicDentistView,
   ClinicOpportunityView,
@@ -102,11 +103,16 @@ export function CaseWorklist({
           <label className="provider-filter-select">
             <ProviderIcon name="filter" />
             <span className="provider-sr-only">Sắp xếp hồ sơ</span>
-            <select onChange={(event) => setSort(event.target.value as typeof sort)} value={sort}>
+            <CustomSelect
+              aria-label="Sắp xếp hồ sơ"
+              onChange={(event) => setSort(event.target.value as typeof sort)}
+              value={sort}
+              variant="compact"
+            >
               <option value="updated">Mới cập nhật</option>
               <option value="arrival">Ngày đến Việt Nam</option>
               <option value="status">Trạng thái</option>
-            </select>
+            </CustomSelect>
           </label>
         </header>
 

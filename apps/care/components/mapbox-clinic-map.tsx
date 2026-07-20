@@ -1,5 +1,6 @@
 'use client';
 
+import type mapboxgl from 'mapbox-gl';
 import type { Map as MapboxMap, Marker as MapboxMarker } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
 import Supercluster from 'supercluster';
@@ -12,7 +13,10 @@ import {
   clinicMapViewportPadding,
   clinicTrustSignalCount,
   clinicTrustSignals,
+  expandMapBoundingBox,
+  mapMarkerCollisionOffset,
   type MapCoordinates,
+  type MapViewportSnapshot,
 } from '@/lib/clinic-map';
 
 type MappableClinic = ClinicOption & { readonly coordinates: MapCoordinates };
@@ -34,27 +38,42 @@ type ClusterPoint =
   | Supercluster.ClusterFeature<Record<string, never>>
   | Supercluster.PointFeature<ClinicPointProperties>;
 
+const fullDatasetClusterLimit = 250;
+const worldClusterBounds: [west: number, south: number, east: number, north: number] = [
+  -180, -85.051_129, 180, 85.051_129,
+];
+
 export function MapboxClinicMap({
   accessToken,
   clinics,
   onClinicSelect,
+  onViewportSettled,
   selectedId,
   userCoordinates,
 }: {
   readonly accessToken: string;
   readonly clinics: readonly MappableClinic[];
   readonly onClinicSelect: (clinicId: string) => void;
+  readonly onViewportSettled: (viewport: MapViewportSnapshot) => void;
   readonly selectedId: string;
   readonly userCoordinates: MapCoordinates | null;
 }) {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
-  const mapboxRef = useRef<typeof import('mapbox-gl').default | null>(null);
+  const mapboxRef = useRef<typeof mapboxgl | null>(null);
   const clinicMarkersRef = useRef<Map<string, ClinicMarkerEntry>>(new Map());
   const clusterMarkersRef = useRef<MapboxMarker[]>([]);
   const selectedIdRef = useRef(selectedId);
+  const clinicsRef = useRef(clinics);
+  const onClinicSelectRef = useRef(onClinicSelect);
+  const onViewportSettledRef = useRef(onViewportSettled);
+  const renderClustersRef = useRef<(() => void) | null>(null);
   const userMarkerRef = useRef<MapboxMarker | null>(null);
   const [loadState, setLoadState] = useState<MapLoadState>('loading');
+
+  clinicsRef.current = clinics;
+  onClinicSelectRef.current = onClinicSelect;
+  onViewportSettledRef.current = onViewportSettled;
 
   useEffect(() => {
     const mapElement = mapElementRef.current;
@@ -70,7 +89,6 @@ export function MapboxClinicMap({
     let map: MapboxMap | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let providerReady = false;
-    const clinicById = new Map(clinics.map((clinic) => [clinic.id, clinic]));
     const loadWatchdog = window.setTimeout(() => {
       if (!disposed && !providerReady) setLoadState('load-error');
     }, 12_000);
@@ -81,7 +99,8 @@ export function MapboxClinicMap({
       .then(({ default: mapboxgl }) => {
         if (disposed) return;
 
-        const initialCenter = clinicMapInitialCenter(clinics, null);
+        const initialClinics = clinicsRef.current;
+        const initialCenter = clinicMapInitialCenter(initialClinics, null);
         map = new mapboxgl.Map({
           accessToken: token,
           attributionControl: true,
@@ -98,7 +117,7 @@ export function MapboxClinicMap({
           projection: 'mercator',
           respectPrefersReducedMotion: true,
           style: 'mapbox://styles/mapbox/standard',
-          zoom: clinics.length > 0 ? 13 : 12,
+          zoom: initialClinics.length > 0 ? 13 : 12,
         });
         mapRef.current = map;
         mapboxRef.current = mapboxgl;
@@ -115,19 +134,30 @@ export function MapboxClinicMap({
 
         const renderClusters = () => {
           if (!map || disposed || !providerReady) return;
+          const activeMap = map;
           clearRenderedMarkers();
 
-          const bounds = map.getBounds();
+          const bounds = activeMap.getBounds();
           if (!bounds) return;
+          const currentClinics = clinicsRef.current;
+          const renderAllLoadedClinics = currentClinics.length <= fullDatasetClusterLimit;
+          const clinicById = new Map(currentClinics.map((clinic) => [clinic.id, clinic]));
+          const queryBounds = renderAllLoadedClinics
+            ? worldClusterBounds
+            : expandMapBoundingBox([
+                bounds.getWest(),
+                bounds.getSouth(),
+                bounds.getEast(),
+                bounds.getNorth(),
+              ]);
           const selectedClinic = clinicById.get(selectedIdRef.current);
           const clusterIndex = createClusterIndex(
-            selectedClinic ? clinics.filter(({ id }) => id !== selectedClinic.id) : clinics,
+            selectedClinic
+              ? currentClinics.filter(({ id }) => id !== selectedClinic.id)
+              : currentClinics,
           );
-          const zoom = Math.max(0, Math.min(20, Math.floor(map.getZoom())));
-          const features = clusterIndex.getClusters(
-            [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
-            zoom,
-          );
+          const zoom = Math.max(0, Math.min(20, Math.floor(activeMap.getZoom())));
+          const features = clusterIndex.getClusters(queryBounds, zoom);
           const localClinicEntries = new Map<string, ClinicMarkerEntry>();
           const localClusterMarkers: MapboxMarker[] = [];
 
@@ -141,7 +171,8 @@ export function MapboxClinicMap({
               event.preventDefault();
               event.stopPropagation();
               selectedIdRef.current = clinic.id;
-              onClinicSelect(clinic.id);
+              onClinicSelectRef.current(clinic.id);
+              window.requestAnimationFrame(renderClusters);
               map?.easeTo({
                 center: toLngLat(clinic.coordinates),
                 duration: prefersReducedMotion() ? 0 : 480,
@@ -152,7 +183,7 @@ export function MapboxClinicMap({
             element.addEventListener('click', select);
             const marker = new mapboxgl.Marker({ anchor: 'center', element: anchor })
               .setLngLat([longitude, latitude])
-              .addTo(map!);
+              .addTo(activeMap);
             element.setAttribute('role', 'button');
             localClinicEntries.set(clinic.id, { anchor, element, marker, select });
           };
@@ -164,6 +195,21 @@ export function MapboxClinicMap({
 
             if (isClusterFeature(feature)) {
               const element = clusterMarkerContent(feature.properties.point_count);
+              const clusterOffset: [number, number] = selectedClinic
+                ? mapMarkerCollisionOffset(
+                    activeMap.project([longitude, latitude]),
+                    activeMap.project(toLngLat(selectedClinic.coordinates)),
+                  )
+                : [0, 0];
+              const leaderLength = Math.hypot(clusterOffset[0], clusterOffset[1]);
+              if (leaderLength > 0) {
+                element.classList.add('is-offset');
+                element.style.setProperty('--clinic-cluster-leader-length', `${leaderLength}px`);
+                element.style.setProperty(
+                  '--clinic-cluster-leader-angle',
+                  `${Math.atan2(-clusterOffset[1], -clusterOffset[0])}rad`,
+                );
+              }
               const expand = (event: Event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -179,7 +225,11 @@ export function MapboxClinicMap({
                 });
               };
               element.addEventListener('click', expand, { once: true });
-              const clusterMarker = new mapboxgl.Marker({ anchor: 'center', element })
+              const clusterMarker = new mapboxgl.Marker({
+                anchor: 'center',
+                element,
+                offset: clusterOffset,
+              })
                 .setLngLat([longitude, latitude])
                 .addTo(map);
               element.setAttribute('role', 'button');
@@ -203,13 +253,14 @@ export function MapboxClinicMap({
           clinicMarkersRef.current = localClinicEntries;
           clusterMarkersRef.current = localClusterMarkers;
         };
+        renderClustersRef.current = renderClusters;
 
         const handleLoad = () => {
           if (!map || disposed) return;
           providerReady = true;
           window.clearTimeout(loadWatchdog);
           setLoadState('ready');
-          const initiallySelected = clinicById.get(selectedIdRef.current);
+          const initiallySelected = initialClinics.find(({ id }) => id === selectedIdRef.current);
           if (initiallySelected) {
             map.once('moveend', () => {
               if (!map || disposed) return;
@@ -220,7 +271,7 @@ export function MapboxClinicMap({
               });
             });
           }
-          fitMapToLocations(map, clinics, null);
+          fitMapToLocations(map, initialClinics, null);
           renderClusters();
         };
         const handleError = ({ error }: { error: Error }) => {
@@ -229,9 +280,19 @@ export function MapboxClinicMap({
             setLoadState('load-error');
           }
         };
+        const handleMoveEnd = () => {
+          if (!map) return;
+          const bounds = map.getBounds();
+          if (!bounds) return;
+          onViewportSettledRef.current({
+            bounds: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+            zoom: map.getZoom(),
+          });
+        };
 
         map.on('load', handleLoad);
-        map.on('moveend', renderClusters);
+        map.on('moveend', handleMoveEnd);
+        map.on('zoomend', renderClusters);
         map.on('error', handleError);
         map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 
@@ -259,8 +320,15 @@ export function MapboxClinicMap({
       map?.remove();
       mapRef.current = null;
       mapboxRef.current = null;
+      renderClustersRef.current = null;
     };
-  }, [accessToken, clinics, onClinicSelect]);
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (loadState !== 'ready') return;
+    const frame = window.requestAnimationFrame(() => renderClustersRef.current?.());
+    return () => window.cancelAnimationFrame(frame);
+  }, [clinics, loadState]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -269,6 +337,10 @@ export function MapboxClinicMap({
       entry.anchor.classList.toggle('is-selected', selected);
       entry.element.classList.toggle('is-selected', selected);
       entry.element.setAttribute('aria-pressed', String(selected));
+    }
+    if (loadState === 'ready') {
+      const frame = window.requestAnimationFrame(() => renderClustersRef.current?.());
+      return () => window.cancelAnimationFrame(frame);
     }
   }, [loadState, selectedId]);
 
@@ -288,13 +360,13 @@ export function MapboxClinicMap({
       .setLngLat(toLngLat(userCoordinates))
       .addTo(map);
     userMarkerRef.current = marker;
-    fitMapToLocations(map, clinics, userCoordinates);
+    fitMapToLocations(map, clinicsRef.current, userCoordinates);
 
     return () => {
       marker.remove();
       if (userMarkerRef.current === marker) userMarkerRef.current = null;
     };
-  }, [clinics, loadState, userCoordinates]);
+  }, [loadState, userCoordinates]);
 
   return (
     <div className="mapbox-map-layer" data-load-state={loadState} data-map-provider="mapbox">
@@ -325,16 +397,14 @@ export function MapboxClinicMap({
 }
 
 function createClusterIndex(clinics: readonly MappableClinic[]): ClusterIndex {
-  const features: Array<Supercluster.PointFeature<ClinicPointProperties>> = clinics.map(
-    (clinic) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [clinic.coordinates.longitude, clinic.coordinates.latitude],
-      },
-      properties: { clinicId: clinic.id },
-    }),
-  );
+  const features: Supercluster.PointFeature<ClinicPointProperties>[] = clinics.map((clinic) => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [clinic.coordinates.longitude, clinic.coordinates.latitude],
+    },
+    properties: { clinicId: clinic.id },
+  }));
   return new Supercluster<ClinicPointProperties, Record<string, never>>({
     maxZoom: 15,
     minPoints: 2,
@@ -357,8 +427,10 @@ function fitMapToLocations(
   if (userCoordinates) coordinates.push(userCoordinates);
   if (coordinates.length === 0) return;
   if (coordinates.length === 1) {
+    const coordinate = coordinates[0];
+    if (!coordinate) return;
     map.easeTo({
-      center: toLngLat(coordinates[0]!),
+      center: toLngLat(coordinate),
       duration: prefersReducedMotion() ? 0 : 480,
       zoom: 15,
     });
@@ -394,7 +466,7 @@ function clinicMarkerContent(clinic: MappableClinic): {
   marker.type = 'button';
   marker.setAttribute(
     'aria-label',
-    `${clinic.name}. Rating ${clinic.rating || 'mới'}. ${verifiedCount}/${clinicTrustSignalCount} nhóm hồ sơ đạt.`,
+    `${clinic.name}. Rating ${clinic.rating || 'mới'}. ${verifiedCount}/${clinicTrustSignalCount} nhóm bằng chứng được ghi nhận.`,
   );
 
   const shell = document.createElement('span');

@@ -50,6 +50,16 @@ body {
   margin: 0;
 }
 
+.dt-custom-select {
+  --dt-custom-select-accent: var(--p-teal-600);
+  --dt-custom-select-border: var(--p-border-strong);
+  --dt-custom-select-color: var(--p-ink);
+  --dt-custom-select-hover-border: var(--p-teal-600);
+  --dt-custom-select-muted: var(--p-muted);
+  --dt-custom-select-option-hover: var(--p-teal-50);
+  --dt-custom-select-option-selected: var(--p-teal-100);
+}
+
 button,
 input,
 select {
@@ -1385,14 +1395,24 @@ select:focus-visible {
   padding: 0 0.65rem;
 }
 
-.provider-filter-select select {
-  appearance: none;
+.provider-filter-select .dt-custom-select {
+  width: auto;
+}
+
+.provider-filter-select .dt-custom-select__trigger {
   background: transparent;
   border: 0;
   color: var(--p-ink);
   font-size: var(--p-text-small);
   font-weight: 750;
+  min-height: auto;
   outline: 0;
+  padding: 0;
+}
+
+.provider-filter-select .dt-custom-select__trigger:focus-visible,
+.provider-filter-select .dt-custom-select.is-open .dt-custom-select__trigger {
+  box-shadow: none;
 }
 
 .provider-segmented {
@@ -3453,15 +3473,11 @@ textarea:disabled {
   grid-template-columns: 1fr auto;
 }
 
-.provider-assign-dentist select {
-  background: white;
-  border: 1px solid var(--p-border-strong);
-  border-radius: 0.6rem;
+.provider-assign-dentist .dt-custom-select {
   min-width: 0;
-  padding: 0.55rem;
 }
 
-.provider-assign-dentist button {
+.provider-assign-dentist > div > button {
   background: var(--p-navy-900);
   border: 0;
   border-radius: 0.6rem;
@@ -3589,7 +3605,7 @@ textarea:disabled {
 }
 
 .provider-form input,
-.provider-form select,
+.provider-form .dt-custom-select__trigger,
 .provider-form textarea {
   background: white;
   border: 1px solid var(--p-border-strong);

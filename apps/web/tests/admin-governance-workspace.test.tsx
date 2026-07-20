@@ -7,6 +7,7 @@ import {
   isAdminGovernanceWorkspace,
   NotificationTemplateGovernancePanel,
 } from '@/components/admin-governance-workspace';
+import { selectCustomOption } from './custom-select-helpers';
 
 const recordId = '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01';
 const categoryId = '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e02';
@@ -84,7 +85,7 @@ describe('content and taxonomy governance', () => {
     vi.stubGlobal('fetch', governanceFetch([categoryRecord()], commands));
     render(workspace('taxonomy'));
     fireEvent.click(await screen.findByRole('button', { name: 'Create version' }));
-    fireEvent.change(screen.getByLabelText('Record type'), { target: { value: 'procedure' } });
+    selectCustomOption(screen.getByLabelText('Record type'), 'procedure');
     fill('Code', 'implant-placement');
     fill('Vietnamese name', 'Cấy ghép implant');
     fill('English name', 'Implant placement');

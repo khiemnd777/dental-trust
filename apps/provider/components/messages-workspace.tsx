@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { CustomSelect } from '@dental-trust/ui';
 import type { DentalCaseView } from '@dental-trust/contracts';
 import { ProviderDialog } from '@/components/provider-dialog';
 import { ProviderIcon } from '@/components/provider-icon';
@@ -282,7 +283,7 @@ export function MessagesWorkspace({
         >
           <label>
             <span>Hồ sơ</span>
-            <select name="caseId" required>
+            <CustomSelect name="caseId" required>
               {cases
                 .filter((item) => !['CLOSED', 'CANCELLED'].includes(item.status))
                 .map((item) => (
@@ -290,7 +291,7 @@ export function MessagesWorkspace({
                     {item.caseNumber} · {item.title}
                   </option>
                 ))}
-            </select>
+            </CustomSelect>
           </label>
           <label>
             <span>Chủ đề</span>

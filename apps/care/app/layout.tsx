@@ -5,6 +5,7 @@ import '@dental-trust/ui/styles.css';
 import 'leaflet/dist/leaflet.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './styles.css';
+import './care-redesign.css';
 import { CareShell } from '@/components/care-shell';
 import { ServiceUnavailable } from '@/components/service-unavailable';
 import { getNotifications } from '@/lib/care-data';
@@ -21,7 +22,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f4f8f6',
+  themeColor: '#f3f5f1',
 };
 
 export default async function CareLayout({ children }: { children: ReactNode }) {

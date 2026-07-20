@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { CustomSelect } from '@dental-trust/ui';
 import type {
   ClinicOnboardingView,
   ClinicServiceView,
@@ -1173,7 +1174,7 @@ function ProfileDialog({
         </label>
         <label>
           <span>Phụ trách lâm sàng</span>
-          <select
+          <CustomSelect
             defaultValue={
               onboarding.responsibleClinicalLeaderDentistId ??
               data.dentists.find((item) => item.active)?.id
@@ -1188,7 +1189,7 @@ function ProfileDialog({
                   {dentist.fullName}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>SLA hậu mãi</span>
@@ -1266,11 +1267,11 @@ function InviteDialog({
         <div className="provider-form-row">
           <label>
             <span>Vai trò</span>
-            <select defaultValue="DENTIST" name="role">
+            <CustomSelect defaultValue="DENTIST" name="role">
               <option value="DENTIST">Nha sĩ</option>
               <option value="CLINIC_STAFF">Nhân viên phòng khám</option>
               <option value="CLINIC_ADMIN">Quản trị phòng khám</option>
-            </select>
+            </CustomSelect>
           </label>
           <label>
             <span>Chức danh</span>
@@ -1356,13 +1357,13 @@ function ServiceDialog({
       >
         <label className="is-wide">
           <span>Dịch vụ trong danh mục</span>
-          <select name="procedureDefinitionId" required>
+          <CustomSelect name="procedureDefinitionId" required>
             {data.services.catalog.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.code} · {item.names['vi-VN'] ?? item.names['en-US'] ?? humanize(item.code)}
               </option>
             ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Tên tiếng Việt</span>
@@ -1382,10 +1383,10 @@ function ServiceDialog({
         </label>
         <label>
           <span>Tiền tệ</span>
-          <select defaultValue="VND" name="currency">
+          <CustomSelect defaultValue="VND" name="currency">
             <option value="VND">VND</option>
             <option value="USD">USD</option>
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Thời lượng dự kiến</span>
@@ -1462,7 +1463,7 @@ function AvailabilityRuleDialog({
       >
         <label>
           <span>Cơ sở</span>
-          <select name="locationId" required>
+          <CustomSelect name="locationId" required>
             {data.onboarding.locations
               .filter((item) => item.active)
               .map((location) => (
@@ -1470,11 +1471,11 @@ function AvailabilityRuleDialog({
                   {location.name}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Nha sĩ (tùy chọn)</span>
-          <select defaultValue="" name="dentistId">
+          <CustomSelect defaultValue="" name="dentistId">
             <option value="">Toàn phòng khám</option>
             {data.dentists
               .filter((item) => item.active)
@@ -1483,25 +1484,25 @@ function AvailabilityRuleDialog({
                   {dentist.fullName}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Loại slot</span>
-          <select defaultValue="BOTH" name="slotKind">
+          <CustomSelect defaultValue="BOTH" name="slotKind">
             <option value="BOTH">Tư vấn & điều trị</option>
             <option value="CONSULTATION">Tư vấn</option>
             <option value="TREATMENT">Điều trị</option>
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Thứ</span>
-          <select defaultValue="1" name="dayOfWeek">
+          <CustomSelect defaultValue="1" name="dayOfWeek">
             {[1, 2, 3, 4, 5, 6, 0].map((day) => (
               <option key={day} value={day}>
                 {weekdayLabel(day)}
               </option>
             ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Bắt đầu</span>

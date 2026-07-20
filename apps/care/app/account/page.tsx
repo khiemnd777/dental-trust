@@ -6,32 +6,31 @@ import { logoutCareAction } from '@/lib/account-actions';
 import { getAccountData } from '@/lib/care-data';
 import { initials } from '@/lib/presentation';
 
+import styles from './account.module.css';
+
 export const metadata: Metadata = { title: 'Tài khoản' };
 
 const sections: readonly {
   title: string;
-  rows: readonly { href: string; icon: IconName; label: string; description: string }[];
+  rows: readonly { href: string; icon: IconName; label: string }[];
 }[] = [
   {
-    title: 'Chăm sóc của tôi',
+    title: 'Hồ sơ',
     rows: [
       {
         href: '/account/profile',
         icon: 'user',
-        label: 'Hồ sơ cá nhân và sức khỏe',
-        description: 'Thông tin giúp bác sĩ hiểu bạn',
+        label: 'Thông tin cá nhân',
       },
       {
         href: '/account/documents',
         icon: 'document',
-        label: 'Tài liệu và hồ sơ nha khoa',
-        description: 'Ảnh chụp, hướng dẫn và Dental Passport',
+        label: 'Tài liệu nha khoa',
       },
       {
         href: '/account/saved',
         icon: 'heart',
-        label: 'Đã lưu',
-        description: 'Phòng khám bạn muốn xem lại',
+        label: 'Phòng khám đã lưu',
       },
     ],
   },
@@ -39,99 +38,127 @@ const sections: readonly {
     title: 'Cài đặt',
     rows: [
       {
-        href: '/account/preferences',
-        icon: 'bell',
-        label: 'Thông báo và ngôn ngữ',
-        description: 'Cách Dental Trust liên hệ với bạn',
-      },
-      {
         href: '/account/privacy',
         icon: 'lock',
-        label: 'Quyền riêng tư và đồng ý',
-        description: 'Kiểm soát dữ liệu và quyền chia sẻ',
+        label: 'Quyền riêng tư',
+      },
+      {
+        href: '/account/preferences',
+        icon: 'bell',
+        label: 'Thông báo & ngôn ngữ',
       },
       {
         href: '/account/help',
         icon: 'support',
-        label: 'Trợ giúp và an toàn',
-        description: 'Hỗ trợ, sự cố và câu hỏi thường gặp',
+        label: 'Trợ giúp',
       },
     ],
   },
 ];
 
+function verificationLabel(status: string) {
+  if (status === 'VERIFIED' || status === 'ACTIVE') return 'Đã xác minh';
+  if (status === 'VERIFICATION_EXPIRING') return 'Xác minh sắp hết hạn';
+  if (status === 'PENDING' || status === 'UNDER_REVIEW') return 'Đang xác minh';
+  return 'Xem trạng thái xác minh';
+}
+
 export default async function AccountPage() {
   const { profile, saved } = await getAccountData();
   const fullName = profile?.identity?.fullName ?? profile?.email ?? 'Tài khoản của bạn';
+  const locale = profile?.preferredLocale === 'en-US' ? 'English' : 'Tiếng Việt';
+  const currency = profile?.preferredCurrency ?? 'VND';
+
   return (
-    <main className="care-main account-page">
-      <header className="account-profile-card">
-        <span className="account-profile-card__avatar">{initials(fullName)}</span>
-        <div>
-          <p className="eyebrow">Tài khoản của tôi</p>
-          <h1>{fullName}</h1>
-          <p>{profile?.email}</p>
+    <main className={`care-main ${styles.page}`}>
+      <header className={styles.profileCard}>
+        <div className={styles.profileIdentity}>
+          <span className={styles.avatar}>{initials(fullName)}</span>
+          <div>
+            <h1>{fullName}</h1>
+            {profile?.email ? <p>{profile.email}</p> : null}
+          </div>
+          <Link href="/account/profile">Chỉnh sửa</Link>
         </div>
-        <Link aria-label="Chỉnh sửa hồ sơ" href="/account/profile">
-          Chỉnh sửa
-        </Link>
-        <div className="profile-completeness">
+
+        <div className={styles.profileStatus}>
           <span>
-            <Icon name="check" /> Hồ sơ đã được bảo vệ
+            <Icon name="shield" /> Hồ sơ được bảo vệ
           </span>
-          <strong>{profile?.onboardingCompletedAt ? '100%' : '70%'}</strong>
+          <strong>{profile?.onboardingCompletedAt ? 'Đã hoàn tất' : 'Cần bổ sung'}</strong>
         </div>
+
+        <dl className={styles.preferenceSummary}>
+          <div>
+            <dt>Ngôn ngữ</dt>
+            <dd>{locale}</dd>
+          </div>
+          <div>
+            <dt>Múi giờ</dt>
+            <dd>{profile?.timezone ?? 'Chưa thiết lập'}</dd>
+          </div>
+          <div>
+            <dt>Tiền tệ</dt>
+            <dd>{currency}</dd>
+          </div>
+        </dl>
       </header>
 
       {saved.length ? (
-        <section className="saved-preview">
-          <div className="section-heading">
+        <section className={styles.savedPreview} aria-labelledby="saved-title">
+          <div className={styles.sectionHeading}>
             <div>
-              <p className="eyebrow">Xem lại nhanh</p>
-              <h2>Đã lưu gần đây</h2>
+              <h2 id="saved-title">Phòng khám đã lưu</h2>
             </div>
             <Link href="/account/saved">Tất cả ({saved.length})</Link>
           </div>
-          <div className="saved-preview__scroll">
+          <div className={styles.savedList}>
             {saved.slice(0, 4).map((clinic, index) => (
               <Link href={`/discover/${clinic.clinicSlug}`} key={clinic.id}>
-                <span className={`saved-preview__art clinic-visual--${(index % 4) + 1}`} />
-                <strong>{clinic.clinicName}</strong>
-                <small>
-                  <Icon name="shield" /> Đã xác minh
-                </small>
+                <span className={`${styles.savedArt} clinic-visual--${(index % 4) + 1}`} />
+                <span className={styles.savedCopy}>
+                  <strong>{clinic.clinicName}</strong>
+                  <small>
+                    <Icon name="shield" /> {verificationLabel(clinic.verificationStatus)}
+                  </small>
+                </span>
               </Link>
             ))}
           </div>
         </section>
       ) : null}
 
-      {sections.map((section) => (
-        <section className="account-section" key={section.title}>
-          <h2>{section.title}</h2>
-          <div>
-            {section.rows.map((row) => (
-              <Link href={row.href} key={row.href}>
-                <span className="account-row-icon">
-                  <Icon name={row.icon} />
-                </span>
-                <span>
-                  <strong>{row.label}</strong>
-                  <small>{row.description}</small>
-                </span>
-                <Icon name="chevron" />
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
+      <div className={styles.settingsGrid}>
+        {sections.map((section) => (
+          <section className={styles.accountSection} key={section.title}>
+            <header>
+              <h2>{section.title}</h2>
+            </header>
+            <div className={styles.accountRows}>
+              {section.rows.map((row) => (
+                <Link href={row.href} key={row.href}>
+                  <span className={styles.rowIcon}>
+                    <Icon name={row.icon} />
+                  </span>
+                  <span className={styles.rowCopy}>
+                    <strong>{row.label}</strong>
+                  </span>
+                  <Icon name="chevron" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
 
-      <footer className="account-footer">
-        <strong>Dental Trust Care</strong>
-        <span>
-          Phiên bản 0.1
-          {process.env.NODE_ENV !== 'production' ? ' · Môi trường phát triển' : ''}
-        </span>
+      <footer className={styles.footer}>
+        <div>
+          <strong>Dental Trust Care</strong>
+          <span>
+            Phiên bản 0.1
+            {process.env.NODE_ENV !== 'production' ? ' · Môi trường phát triển' : ''}
+          </span>
+        </div>
         <form action={logoutCareAction}>
           <button type="submit">Đăng xuất</button>
         </form>

@@ -3,6 +3,11 @@ export interface MapCoordinates {
   readonly longitude: number;
 }
 
+export interface MapPixelPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface MapClinicInput {
   readonly id: string;
   readonly coordinates: MapCoordinates | null;
@@ -18,6 +23,13 @@ export interface ClinicMapPadding {
   readonly right: number;
   readonly bottom: number;
   readonly left: number;
+}
+
+export type MapBoundingBox = readonly [west: number, south: number, east: number, north: number];
+
+export interface MapViewportSnapshot {
+  readonly bounds: MapBoundingBox;
+  readonly zoom: number;
 }
 
 export interface TrustEvidenceInput {
@@ -104,6 +116,57 @@ export function clinicMapViewportPadding(
     bottom: hasDetailsSheet ? 330 : 120,
     left: 72,
   };
+}
+
+export function expandMapBoundingBox(
+  [west, south, east, north]: MapBoundingBox,
+  overscanRatio = 0.65,
+): [west: number, south: number, east: number, north: number] {
+  const safeRatio = Math.max(0, overscanRatio);
+  const longitudeSpan = Math.max(0, east - west);
+  const latitudeSpan = Math.max(0, north - south);
+  return [
+    Math.max(-180, west - longitudeSpan * safeRatio),
+    Math.max(-85.051_129, south - latitudeSpan * safeRatio),
+    Math.min(180, east + longitudeSpan * safeRatio),
+    Math.min(85.051_129, north + latitudeSpan * safeRatio),
+  ];
+}
+
+export function clinicViewportQueryBounds(
+  [west, south, east, north]: MapBoundingBox,
+  overscanRatio = 0.35,
+): MapBoundingBox {
+  const normalizedSouth = Math.max(-85.051_129, Math.min(85.051_129, south));
+  const normalizedNorth = Math.max(-85.051_129, Math.min(85.051_129, north));
+  const longitudeSpan = east - west;
+  if (longitudeSpan >= 360 || east <= west) {
+    return [-180, normalizedSouth, 180, normalizedNorth];
+  }
+  return expandMapBoundingBox(
+    [Math.max(-180, west), normalizedSouth, Math.min(180, east), normalizedNorth],
+    overscanRatio,
+  );
+}
+
+export function clinicViewportRequestKey({ bounds, zoom }: MapViewportSnapshot): string {
+  return `${Math.floor(zoom)}:${bounds.map((value) => value.toFixed(5)).join(':')}`;
+}
+
+export function mapMarkerCollisionOffset(
+  marker: MapPixelPoint,
+  obstacle: MapPixelPoint,
+  minimumDistance = 124,
+): [x: number, y: number] {
+  const deltaX = marker.x - obstacle.x;
+  const deltaY = marker.y - obstacle.y;
+  const distance = Math.hypot(deltaX, deltaY);
+  if (distance >= minimumDistance) return [0, 0];
+
+  const directionX = distance > 0 ? deltaX / distance : -Math.SQRT1_2;
+  const directionY = distance > 0 ? deltaY / distance : Math.SQRT1_2;
+  const displacement = Math.max(0, minimumDistance - distance);
+  return [directionX * displacement, directionY * displacement];
 }
 
 export function clinicMapShortName(name: string): string {

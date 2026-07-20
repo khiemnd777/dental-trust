@@ -9,6 +9,8 @@ import { getMessageData, getThreadData } from '@/lib/care-data';
 import { formatDateTime, isMessageMine } from '@/lib/presentation';
 import { requireCareSession } from '@/lib/require-session';
 
+import styles from '../messages.module.css';
+
 export const metadata: Metadata = { title: 'Cuộc trò chuyện' };
 
 export default async function ThreadPage({
@@ -34,15 +36,17 @@ export default async function ThreadPage({
     .map((message) => message.id);
 
   return (
-    <main className="chat-page">
+    <main className={`${styles.threadPage} chat-page`}>
       <header className="chat-header">
         <Link aria-label="Quay lại tin nhắn" href="/messages">
           <Icon className="icon-back" name="arrow" />
         </Link>
-        <span className="conversation-avatar conversation-avatar--1">AN</span>
+        <span className="conversation-avatar conversation-avatar--1" aria-hidden="true">
+          <Icon name="message" />
+        </span>
         <span>
           <strong>{thread.threadSubject}</strong>
-          <small>Đội ngũ chăm sóc</small>
+          <small>Người tham gia hành trình</small>
         </span>
         <span aria-label="Cuộc trò chuyện được bảo vệ" className="chat-header__security" role="img">
           <Icon name="shield" />
@@ -60,7 +64,9 @@ export default async function ThreadPage({
           return (
             <article className={mine ? 'is-mine' : ''} key={message.id}>
               {!mine ? (
-                <span className="conversation-avatar conversation-avatar--1">AN</span>
+                <span className="conversation-avatar conversation-avatar--1" aria-hidden="true">
+                  <Icon name="message" />
+                </span>
               ) : null}
               <div>
                 <p>{message.messageBody}</p>

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMessages } from '@dental-trust/i18n';
 import { isSpecializedWorkspace, SpecializedWorkspace } from '@/components/specialized-workspace';
+import { selectCustomOption } from './custom-select-helpers';
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => navigation }));
@@ -254,9 +255,7 @@ describe('specialized workspace routing', () => {
   it('creates a complete case and routes to the returned resource', async () => {
     render(workspace('newCase', 'patient', false));
     fireEvent.change(field(messages.workflows.caseTitle), { target: { value: 'Implant care' } });
-    fireEvent.change(field(messages.workflows.procedure), {
-      target: { value: 'DENTAL_IMPLANT' },
-    });
+    selectCustomOption(field(messages.workflows.procedure), 'DENTAL_IMPLANT');
     fireEvent.change(field(messages.workflows.location), { target: { value: 'Ho Chi Minh City' } });
     fireEvent.change(field(messages.workflows.arrival), { target: { value: '2026-09-01' } });
     fireEvent.change(field(messages.workflows.departure), { target: { value: '2026-09-20' } });
@@ -273,9 +272,7 @@ describe('specialized workspace routing', () => {
     );
     render(workspace('newCase', 'patient', false));
     fireEvent.change(field(messages.workflows.caseTitle), { target: { value: 'Implant care' } });
-    fireEvent.change(field(messages.workflows.procedure), {
-      target: { value: 'DENTAL_IMPLANT' },
-    });
+    selectCustomOption(field(messages.workflows.procedure), 'DENTAL_IMPLANT');
     fireEvent.change(field(messages.workflows.location), { target: { value: 'HCMC' } });
     fireEvent.change(field(messages.workflows.arrival), { target: { value: '2026-09-01' } });
     fireEvent.change(field(messages.workflows.departure), { target: { value: '2026-09-20' } });

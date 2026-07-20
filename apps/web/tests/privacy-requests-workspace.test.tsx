@@ -7,6 +7,7 @@ import {
   isPrivacyRequestsWorkspace,
   PrivacyRequestsWorkspace,
 } from '@/components/privacy-requests-workspace';
+import { selectCustomOption } from './custom-select-helpers';
 
 const privacyRequestId = '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01';
 const createdAt = '2026-07-12T08:00:00.000Z';
@@ -65,7 +66,7 @@ describe('patient privacy requests', () => {
     );
     render(workspace('patient'));
     await screen.findByText('SUBMITTED');
-    fireEvent.change(screen.getByLabelText('Request type'), { target: { value: 'DELETE' } });
+    selectCustomOption(screen.getByLabelText('Request type'), 'DELETE');
     fireEvent.change(screen.getByLabelText(/Why you are making this request/u), {
       target: { value: 'I am closing my account after receiving a portable export.' },
     });
@@ -118,9 +119,7 @@ describe('administrative privacy queue', () => {
     render(workspace('admin'));
     fireEvent.click(await screen.findByRole('button', { name: 'Process' }));
     const dialog = screen.getByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('Next status'), {
-      target: { value: 'APPROVED' },
-    });
+    selectCustomOption(within(dialog).getByLabelText('Next status'), 'APPROVED');
     fireEvent.change(within(dialog).getByLabelText(/Administrative reason/u), {
       target: { value: 'Identity verification completed under ticket DT-PRIV-9.' },
     });

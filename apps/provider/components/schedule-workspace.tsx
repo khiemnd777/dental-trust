@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { CustomSelect } from '@dental-trust/ui';
 import { ProviderDialog } from '@/components/provider-dialog';
 import { ProviderIcon } from '@/components/provider-icon';
 import type { ProviderScheduleData } from '@/lib/provider-data';
@@ -378,7 +379,7 @@ function GlobalAppointmentDialog({
       >
         <label className="is-wide">
           <span>Hồ sơ điều trị</span>
-          <select name="caseId" required>
+          <CustomSelect name="caseId" required>
             {data.cases
               .filter((item) => !['CLOSED', 'CANCELLED'].includes(item.status))
               .map((item) => (
@@ -386,18 +387,18 @@ function GlobalAppointmentDialog({
                   {item.caseNumber} · {item.title}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Loại</span>
-          <select defaultValue="CONSULTATION" name="kind">
+          <CustomSelect defaultValue="CONSULTATION" name="kind">
             <option value="CONSULTATION">Tư vấn trực tuyến</option>
             <option value="CLINICAL_VISIT">Khám tại phòng khám</option>
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Nha sĩ</span>
-          <select name="dentistId" required>
+          <CustomSelect name="dentistId" required>
             {data.dentists
               .filter((item) => item.active)
               .map((item) => (
@@ -405,11 +406,11 @@ function GlobalAppointmentDialog({
                   {item.fullName}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Cơ sở</span>
-          <select name="locationId" required>
+          <CustomSelect name="locationId" required>
             {data.onboarding.locations
               .filter((item) => item.active)
               .map((item) => (
@@ -417,7 +418,7 @@ function GlobalAppointmentDialog({
                   {item.name}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Bắt đầu</span>
@@ -425,12 +426,12 @@ function GlobalAppointmentDialog({
         </label>
         <label>
           <span>Thời lượng</span>
-          <select defaultValue="45" name="duration">
+          <CustomSelect defaultValue="45" name="duration">
             <option value="30">30 phút</option>
             <option value="45">45 phút</option>
             <option value="60">60 phút</option>
             <option value="90">90 phút</option>
-          </select>
+          </CustomSelect>
         </label>
         <footer>
           <button onClick={onClose} type="button">
@@ -481,7 +482,7 @@ function BlockDialog({
       >
         <label>
           <span>Phạm vi cơ sở</span>
-          <select name="locationId" required>
+          <CustomSelect name="locationId" required>
             {data.onboarding.locations
               .filter((item) => item.active)
               .map((item) => (
@@ -489,14 +490,14 @@ function BlockDialog({
                   {item.name}
                 </option>
               ))}
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Loại khóa</span>
-          <select defaultValue="BLOCK" name="kind">
+          <CustomSelect defaultValue="BLOCK" name="kind">
             <option value="BLOCK">Khóa vận hành</option>
             <option value="TIME_OFF">Nghỉ phép</option>
-          </select>
+          </CustomSelect>
         </label>
         <label>
           <span>Bắt đầu</span>

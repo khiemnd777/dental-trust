@@ -87,6 +87,13 @@ export async function generateMetadata({ params }: { params: Promise<{ section: 
   return { title: item?.title ?? 'Tài khoản' } satisfies Metadata;
 }
 
+function savedVerificationLabel(status: string) {
+  if (status === 'VERIFIED' || status === 'ACTIVE') return 'Đã xác minh';
+  if (status === 'VERIFICATION_EXPIRING') return 'Xác minh sắp hết hạn';
+  if (status === 'PENDING' || status === 'UNDER_REVIEW') return 'Đang xác minh';
+  return 'Xem trạng thái xác minh';
+}
+
 export default async function AccountSectionPage({
   params,
 }: {
@@ -99,7 +106,10 @@ export default async function AccountSectionPage({
   const publicAppUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:3003';
   const rows =
     section === 'saved'
-      ? saved.map((clinic) => ({ label: clinic.clinicName, value: 'Đã xác minh' }))
+      ? saved.map((clinic) => ({
+          label: clinic.clinicName,
+          value: savedVerificationLabel(clinic.verificationStatus),
+        }))
       : section === 'profile' && profile
         ? [
             { label: 'Họ và tên', value: profile.identity?.fullName ?? 'Chưa bổ sung' },

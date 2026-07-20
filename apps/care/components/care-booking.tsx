@@ -3,13 +3,16 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 
+import { CustomSelect } from '@dental-trust/ui';
 import { Icon } from '@/components/icon';
 import type { BookingCheckoutOption } from '@/lib/care-data';
 import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
+import styles from './care-flows.module.css';
 
 export function CareBooking({ options }: { readonly options: readonly BookingCheckoutOption[] }) {
   const [selected, setSelected] = useState(options[0]?.treatmentPlanAcceptanceId ?? '');
   const [confirmed, setConfirmed] = useState(false);
+  const [settled, setSettled] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -43,18 +46,19 @@ export function CareBooking({ options }: { readonly options: readonly BookingChe
       const secret = result.data.depositIntent?.clientSecret ?? null;
       setClientSecret(secret);
       if (!secret) {
+        setSettled(true);
         setNotice(
-          'Booking đã được tạo trong môi trường thử nghiệm. Không có khoản tiền thật nào bị thu.',
+          'Lịch hẹn đã được tạo trong môi trường thử nghiệm. Không có khoản tiền thật nào bị thu.',
         );
       }
     });
   }
 
   return (
-    <main className="care-main booking-page">
+    <main className={`${styles.bookingFlow} care-main booking-page`}>
       <header className="page-intro booking-intro">
         <div>
-          <p className="eyebrow">Booking an toàn</p>
+          <p className="eyebrow">Đặt lịch an toàn</p>
           <h1>Kiểm tra trước khi xác nhận</h1>
           <p>
             AI không thực hiện bước này. Bạn tự chọn kế hoạch, xem chính sách và xác nhận tiền cọc.
@@ -65,13 +69,51 @@ export function CareBooking({ options }: { readonly options: readonly BookingChe
         </span>
       </header>
 
+      {options.length && !settled ? (
+        <ol className={styles.bookingSteps} aria-label="Tiến trình đặt lịch">
+          <li
+            aria-current={!confirmed && !clientSecret ? 'step' : undefined}
+            className={confirmed || clientSecret ? styles.isComplete : styles.isCurrent}
+          >
+            <span>{confirmed || clientSecret ? <Icon name="check" /> : '1'}</span>
+            <strong>Kiểm tra</strong>
+          </li>
+          <li
+            aria-current={confirmed && !clientSecret ? 'step' : undefined}
+            className={clientSecret ? styles.isComplete : confirmed ? styles.isCurrent : ''}
+          >
+            <span>{clientSecret ? <Icon name="check" /> : '2'}</span>
+            <strong>Xác nhận</strong>
+          </li>
+          <li
+            aria-current={clientSecret ? 'step' : undefined}
+            className={clientSecret ? styles.isCurrent : ''}
+          >
+            <span>3</span>
+            <strong>Thanh toán</strong>
+          </li>
+        </ol>
+      ) : null}
+
       {options.length === 0 ? (
         <section className="empty-journey-card booking-empty">
           <div className="empty-journey-card__art">
             <Icon name="calendar" />
           </div>
-          <h2>Chưa có kế hoạch sẵn sàng để booking</h2>
+          <h2>Chưa có kế hoạch sẵn sàng để đặt lịch</h2>
           <p>Bạn cần chấp nhận một phiên bản kế hoạch điều trị trước khi chọn lịch và đặt cọc.</p>
+          <Link className="primary-button" href="/journey">
+            Xem hành trình <Icon name="arrow" />
+          </Link>
+        </section>
+      ) : settled ? (
+        <section className={styles.bookingComplete} role="status">
+          <span>
+            <Icon name="check" />
+          </span>
+          <p className="eyebrow">Đã ghi nhận</p>
+          <h2>Bước đặt lịch đã hoàn tất</h2>
+          <p>{notice}</p>
           <Link className="primary-button" href="/journey">
             Xem hành trình <Icon name="arrow" />
           </Link>
@@ -81,17 +123,23 @@ export function CareBooking({ options }: { readonly options: readonly BookingChe
           clientSecret={clientSecret}
           onSettled={() => {
             setClientSecret(null);
+            setSettled(true);
             setNotice(
-              'Thanh toán đã được gửi xử lý. Trạng thái booking sẽ cập nhật trong hành trình.',
+              'Thanh toán đã được gửi xử lý. Trạng thái lịch hẹn sẽ cập nhật trong hành trình.',
             );
           }}
         />
       ) : (
         <section className="booking-checkout">
           {options.length > 1 ? (
-            <label className="booking-select">
-              <span>Kế hoạch đã chấp nhận</span>
-              <select onChange={(event) => setSelected(event.target.value)} value={selected}>
+            <div className="booking-select">
+              <span id="accepted-plan-label">Kế hoạch đã chấp nhận</span>
+              <CustomSelect
+                aria-labelledby="accepted-plan-label"
+                menuLabel="Kế hoạch đã chấp nhận"
+                onChange={(event) => setSelected(event.target.value)}
+                value={selected}
+              >
                 {options.map((item) => (
                   <option
                     key={item.treatmentPlanAcceptanceId}
@@ -100,8 +148,8 @@ export function CareBooking({ options }: { readonly options: readonly BookingChe
                     {item.caseNumber} · {item.clinicName}
                   </option>
                 ))}
-              </select>
-            </label>
+              </CustomSelect>
+            </div>
           ) : null}
           {option ? <BookingSummary option={option} /> : null}
           <label className="booking-confirmation">
@@ -127,11 +175,6 @@ export function CareBooking({ options }: { readonly options: readonly BookingChe
         </section>
       )}
 
-      {notice ? (
-        <p className="booking-notice" role="status">
-          <Icon name="check" /> {notice}
-        </p>
-      ) : null}
       {error ? (
         <p className="form-error" role="alert">
           {error}

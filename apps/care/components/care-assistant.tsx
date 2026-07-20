@@ -10,6 +10,7 @@ import {
   fetchAssistant,
   type AssistantFailureKind,
 } from '@/lib/assistant-request';
+import styles from './care-flows.module.css';
 
 type AssistantLocale = 'vi-VN' | 'en-US';
 type VoiceState = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'synthesizing' | 'speaking';
@@ -618,7 +619,7 @@ export function CareAssistant({
   const voiceStatus = statusFor(voiceState, ui);
 
   return (
-    <main className="care-main assistant-page">
+    <main className={`${styles.assistantFlow} care-main assistant-page`}>
       <header className="assistant-intro">
         <span className="assistant-intro__icon">
           <Icon name="microphone" />

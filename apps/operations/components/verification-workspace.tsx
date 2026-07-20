@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { CustomSelect } from '@dental-trust/ui';
 import type {
   VerificationCaseDetail,
   VerificationEvidenceView,
@@ -1328,7 +1329,7 @@ function VerificationActionDialog({
               ) : (
                 <label>
                   <span>Lý do từ chối · Bắt buộc</span>
-                  <select name="rejectionReason" required>
+                  <CustomSelect name="rejectionReason" required>
                     <option value="">Chọn lý do</option>
                     <option value="MISSING_OR_UNREADABLE">
                       Thiếu hoặc không đọc được tài liệu
@@ -1338,7 +1339,7 @@ function VerificationActionDialog({
                     <option value="UNVERIFIABLE_SOURCE">Không xác minh được nguồn</option>
                     <option value="INSUFFICIENT_SCOPE">Không đáp ứng đủ tiêu chí</option>
                     <option value="OTHER">Lý do khác</option>
-                  </select>
+                  </CustomSelect>
                 </label>
               )}
             </>
@@ -1346,7 +1347,7 @@ function VerificationActionDialog({
           {action.kind === 'decision' ? (
             <label>
               <span>Quyết định</span>
-              <select
+              <CustomSelect
                 name="toStatus"
                 onChange={(event) =>
                   setSelectedDecision(event.target.value as VerificationCaseDetail['status'])
@@ -1358,7 +1359,7 @@ function VerificationActionDialog({
                     {verificationDecisionLabel(status)}
                   </option>
                 ))}
-              </select>
+              </CustomSelect>
             </label>
           ) : null}
           {action.kind !== 'evidence' ? (

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { CustomSelect } from '@dental-trust/ui';
 import { OperationsIcon } from './operations-icon';
 import { OpsAvatar, OpsEmpty, OpsMetric, OpsPanelHeader, OpsStatus } from './operations-ui';
 import type { CoordinationData, CoordinationDetail } from '@/lib/operations-data';
@@ -463,7 +464,7 @@ function CoordinationOverview({
         </header>
         <label>
           <span>Trạng thái</span>
-          <select defaultValue={detail.status} name="status">
+          <CustomSelect defaultValue={detail.status} name="status">
             {[
               'ASSIGNED',
               'IN_PROGRESS',
@@ -477,29 +478,29 @@ function CoordinationOverview({
                 {humanize(value)}
               </option>
             ))}
-          </select>
+          </CustomSelect>
         </label>
         <div className="ops-form-row">
           <label>
             <span>Ưu tiên</span>
-            <select defaultValue={detail.priority} name="priority">
+            <CustomSelect defaultValue={detail.priority} name="priority">
               {['LOW', 'NORMAL', 'HIGH', 'URGENT'].map((value) => (
                 <option key={value} value={value}>
                   {humanize(value)}
                 </option>
               ))}
-            </select>
+            </CustomSelect>
           </label>
           <label>
             <span>Lý do đổi ưu tiên</span>
-            <select defaultValue="SUPERVISOR_DECISION" name="priorityChangeReason">
+            <CustomSelect defaultValue="SUPERVISOR_DECISION" name="priorityChangeReason">
               <option value="CLINICAL_RISK">Rủi ro lâm sàng</option>
               <option value="TRAVEL_DEADLINE">Hạn chuyến đi</option>
               <option value="MISSING_DOCUMENT">Thiếu hồ sơ</option>
               <option value="PATIENT_REQUEST">Yêu cầu bệnh nhân</option>
               <option value="CLINIC_DEPENDENCY">Phụ thuộc phòng khám</option>
               <option value="SUPERVISOR_DECISION">Quyết định supervisor</option>
-            </select>
+            </CustomSelect>
           </label>
         </div>
         <label>

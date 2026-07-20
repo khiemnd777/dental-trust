@@ -11,6 +11,8 @@ const booleanQuerySchema = z.union([
   z.boolean(),
   z.enum(['true', 'false']).transform((value) => value === 'true'),
 ]);
+const latitudeQuerySchema = z.coerce.number().finite().min(-90).max(90);
+const longitudeQuerySchema = z.coerce.number().finite().min(-180).max(180);
 
 export const caseComplexityCategorySchema = z.enum(['UNKNOWN', 'STANDARD', 'COMPLEX']);
 export const conciergePrioritySchema = z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']);
@@ -71,6 +73,10 @@ export const clinicDiscoveryQuerySchema = paginationQuerySchema
     accessibility: z.string().trim().min(1).max(120).optional(),
     minimumRating: z.coerce.number().min(1).max(5).optional(),
     followUpDataAvailable: booleanQuerySchema.optional(),
+    west: longitudeQuerySchema.optional(),
+    south: latitudeQuerySchema.optional(),
+    east: longitudeQuerySchema.optional(),
+    north: latitudeQuerySchema.optional(),
   })
   .refine(
     ({ minimumPriceMinor, maximumPriceMinor }) =>
@@ -78,7 +84,21 @@ export const clinicDiscoveryQuerySchema = paginationQuerySchema
       maximumPriceMinor === undefined ||
       maximumPriceMinor >= minimumPriceMinor,
     { path: ['maximumPriceMinor'], message: 'Maximum price must not be below minimum price.' },
-  );
+  )
+  .refine(
+    ({ west, south, east, north }) =>
+      [west, south, east, north].every((value) => value === undefined) ||
+      [west, south, east, north].every((value) => value !== undefined),
+    { path: ['west'], message: 'Map bounds must include west, south, east, and north.' },
+  )
+  .refine(({ west, east }) => west === undefined || east === undefined || east > west, {
+    path: ['east'],
+    message: 'East longitude must be greater than west longitude.',
+  })
+  .refine(({ south, north }) => south === undefined || north === undefined || north > south, {
+    path: ['north'],
+    message: 'North latitude must be greater than south latitude.',
+  });
 
 export const matchingCriteriaRequestSchema = z
   .object({

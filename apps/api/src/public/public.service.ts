@@ -65,6 +65,19 @@ export class PublicService {
       ...(query.followUpDataAvailable !== undefined
         ? { followUpDataAvailable: query.followUpDataAvailable }
         : {}),
+      ...(query.west !== undefined &&
+      query.south !== undefined &&
+      query.east !== undefined &&
+      query.north !== undefined
+        ? {
+            bounds: {
+              west: query.west,
+              south: query.south,
+              east: query.east,
+              north: query.north,
+            },
+          }
+        : {}),
     });
   }
 

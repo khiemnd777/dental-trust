@@ -1,0 +1,1661 @@
+.discoveryPage,
+.comparePage,
+.detailContent {
+  color: var(--care-ink);
+  font-size: 1rem;
+}
+
+.discoveryPage :global(.eyebrow),
+.comparePage :global(.eyebrow),
+.detailPage :global(.eyebrow) {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.discoveryPage {
+  gap: 1.25rem;
+  padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+}
+
+.discoveryIntro {
+  align-items: end;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.discoveryIntro h1,
+.compareHeader h1,
+.detailIdentity h1 {
+  font-family: var(--dt-font-display);
+  font-size: clamp(2.2rem, 9vw, 3.6rem);
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  margin: 0.35rem 0 0;
+}
+
+.discoveryIntro h1 {
+  margin-top: 0;
+}
+
+.discoveryIntro > div > p:last-child,
+.compareHeader > div > p:last-child {
+  color: var(--care-muted);
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0.75rem 0 0;
+  max-width: 40rem;
+}
+
+.viewSwitch {
+  background: var(--care-surface-tonal);
+  border: 1px solid var(--care-border);
+  border-radius: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.25rem;
+  width: 100%;
+}
+
+.viewSwitch a,
+.viewSwitch span {
+  align-items: center;
+  border-radius: 0.7rem;
+  color: var(--care-muted);
+  display: flex;
+  font-size: 0.875rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  text-decoration: none;
+}
+
+.viewSwitch span[aria-current='page'] {
+  background: var(--care-surface);
+  box-shadow: var(--care-shadow-1);
+  color: var(--care-ink);
+}
+
+.viewSwitch svg {
+  color: var(--care-teal);
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.searchBar {
+  align-items: center;
+  background: rgb(255 255 255 / 0.96);
+  border: 1px solid var(--care-border);
+  border-radius: 1rem;
+  box-shadow: 0 12px 34px rgb(16 47 50 / 0.12);
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 0.4rem;
+  position: sticky;
+  top: calc(4.4rem + env(safe-area-inset-top));
+  z-index: 24;
+}
+
+.searchBar > svg {
+  color: var(--care-teal);
+  height: 1.25rem;
+  margin-left: 0.55rem;
+  width: 1.25rem;
+}
+
+.searchBar input {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--care-ink);
+  font: inherit;
+  min-height: 2.75rem;
+  min-width: 0;
+  outline: 0;
+  padding: 0.4rem 0;
+  width: 100%;
+}
+
+.searchBar input::placeholder {
+  color: var(--care-muted);
+  opacity: 1;
+}
+
+.filterButton {
+  align-items: center;
+  background: var(--care-teal-dark);
+  border: 0;
+  border-radius: 0.75rem;
+  color: #fff;
+  display: flex;
+  font-size: 0.875rem;
+  font-weight: 800;
+  gap: 0.4rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  position: relative;
+}
+
+.filterButton svg {
+  height: 1.05rem;
+  width: 1.05rem;
+}
+
+.filterButton strong {
+  align-items: center;
+  background: #e56f61;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  display: flex;
+  font-size: 0.8125rem;
+  height: 1.35rem;
+  justify-content: center;
+  min-width: 1.35rem;
+  padding: 0 0.2rem;
+  position: absolute;
+  right: -0.35rem;
+  top: -0.35rem;
+}
+
+.treatmentPicker,
+.clinicResults {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.sectionHeading h2,
+.resultsHeading h2,
+.detailSectionHeading h2,
+.compareGuidance h2,
+.patientRatingCard h2 {
+  font-size: clamp(1.2rem, 4.5vw, 1.55rem);
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0.25rem 0 0;
+}
+
+.treatmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.treatmentList button {
+  align-items: center;
+  background: var(--care-surface);
+  border: 1px solid var(--care-border);
+  border-radius: 999px;
+  color: var(--care-ink-soft);
+  display: flex;
+  font-size: 0.875rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.85rem 0.5rem 0.55rem;
+  transition:
+    background var(--care-motion-fast) ease,
+    border-color var(--care-motion-fast) ease,
+    color var(--care-motion-fast) ease;
+}
+
+.treatmentList button > span {
+  align-items: center;
+  background: var(--care-mint);
+  border-radius: 50%;
+  color: var(--care-teal);
+  display: flex;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.treatmentList button svg {
+  height: 1.05rem;
+  width: 1.05rem;
+}
+
+.treatmentList button[aria-pressed='true'] {
+  background: var(--care-teal-dark);
+  border-color: var(--care-teal-dark);
+  color: #fff;
+}
+
+.treatmentList button[aria-pressed='true'] > span {
+  background: rgb(255 255 255 / 0.12);
+  color: #b8eee4;
+}
+
+.resultsHeading {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.resultsHeading > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.resultsHeading small {
+  color: var(--care-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.sortControl {
+  --dt-custom-select-accent: var(--care-teal);
+  --dt-custom-select-border: var(--care-border);
+  --dt-custom-select-color: var(--care-ink);
+  --dt-custom-select-hover-border: var(--care-teal);
+  --dt-custom-select-muted: var(--care-muted);
+  --dt-custom-select-option-hover: var(--care-canvas);
+  --dt-custom-select-option-selected: var(--care-mint);
+
+  flex: 0 0 auto;
+}
+
+.clinicGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.clinicCard {
+  background: var(--care-surface);
+  border: 1px solid var(--care-border);
+  border-radius: var(--care-radius-lg);
+  box-shadow: var(--care-shadow-1);
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  transition:
+    border-color var(--care-motion-fast) ease,
+    box-shadow var(--care-motion-fast) ease,
+    transform var(--care-motion-fast) ease;
+}
+
+.clinicCard:hover {
+  border-color: var(--care-border-strong);
+  box-shadow: 0 16px 38px rgb(16 47 50 / 0.1);
+  transform: translateY(-2px);
+}
+
+.clinicCardHeader {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 1rem 1rem 0.85rem;
+}
+
+.clinicMark,
+.detailMark,
+.compareClinicMark {
+  align-items: center;
+  background: linear-gradient(145deg, var(--care-mint), #c8e8df);
+  border: 1px solid var(--care-mint-strong);
+  color: var(--care-teal);
+  display: flex;
+  font-family: var(--dt-font-display);
+  font-weight: 800;
+  justify-content: center;
+}
+
+.clinicMark {
+  border-radius: 0.9rem;
+  font-size: 1.45rem;
+  height: 3.25rem;
+  width: 3.25rem;
+}
+
+.clinicCardHeader > div {
+  min-width: 0;
+}
+
+.clinicCardHeader p {
+  align-items: center;
+  color: var(--care-muted);
+  display: flex;
+  font-size: 0.8125rem;
+  gap: 0.3rem;
+  margin: 0 0 0.25rem;
+}
+
+.clinicCardHeader p svg {
+  color: var(--care-teal);
+  flex: 0 0 auto;
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
+.clinicCardHeader h3 {
+  font-family: var(--dt-font-display);
+  font-size: 1.4rem;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.clinicCardHeader h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.saveAction {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--care-border);
+  border-radius: 50%;
+  color: var(--care-ink-soft);
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.saveAction svg {
+  height: 1.2rem;
+  width: 1.2rem;
+}
+
+.saveAction.saved {
+  background: var(--care-danger-soft);
+  border-color: #e9c5ca;
+  color: var(--care-danger);
+}
+
+.saveAction:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.trustPanel {
+  background: var(--care-surface-tonal);
+  border-bottom: 1px solid var(--care-mint-strong);
+  border-top: 1px solid var(--care-mint-strong);
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+}
+
+.trustPanelHeading {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.trustPanelHeading > span {
+  align-items: center;
+  color: var(--care-teal);
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 850;
+  gap: 0.35rem;
+}
+
+.trustPanelHeading svg {
+  height: 1rem;
+  width: 1rem;
+}
+
+.trustPanelHeading small {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.trustPanelHeading small {
+  color: var(--care-muted);
+  text-align: right;
+}
+
+.clinicCardBody {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.ratingRow {
+  min-height: 1.5rem;
+}
+
+.ratingRow > strong,
+.ratingRow > span {
+  align-items: center;
+  color: var(--care-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  gap: 0.35rem;
+}
+
+.ratingRow > strong {
+  color: var(--care-amber);
+}
+
+.ratingRow strong > span {
+  color: var(--care-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.ratingRow svg,
+.compareRating svg {
+  height: 1rem;
+  width: 1rem;
+}
+
+.serviceChips,
+.careSignals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.serviceChips span,
+.careSignals span {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.8125rem;
+  gap: 0.3rem;
+  line-height: 1.3;
+  padding: 0.4rem 0.6rem;
+}
+
+.serviceChips span {
+  background: var(--care-surface-soft);
+  color: var(--care-ink-soft);
+}
+
+.careSignals span {
+  background: var(--care-mint);
+  color: var(--care-teal-dark);
+}
+
+.careSignals svg {
+  color: var(--care-teal);
+  height: 0.95rem;
+  width: 0.95rem;
+}
+
+.clinicCardFooter {
+  align-items: center;
+  border-top: 1px solid var(--care-border);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 0.85rem;
+}
+
+.clinicCardFooter > span {
+  display: grid;
+  min-width: 0;
+}
+
+.clinicCardFooter small,
+.stickyDetailAction small,
+.compareTable small,
+.detailSection small,
+.detailTrustCard small {
+  color: var(--care-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.clinicCardFooter strong {
+  font-size: 1.05rem;
+}
+
+.clinicCardFooter > a,
+.primaryButton,
+.secondaryButton,
+.compareGuidance > a {
+  align-items: center;
+  border-radius: 0.75rem;
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 850;
+  gap: 0.4rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.85rem;
+  text-align: center;
+  text-decoration: none;
+}
+
+.clinicCardFooter > a,
+.primaryButton {
+  background: var(--care-teal);
+  border: 1px solid var(--care-teal);
+  color: #fff;
+}
+
+.secondaryButton {
+  background: var(--care-surface);
+  border: 1px solid var(--care-border);
+  color: var(--care-ink);
+}
+
+.clinicCardFooter > a svg,
+.primaryButton svg {
+  height: 1rem;
+  width: 1rem;
+}
+
+.compareToggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  color: var(--care-muted);
+  display: flex;
+  font-size: 0.875rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.compareToggle > span {
+  align-items: center;
+  border: 1px solid var(--care-border-strong);
+  border-radius: 0.35rem;
+  display: flex;
+  height: 1.35rem;
+  justify-content: center;
+  width: 1.35rem;
+}
+
+.compareToggle svg {
+  height: 0.8rem;
+  width: 0.8rem;
+}
+
+.compareToggle.compareActive {
+  background: var(--care-mint);
+  color: var(--care-teal);
+}
+
+.compareToggle.compareActive > span {
+  background: var(--care-teal);
+  border-color: var(--care-teal);
+  color: #fff;
+}
+
+.compareTray {
+  align-items: center;
+  background: var(--care-surface-inverse);
+  border-radius: 1rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  box-shadow: var(--care-shadow);
+  color: #fff;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  left: max(0.75rem, calc((100vw - 56rem) / 2 + 0.75rem));
+  padding: 0.7rem;
+  position: fixed;
+  right: max(0.75rem, calc((100vw - 56rem) / 2 + 0.75rem));
+  z-index: 45;
+}
+
+.compareStack {
+  height: 2.5rem;
+  position: relative;
+  width: 3.6rem;
+}
+
+.compareStack i {
+  background: linear-gradient(145deg, var(--care-mint), var(--care-focus));
+  border: 2px solid var(--care-surface-inverse);
+  border-radius: 50%;
+  height: 2.5rem;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 2.5rem;
+}
+
+.compareSummary {
+  display: grid;
+  min-width: 0;
+}
+
+.compareSummary strong,
+.compareSummary small {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.compareSummary small {
+  color: rgb(255 255 255 / 0.72);
+}
+
+.compareTray > a {
+  align-items: center;
+  background: #fff;
+  border-radius: 0.7rem;
+  color: var(--care-ink);
+  display: flex;
+  font-size: 0.875rem;
+  font-weight: 850;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  text-decoration: none;
+}
+
+.compareTray > a svg {
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
+.toast {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--care-border);
+  border-radius: 0.9rem;
+  box-shadow: var(--care-shadow);
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 750;
+  gap: 0.6rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  left: 1rem;
+  margin: auto;
+  max-width: 28rem;
+  padding: 0.65rem 0.7rem 0.65rem 0.85rem;
+  position: fixed;
+  right: 1rem;
+  top: calc(5.1rem + env(safe-area-inset-top));
+  z-index: 120;
+}
+
+.toast > svg {
+  color: var(--care-teal);
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.toast button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: var(--care-muted);
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.toast button svg {
+  height: 1rem;
+  width: 1rem;
+}
+
+.emptyState {
+  align-items: center;
+  background: var(--care-surface);
+  border: 1px solid var(--care-border);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.emptyIcon {
+  align-items: center;
+  background: var(--care-mint);
+  border-radius: 50%;
+  color: var(--care-teal);
+  display: flex;
+  height: 4rem;
+  justify-content: center;
+  width: 4rem;
+}
+
+.emptyIcon svg {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.emptyState h2,
+.emptyState h3 {
+  font-size: 1.3rem;
+  margin: 1rem 0 0.35rem;
+}
+
+.emptyState p {
+  color: var(--care-muted);
+  line-height: 1.55;
+  margin: 0 0 1rem;
+}
+
+.sheetBackdrop {
+  background: rgb(15 42 44 / 0.5);
+  inset: 0;
+  position: fixed;
+  z-index: 100;
+}
+
+.filterSheet {
+  background: var(--care-surface-soft);
+  border-radius: 1.5rem 1.5rem 0 0;
+  bottom: 0;
+  left: 0;
+  max-height: 88dvh;
+  overflow-y: auto;
+  padding: 0.6rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  position: absolute;
+  right: 0;
+}
+
+.sheetHandle {
+  background: var(--care-border-strong);
+  border-radius: 999px;
+  height: 0.3rem;
+  margin: 0 auto 1rem;
+  width: 2.75rem;
+}
+
+.filterSheet > header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.filterSheet > header h2 {
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+  margin: 0.35rem 0;
+}
+
+.filterSheet > header button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--care-border);
+  border-radius: 50%;
+  display: flex;
+  flex: 0 0 auto;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.filterSheet > header button svg {
+  height: 1.05rem;
+  width: 1.05rem;
+}
+
+.filterOptions {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.filterOption {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--care-border);
+  border-radius: 1rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 5rem;
+  padding: 0.75rem;
+  position: relative;
+}
+
+.filterIcon {
+  align-items: center;
+  background: var(--care-mint);
+  border-radius: 0.75rem;
+  color: var(--care-teal);
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.filterIcon svg {
+  height: 1.2rem;
+  width: 1.2rem;
+}
+
+.filterCopy {
+  display: grid;
+  min-width: 0;
+}
+
+.filterCopy strong {
+  font-size: 1rem;
+}
+
+.filterCheckbox {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.filterSwitch {
+  background: var(--care-border-strong);
+  border-radius: 999px;
+  height: 1.7rem;
+  position: relative;
+  transition: background 160ms ease;
+  width: 3rem;
+}
+
+.filterSwitch::after {
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgb(20 55 53 / 0.2);
+  content: '';
+  height: 1.3rem;
+  left: 0.2rem;
+  position: absolute;
+  top: 0.2rem;
+  transition: transform 160ms ease;
+  width: 1.3rem;
+}
+
+.filterCheckbox:checked + .filterSwitch {
+  background: var(--care-teal);
+}
+
+.filterCheckbox:checked + .filterSwitch::after {
+  transform: translateX(1.3rem);
+}
+
+.filterCheckbox:focus-visible + .filterSwitch {
+  outline: 3px solid rgb(87 199 183 / 0.42);
+  outline-offset: 2px;
+}
+
+.sheetActions {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.textButton {
+  background: transparent;
+  border: 0;
+  border-radius: 0.75rem;
+  color: var(--care-teal);
+  font-size: 0.875rem;
+  font-weight: 850;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.8rem;
+}
+
+/* Clinic detail */
+.detailPage {
+  min-width: 0;
+  padding-bottom: calc(10rem + env(safe-area-inset-bottom));
+}
+
+.detailHero {
+  background:
+    radial-gradient(circle at 90% 0, rgb(255 255 255 / 0.62), transparent 15rem),
+    linear-gradient(145deg, var(--care-surface-tonal), var(--care-mint));
+  border-bottom: 1px solid var(--care-mint-strong);
+  min-height: 18rem;
+  overflow: hidden;
+  padding: calc(0.8rem + env(safe-area-inset-top)) 1rem 1.5rem;
+  position: relative;
+}
+
+.detailHero::after {
+  background: rgb(255 255 255 / 0.48);
+  border-radius: 50%;
+  content: '';
+  height: 12rem;
+  position: absolute;
+  right: -4rem;
+  top: -3rem;
+  width: 12rem;
+}
+
+.detailTopActions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+}
+
+.detailTopActions > a,
+.detailSaveAction > button {
+  align-items: center;
+  background: rgb(255 255 255 / 0.92);
+  border: 1px solid var(--care-border);
+  border-radius: 50%;
+  color: var(--care-ink);
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.detailTopActions > a svg {
+  height: 1.15rem;
+  transform: rotate(180deg);
+  width: 1.15rem;
+}
+
+.detailSaveAction {
+  display: contents;
+}
+
+.detailSaveAction > button svg {
+  height: 1.2rem;
+  width: 1.2rem;
+}
+
+.detailIdentity {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin-top: 2.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.detailMark {
+  border-radius: 1.35rem;
+  font-size: 3rem;
+  height: 7rem;
+  width: 7rem;
+}
+
+.detailIdentity > div {
+  min-width: 0;
+}
+
+.detailIdentity h1 {
+  font-size: clamp(2.2rem, 8vw, 4rem);
+  overflow-wrap: anywhere;
+}
+
+.detailIdentity > div > p:last-child {
+  align-items: flex-start;
+  color: var(--care-muted);
+  display: flex;
+  font-size: 0.875rem;
+  gap: 0.4rem;
+  line-height: 1.5;
+  margin: 0.75rem 0 0;
+}
+
+.detailIdentity > div > p:last-child svg {
+  color: var(--care-teal);
+  flex: 0 0 auto;
+  height: 1rem;
+  margin-top: 0.15rem;
+  width: 1rem;
+}
+
+.detailContent {
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.detailTrustCard,
+.detailSection,
+.detailPriceCard,
+.patientRatingCard,
+.compareGuidance {
+  background: var(--care-surface);
+  border: 1px solid var(--care-border);
+  border-radius: 1rem;
+  box-shadow: var(--care-shadow-1);
+  padding: 1rem;
+}
+
+.detailSectionHeading {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.detailSectionHeading > span {
+  align-items: center;
+  background: var(--care-mint);
+  border-radius: 0.8rem;
+  color: var(--care-teal);
+  display: flex;
+  flex: 0 0 auto;
+  height: 3rem;
+  justify-content: center;
+  width: 3rem;
+}
+
+.detailSectionHeading > span svg {
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.trustOverview {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.trustOverview > div {
+  background: var(--care-surface-soft);
+  border-radius: 0.75rem;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.7rem;
+}
+
+.trustOverview strong {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.trustSignalGrid {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.trustSignalGrid article {
+  align-items: start;
+  background: var(--care-surface-soft);
+  border: 1px solid var(--care-border);
+  border-radius: 0.8rem;
+  color: var(--care-muted);
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 0.75rem;
+}
+
+.trustSignalGrid article.trustVerified {
+  background: var(--care-surface-tonal);
+  border-color: var(--care-mint-strong);
+  color: var(--care-teal);
+}
+
+.trustSignalGrid article > svg {
+  height: 1.2rem;
+  margin-top: 0.05rem;
+  width: 1.2rem;
+}
+
+.trustSignalGrid article > div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.trustSignalGrid strong {
+  color: var(--care-ink);
+  font-size: 0.95rem;
+}
+
+.verificationNote {
+  align-items: start;
+  background: var(--care-blue-soft);
+  border: 1px solid #cfdeed;
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin-top: 0.75rem;
+  padding: 0.8rem;
+}
+
+.verificationNote > svg {
+  color: #376d9a;
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.verificationNote p {
+  color: #526d80;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.verificationNote strong {
+  color: #315f82;
+}
+
+.detailServiceList {
+  display: grid;
+  margin-top: 0.75rem;
+}
+
+.detailServiceList article {
+  align-items: center;
+  border-bottom: 1px solid var(--care-border);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 4.75rem;
+  padding: 0.75rem 0;
+}
+
+.detailServiceList article:last-child {
+  border-bottom: 0;
+}
+
+.detailServiceList article > span {
+  align-items: center;
+  background: var(--care-mint);
+  border-radius: 0.75rem;
+  color: var(--care-teal);
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.detailServiceList article > span svg {
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.detailServiceList h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.detailServiceList p {
+  color: var(--care-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 0.2rem 0 0;
+}
+
+.detailServiceList > .detailEmptyCopy {
+  margin: 0.75rem 0 0;
+}
+
+.detailPriceCard {
+  align-items: start;
+  background: linear-gradient(145deg, var(--care-teal-dark), var(--care-teal));
+  border-color: transparent;
+  color: #fff;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.detailPriceCard h2 {
+  font-size: clamp(1.35rem, 5vw, 1.8rem);
+  line-height: 1.25;
+  margin: 0.35rem 0 0;
+}
+
+.detailPriceCard p:last-child {
+  color: rgb(255 255 255 / 0.72);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  margin: 0.6rem 0 0;
+}
+
+.detailPriceCard > svg {
+  background: rgb(255 255 255 / 0.1);
+  border-radius: 0.8rem;
+  height: 3rem;
+  padding: 0.8rem;
+  width: 3rem;
+}
+
+.experienceGrid {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.experienceGrid article {
+  align-items: center;
+  background: var(--care-surface-soft);
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 4.5rem;
+  padding: 0.75rem;
+}
+
+.experienceGrid article > svg {
+  color: var(--care-teal);
+  height: 1.35rem;
+  width: 1.35rem;
+}
+
+.experienceGrid article > span {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.experienceGrid strong {
+  font-size: 0.95rem;
+}
+
+.patientRatingCard {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+}
+
+.patientRatingCard h2 {
+  align-items: center;
+  color: var(--care-amber);
+  display: flex;
+  gap: 0.35rem;
+}
+
+.patientRatingCard h2 svg {
+  height: 1.2rem;
+  width: 1.2rem;
+}
+
+.patientRatingCard > p {
+  color: var(--care-muted);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.stickyDetailAction {
+  align-items: center;
+  backdrop-filter: blur(18px);
+  background: rgb(255 255 255 / 0.96);
+  border: 1px solid var(--care-border);
+  border-radius: 1rem 1rem 0 0;
+  bottom: calc(4.9rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -12px 36px rgb(16 47 50 / 0.12);
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  left: 0;
+  margin: auto;
+  max-width: 56rem;
+  padding: 0.7rem 1rem;
+  position: fixed;
+  right: 0;
+  z-index: 44;
+}
+
+.stickyDetailAction > span {
+  display: grid;
+  min-width: 0;
+}
+
+.stickyDetailAction strong {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+/* Compare */
+.comparePage {
+  gap: 1.25rem;
+  padding-bottom: 3rem;
+}
+
+.compareHeader {
+  align-items: start;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding-top: 0.3rem;
+}
+
+.compareHeader > a {
+  align-items: center;
+  background: var(--care-surface);
+  border: 1px solid var(--care-border);
+  border-radius: 50%;
+  color: var(--care-ink);
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.compareHeader > a svg {
+  height: 1.1rem;
+  transform: rotate(180deg);
+  width: 1.1rem;
+}
+
+.compareHeader h1 {
+  font-size: clamp(2rem, 8vw, 3.2rem);
+}
+
+.compareScrollHint {
+  align-items: center;
+  color: var(--care-muted);
+  display: flex;
+  font-size: 0.8125rem;
+  gap: 0.4rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.compareScrollHint svg {
+  flex: 0 0 auto;
+  height: 1rem;
+  width: 1rem;
+}
+
+.compareTableRegion {
+  border: 1px solid var(--care-border);
+  border-radius: 1rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--care-teal) var(--care-border);
+  scrollbar-width: thin;
+}
+
+.compareTableRegion:focus-visible {
+  outline: 3px solid rgb(87 199 183 / 0.42);
+  outline-offset: 3px;
+}
+
+.compareTable {
+  background: var(--care-surface);
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.compareTable th,
+.compareTable td {
+  border-bottom: 1px solid var(--care-border);
+  font-size: 1rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  padding: 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.compareTable thead th {
+  background: var(--care-surface-soft);
+  min-height: 9rem;
+  padding-top: 1rem;
+}
+
+.compareTable thead th:first-child,
+.compareTable tbody th {
+  left: 0;
+  position: sticky;
+  width: 9rem;
+  z-index: 2;
+}
+
+.compareTable thead th:first-child {
+  color: var(--care-muted);
+  font-size: 0.8125rem;
+  z-index: 3;
+}
+
+.compareTable thead th:not(:first-child) {
+  width: 12.5rem;
+}
+
+.compareTable thead th > strong,
+.compareTable thead th > small,
+.compareTable td > small {
+  display: block;
+}
+
+.compareTable thead th > strong {
+  font-size: 1rem;
+  line-height: 1.3;
+  margin-top: 0.55rem;
+}
+
+.compareTable thead th > small {
+  margin-top: 0.2rem;
+}
+
+.compareClinicMark {
+  border-radius: 0.7rem;
+  font-size: 1.2rem;
+  height: 2.75rem;
+  width: 2.75rem;
+}
+
+.compareTable tbody th {
+  background: var(--care-surface-soft);
+  color: var(--care-muted);
+  font-size: 0.8125rem;
+  font-weight: 850;
+}
+
+.compareTable tbody tr:last-child th,
+.compareTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.compareTable td > strong:not(.compareRating) {
+  font-size: 1rem;
+}
+
+.compareTable td > small {
+  margin-top: 0.25rem;
+}
+
+.compareVerified {
+  color: var(--care-teal);
+  font-weight: 850;
+}
+
+.compareVerified svg {
+  height: 1rem;
+  margin-right: 0.25rem;
+  vertical-align: -0.15rem;
+  width: 1rem;
+}
+
+.compareRating {
+  align-items: center;
+  color: var(--care-amber);
+  display: flex;
+  gap: 0.3rem;
+}
+
+.compareActionRow td {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.compareGuidance {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.compareGuidance > svg {
+  background: var(--care-mint);
+  border-radius: 0.8rem;
+  color: var(--care-teal);
+  height: 3rem;
+  padding: 0.8rem;
+  width: 3rem;
+}
+
+.compareGuidance p {
+  color: var(--care-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0.3rem 0 0;
+}
+
+.compareGuidance > a {
+  background: var(--care-mint);
+  color: var(--care-teal);
+  grid-column: 1 / -1;
+}
+
+.discoveryPage button:focus-visible,
+.discoveryPage a:focus-visible,
+.comparePage a:focus-visible,
+.detailPage a:focus-visible,
+.detailPage button:focus-visible,
+.sortControl :global(.dt-custom-select__trigger):focus-visible,
+.searchBar input:focus-visible {
+  outline: 3px solid rgb(87 199 183 / 0.42);
+  outline-offset: 2px;
+}
+
+@media (max-width: 24rem) {
+  .filterButton > span {
+    position: absolute;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  .filterButton {
+    width: 2.75rem;
+  }
+
+  .trustPanelHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .trustPanelHeading small {
+    text-align: left;
+  }
+
+  .clinicCardFooter {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .detailIdentity {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .detailMark {
+    height: 5rem;
+    width: 5rem;
+  }
+
+  .trustOverview {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 42rem) {
+  .discoveryIntro {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .viewSwitch {
+    width: 16rem;
+  }
+
+  .clinicGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .clinicCard {
+    align-self: start;
+  }
+
+  .filterSheet {
+    border-radius: 1.5rem;
+    bottom: 50%;
+    left: 50%;
+    max-width: 32rem;
+    right: auto;
+    transform: translate(-50%, 50%);
+    width: calc(100% - 2rem);
+  }
+
+  .detailHero {
+    border-radius: 0 0 1.5rem 1.5rem;
+    min-height: 20rem;
+    padding-inline: 2rem;
+  }
+
+  .detailIdentity {
+    margin-top: 3.5rem;
+  }
+
+  .trustSignalGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .experienceGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .patientRatingCard {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  }
+
+  .compareScrollHint {
+    display: none;
+  }
+
+  .compareGuidance {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .compareGuidance > a {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 64rem) {
+  .searchBar {
+    top: 1rem;
+  }
+
+  .compareTray {
+    bottom: 1rem;
+    left: calc(17rem + 1rem);
+    right: 1rem;
+  }
+
+  .stickyDetailAction {
+    bottom: 1rem;
+    border-radius: 1rem;
+    left: calc(17rem + 1rem);
+    right: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterSwitch,
+  .filterSwitch::after {
+    transition: none;
+  }
+}

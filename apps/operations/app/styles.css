@@ -53,6 +53,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.dt-custom-select {
+  --dt-custom-select-accent: var(--ops-teal-600);
+  --dt-custom-select-border: var(--ops-border-strong);
+  --dt-custom-select-color: var(--ops-ink);
+  --dt-custom-select-hover-border: var(--ops-teal-600);
+  --dt-custom-select-muted: var(--ops-muted);
+  --dt-custom-select-option-hover: var(--ops-teal-50);
+  --dt-custom-select-option-selected: var(--ops-teal-100);
+}
+
 button,
 input,
 select,
@@ -1559,9 +1569,9 @@ svg {
   font-size: 0.72rem;
   font-weight: 700;
 }
-.ops-detail-form select,
+.ops-detail-form .dt-custom-select__trigger,
 .ops-detail-form textarea,
-.ops-dialog select,
+.ops-dialog .dt-custom-select__trigger,
 .ops-dialog input,
 .ops-dialog textarea,
 .ops-note-composer textarea {

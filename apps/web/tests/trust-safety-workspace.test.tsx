@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IncidentView, ReviewAbuseReportView, ReviewView } from '@dental-trust/contracts';
 import { getMessages } from '@dental-trust/i18n';
 import { isTrustSafetyWorkspace, TrustSafetyWorkspace } from '@/components/trust-safety-workspace';
+import { selectCustomOption } from './custom-select-helpers';
 
 const incidentId = '318f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01';
 const reviewId = '518f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01';
@@ -129,9 +130,9 @@ describe('incident operations', () => {
     expect(action).toBeDefined();
     expect(toStatus).toBeDefined();
     if (!action || !toStatus) return;
-    fireEvent.change(action, { target: { value: 'triage_incident' } });
-    fireEvent.change(toStatus, { target: { value: 'TRIAGED' } });
-    fireEvent.change(screen.getByLabelText('Reported severity'), { target: { value: 'CRITICAL' } });
+    selectCustomOption(action, 'triage_incident');
+    selectCustomOption(toStatus, 'TRIAGED');
+    selectCustomOption(screen.getByLabelText('Reported severity'), 'CRITICAL');
     fireEvent.change(screen.getByLabelText(/Message visible to the patient/u), {
       target: { value: 'A coordinator completed the initial safety triage.' },
     });
@@ -224,8 +225,8 @@ describe('verified reviews and moderation', () => {
     render(workspace('admin', 'reviews'));
     const manage = await screen.findByRole('button', { name: 'Manage' });
     fireEvent.click(manage);
-    fireEvent.change(screen.getByLabelText('Manage'), { target: { value: 'moderate_review' } });
-    fireEvent.change(screen.getByLabelText('Moderation decision'), { target: { value: 'HIDDEN' } });
+    selectCustomOption(screen.getByLabelText('Manage'), 'moderate_review');
+    selectCustomOption(screen.getByLabelText('Moderation decision'), 'HIDDEN');
     fireEvent.change(screen.getByLabelText(/Reason for decision/u), {
       target: { value: 'Personal contact information requires a documented moderator review.' },
     });

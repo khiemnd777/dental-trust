@@ -3,10 +3,14 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
+import { CustomSelect } from '@dental-trust/ui';
 import { Icon, type IconName } from '@/components/icon';
 import type { ClinicOption, SavedClinic } from '@/lib/care-data';
 import { careMutation, careMutationErrorMessage } from '@/lib/client-mutation';
+import { clinicTrustSignalCount, clinicTrustSignals } from '@/lib/clinic-map';
 import { formatMoney } from '@/lib/presentation';
+
+import styles from './discovery-surfaces.module.css';
 
 const treatments = [
   { code: 'ALL', label: 'Tất cả', icon: 'sparkle' },
@@ -160,19 +164,22 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
   }
 
   return (
-    <main className="care-main discovery-page">
-      <header className="page-intro discover-intro">
+    <main className={`care-main ${styles.discoveryPage}`}>
+      <header className={styles.discoveryIntro}>
         <div>
-          <p className="eyebrow">Được kiểm tra bởi Dental Trust</p>
-          <h1>Tìm nơi khiến bạn an tâm</h1>
-          <p>Chọn điều bạn quan tâm. Chúng tôi giúp bạn hiểu phần còn lại.</p>
+          <h1>Tìm nha khoa</h1>
         </div>
-        <Link className="discover-map-link" href="/discover/map">
-          <Icon name="location" /> Bản đồ
-        </Link>
+        <nav aria-label="Cách xem kết quả" className={styles.viewSwitch}>
+          <span aria-current="page">
+            <Icon name="search" /> Danh sách
+          </span>
+          <Link href="/discover/map">
+            <Icon name="location" /> Bản đồ
+          </Link>
+        </nav>
       </header>
 
-      <div className="discover-searchbar">
+      <div className={styles.searchBar}>
         <Icon name="search" />
         <input
           aria-label="Tìm phòng khám hoặc dịch vụ"
@@ -185,20 +192,22 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
           aria-controls="care-filter-sheet"
           aria-expanded={filterOpen}
           aria-label="Mở bộ lọc"
+          className={styles.filterButton}
           onClick={() => setFilterOpen(true)}
           ref={filterTriggerRef}
           type="button"
         >
           <Icon name="filter" />
-          {activeFilters > 0 ? <span>{activeFilters}</span> : null}
+          <span>Bộ lọc</span>
+          {activeFilters > 0 ? <strong>{activeFilters}</strong> : null}
         </button>
       </div>
 
-      <section aria-labelledby="treatment-heading" className="treatment-picker">
-        <div className="section-heading section-heading--compact">
-          <h2 id="treatment-heading">Bạn đang quan tâm điều gì?</h2>
+      <section aria-labelledby="treatment-heading" className={styles.treatmentPicker}>
+        <div className={styles.sectionHeading}>
+          <h2 id="treatment-heading">Bạn quan tâm gì?</h2>
         </div>
-        <div aria-label="Nhu cầu điều trị" className="treatment-scroll" role="group">
+        <div aria-label="Nhu cầu điều trị" className={styles.treatmentList} role="group">
           {treatments.map((item) => (
             <button
               aria-pressed={treatment === item.code}
@@ -215,45 +224,32 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
         </div>
       </section>
 
-      <div className="discovery-context">
-        <div>
-          <Icon name="location" />
-          <span>
-            <small>Khu vực</small>
-            <strong>{locationLabel}</strong>
-          </span>
-        </div>
-        <div>
-          <Icon name="calendar" />
-          <span>
-            <small>Bộ lọc</small>
-            <strong>{activeFilters ? `${activeFilters} tiêu chí` : 'Chưa giới hạn'}</strong>
-          </span>
-        </div>
-      </div>
-
-      <section aria-labelledby="discover-results" className="clinic-results">
-        <div className="section-heading">
+      <section aria-labelledby="discover-results" className={styles.clinicResults}>
+        <div className={styles.resultsHeading}>
           <div>
-            <p className="eyebrow">{results.length} lựa chọn</p>
-            <h2 id="discover-results">Phù hợp với bạn</h2>
+            <h2 id="discover-results">{results.length} lựa chọn</h2>
+            <small>{locationLabel}</small>
           </div>
-          <label className="sort-control">
-            <span className="sr-only">Sắp xếp</span>
-            <select onChange={(event) => setSort(event.target.value as typeof sort)} value={sort}>
-              <option value="recommended">Đề xuất</option>
-              <option value="rating">Đánh giá</option>
-              <option value="price">Giá thấp trước</option>
-            </select>
-          </label>
+          <CustomSelect
+            align="end"
+            aria-label="Sắp xếp kết quả"
+            className={styles.sortControl}
+            menuLabel="Sắp xếp kết quả"
+            onChange={(event) => setSort(event.target.value as typeof sort)}
+            value={sort}
+            variant="pill"
+          >
+            <option value="recommended">Đề xuất</option>
+            <option value="rating">Đánh giá cao nhất</option>
+            <option value="price">Giá thấp trước</option>
+          </CustomSelect>
         </div>
 
-        <div className="clinic-grid">
-          {results.map((clinic, index) => (
+        <div className={styles.clinicGrid}>
+          {results.map((clinic) => (
             <ClinicCard
               clinic={clinic}
               compared={compare.includes(clinic.id)}
-              index={index}
               key={clinic.id}
               onCompare={() => toggleCompare(clinic.id)}
               onSave={() => toggleSaved(clinic)}
@@ -264,14 +260,14 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
         </div>
 
         {results.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-state__icon">
+          <div className={styles.emptyState}>
+            <span className={styles.emptyIcon}>
               <Icon name="search" />
             </span>
             <h3>Chưa thấy lựa chọn phù hợp</h3>
             <p>Thử bỏ bớt bộ lọc hoặc chọn “Tất cả”.</p>
             <button
-              className="secondary-button"
+              className={styles.secondaryButton}
               onClick={() => {
                 setTreatment('ALL');
                 setQuery('');
@@ -288,15 +284,14 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
       </section>
 
       {compare.length > 0 ? (
-        <aside className="compare-tray" aria-label="Danh sách so sánh">
-          <span className="compare-tray__stack" aria-hidden="true">
+        <aside className={styles.compareTray} aria-label="Danh sách so sánh">
+          <span className={styles.compareStack} aria-hidden="true">
             {compare.map((id, index) => (
               <i key={id} style={{ transform: `translateX(${index * 13}px)` }} />
             ))}
           </span>
-          <span>
+          <span className={styles.compareSummary}>
             <strong>{compare.length}/3 đã chọn</strong>
-            <small>So sánh cạnh nhau</small>
           </span>
           <Link href={`/compare?ids=${compare.join(',')}`}>
             So sánh <Icon name="arrow" />
@@ -305,7 +300,7 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
       ) : null}
 
       {feedback ? (
-        <div aria-live="polite" className="care-toast" role="status">
+        <div aria-live="polite" className={styles.toast} role="status">
           <Icon name="check" /> {feedback}
           <button aria-label="Đóng thông báo" onClick={() => setFeedback('')} type="button">
             <Icon name="close" />
@@ -315,55 +310,51 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
 
       {filterOpen ? (
         <div
-          className="sheet-backdrop"
+          className={styles.sheetBackdrop}
           onMouseDown={() => setFilterOpen(false)}
           role="presentation"
         >
           <section
             aria-labelledby="filter-title"
             aria-modal="true"
-            className="filter-sheet"
+            className={styles.filterSheet}
             id="care-filter-sheet"
             onMouseDown={(event) => event.stopPropagation()}
             ref={filterSheetRef}
             role="dialog"
           >
-            <div className="sheet-handle" />
+            <div className={styles.sheetHandle} />
             <header>
               <div>
-                <p className="eyebrow">Tinh chỉnh kết quả</p>
-                <h2 id="filter-title">Điều gì quan trọng với bạn?</h2>
+                <h2 id="filter-title">Bộ lọc</h2>
               </div>
               <button aria-label="Đóng bộ lọc" onClick={() => setFilterOpen(false)} type="button">
                 <Icon name="close" />
               </button>
             </header>
-            <div className="filter-options">
+            <div className={styles.filterOptions}>
               <FilterToggle
                 checked={aftercareOnly}
-                description="Có đội ngũ theo dõi khi bạn đã về nhà"
                 icon="support"
                 label="Hỗ trợ sau điều trị"
                 onChange={setAftercareOnly}
               />
               <FilterToggle
                 checked={warrantyOnly}
-                description="Chính sách được công bố rõ ràng"
                 icon="shield"
                 label="Có bảo hành"
                 onChange={setWarrantyOnly}
               />
               <FilterToggle
                 checked={englishOnly}
-                description="Có thể trao đổi bằng tiếng Anh"
                 icon="globe"
                 label="Hỗ trợ English"
                 onChange={setEnglishOnly}
               />
             </div>
-            <div className="sheet-actions">
+            <div className={styles.sheetActions}>
               <button
-                className="text-button"
+                className={styles.textButton}
                 onClick={() => {
                   setAftercareOnly(false);
                   setWarrantyOnly(false);
@@ -373,7 +364,11 @@ export function Discovery({ clinics, initialSaved, locationLabel }: DiscoveryPro
               >
                 Đặt lại
               </button>
-              <button className="primary-button" onClick={() => setFilterOpen(false)} type="button">
+              <button
+                className={styles.primaryButton}
+                onClick={() => setFilterOpen(false)}
+                type="button"
+              >
                 Xem {results.length} lựa chọn
               </button>
             </div>
@@ -389,7 +384,6 @@ function ClinicCard({
   saved,
   compared,
   pending,
-  index,
   onSave,
   onCompare,
 }: {
@@ -397,29 +391,35 @@ function ClinicCard({
   readonly saved: boolean;
   readonly compared: boolean;
   readonly pending: boolean;
-  readonly index: number;
   readonly onSave: () => void;
   readonly onCompare: () => void;
 }) {
   const minimum = clinic.estimatedPrice
     ? formatMoney(clinic.estimatedPrice.minimumMinor, clinic.estimatedPrice.currency)
     : 'Theo tư vấn';
+  const trustSignals = clinicTrustSignals(clinic.evidence);
+  const recordedTrustCount = trustSignals.filter(({ verified }) => verified).length;
+  const verificationDate = formatVerificationDate(clinic.verificationDate);
+  const statusLabel = verificationStatusLabel(clinic.verificationStatus);
+  const initial = clinic.name.trim().charAt(0).toLocaleUpperCase('vi') || '+';
   return (
-    <article className="clinic-card">
-      <div className={`clinic-visual clinic-visual--${(index % 4) + 1}`}>
-        <div className="clinic-visual__sun" />
-        <div className="clinic-visual__building" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <i>+</i>
-        </div>
-        <span className="verified-badge">
-          <Icon name="shield" /> Đã xác minh
+    <article className={styles.clinicCard}>
+      <div className={styles.clinicCardHeader}>
+        <span aria-hidden="true" className={styles.clinicMark}>
+          {initial}
         </span>
+        <div>
+          <p>
+            <Icon name="location" /> {clinic.locationLabel}
+          </p>
+          <h3>
+            <Link href={`/discover/${clinic.slug}`}>{clinic.name}</Link>
+          </h3>
+        </div>
         <button
           aria-label={saved ? `Bỏ lưu ${clinic.name}` : `Lưu ${clinic.name}`}
-          className={`save-action${saved ? ' is-saved' : ''}`}
+          aria-pressed={saved}
+          className={`${styles.saveAction}${saved ? ` ${styles.saved}` : ''}`}
           disabled={pending}
           onClick={onSave}
           type="button"
@@ -427,60 +427,72 @@ function ClinicCard({
           <Icon name="heart" fill={saved ? 'currentColor' : 'none'} />
         </button>
       </div>
-      <div className="clinic-card__body">
-        <div className="clinic-card__meta">
+
+      <div className={styles.trustPanel}>
+        <div className={styles.trustPanelHeading}>
           <span>
-            <Icon name="location" /> {clinic.locationLabel}
+            <Icon name="shield" /> {statusLabel}
           </span>
+          <small>
+            {recordedTrustCount}/{clinicTrustSignalCount} bằng chứng
+            {verificationDate ? ` · ${verificationDate}` : ''}
+          </small>
+        </div>
+      </div>
+
+      <div className={styles.clinicCardBody}>
+        <div className={styles.ratingRow}>
           {clinic.rating ? (
             <strong>
               <Icon name="star" fill="currentColor" /> {clinic.rating}
-              <small> ({clinic.reviewCount})</small>
+              <span>{clinic.reviewCount} đánh giá</span>
             </strong>
           ) : (
-            <strong className="new-label">Mới</strong>
+            <span>Chưa có đánh giá</span>
           )}
         </div>
-        <h3>
-          <Link href={`/discover/${clinic.slug}`}>{clinic.name}</Link>
-        </h3>
-        <p className="clinic-card__service">
-          {clinic.services.map((service) => service.name).join(' · ') || 'Nha khoa tổng quát'}
-        </p>
-        <div className="clinic-card__signals">
+
+        <div aria-label="Dịch vụ" className={styles.serviceChips}>
+          {clinic.services.length ? (
+            clinic.services
+              .slice(0, 3)
+              .map((service) => <span key={service.code}>{service.name}</span>)
+          ) : (
+            <span>Nha khoa tổng quát</span>
+          )}
+          {clinic.services.length > 3 ? <span>+{clinic.services.length - 3}</span> : null}
+        </div>
+
+        <div className={styles.careSignals}>
           {clinic.aftercareSupported ? (
             <span>
-              <Icon name="support" /> Theo dõi sau điều trị
+              <Icon name="support" /> Sau điều trị
             </span>
           ) : null}
-          {clinic.warrantyAvailable ? (
+          {clinic.languages.length ? (
             <span>
-              <Icon name="shield" /> Có bảo hành
-            </span>
-          ) : null}
-          {clinic.languages.includes('en') ? (
-            <span>
-              <Icon name="globe" /> English
+              <Icon name="globe" /> {formatLanguages(clinic.languages)}
             </span>
           ) : null}
         </div>
-        <div className="clinic-card__footer">
+
+        <div className={styles.clinicCardFooter}>
           <span>
-            <small>Chi phí ước tính từ</small>
+            <small>Chi phí từ</small>
             <strong>{minimum}</strong>
           </span>
-          <Link aria-label={`Xem ${clinic.name}`} href={`/discover/${clinic.slug}`}>
-            <Icon name="arrow" />
+          <Link aria-label={`Xem chi tiết ${clinic.name}`} href={`/discover/${clinic.slug}`}>
+            Xem chi tiết <Icon name="arrow" />
           </Link>
         </div>
         <button
           aria-pressed={compared}
-          className={`compare-toggle${compared ? ' is-active' : ''}`}
+          className={`${styles.compareToggle}${compared ? ` ${styles.compareActive}` : ''}`}
           onClick={onCompare}
           type="button"
         >
           <span>{compared ? <Icon name="check" /> : <Icon name="plus" />}</span>
-          {compared ? 'Đã thêm vào so sánh' : 'Thêm vào so sánh'}
+          {compared ? 'Đã chọn' : 'So sánh'}
         </button>
       </div>
     </article>
@@ -490,31 +502,56 @@ function ClinicCard({
 function FilterToggle({
   checked,
   label,
-  description,
   icon,
   onChange,
 }: {
   readonly checked: boolean;
   readonly label: string;
-  readonly description: string;
   readonly icon: 'support' | 'shield' | 'globe';
   readonly onChange: (value: boolean) => void;
 }) {
   return (
-    <label>
-      <span className="filter-options__icon">
+    <label className={styles.filterOption}>
+      <span className={styles.filterIcon}>
         <Icon name={icon} />
       </span>
-      <span>
+      <span className={styles.filterCopy}>
         <strong>{label}</strong>
-        <small>{description}</small>
       </span>
       <input
+        className={styles.filterCheckbox}
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         type="checkbox"
       />
-      <i aria-hidden="true" />
+      <i aria-hidden="true" className={styles.filterSwitch} />
     </label>
   );
+}
+
+function formatVerificationDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function verificationStatusLabel(status: string): string {
+  if (status === 'ACTIVE' || status === 'VERIFIED') return 'Đã xác minh';
+  if (status === 'VERIFICATION_EXPIRING') return 'Xác minh sắp hết hạn';
+  return 'Hồ sơ đang được cập nhật';
+}
+
+function formatLanguages(languages: readonly string[]): string {
+  const labels: Readonly<Record<string, string>> = {
+    en: 'English',
+    vi: 'Tiếng Việt',
+    'en-US': 'English',
+    'vi-VN': 'Tiếng Việt',
+  };
+  return languages.map((language) => labels[language] ?? language.toUpperCase()).join(' · ');
 }

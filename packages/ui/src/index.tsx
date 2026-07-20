@@ -9,6 +9,10 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 
+import { CustomSelect } from './custom-select';
+
+export { CustomSelect, type CustomSelectProps } from './custom-select';
+
 export function cx(...values: (string | false | null | undefined)[]) {
   return values.filter(Boolean).join(' ');
 }
@@ -347,16 +351,16 @@ export function SelectField({
 }: SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
   const generatedId = useId();
   const id = props.id ?? `${props.name ?? 'select'}-${generatedId}`;
+  const labelId = `${id}-label`;
   return (
-    <label className={cx('dt-field', className)} htmlFor={id}>
-      <span className="dt-field__label">{label}</span>
-      <span className="dt-select-wrap">
-        <select className="dt-input dt-select" id={id} {...props}>
-          {children}
-        </select>
-        <Icon className="dt-select__icon" name="chevron" />
+    <div className={cx('dt-field', className)}>
+      <span className="dt-field__label" id={labelId}>
+        {label}
       </span>
-    </label>
+      <CustomSelect aria-labelledby={labelId} className="dt-select" id={id} {...props}>
+        {children}
+      </CustomSelect>
+    </div>
   );
 }
 
