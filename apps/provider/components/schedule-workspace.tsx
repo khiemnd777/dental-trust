@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { CustomSelect } from '@dental-trust/ui';
-import type { AppointmentView } from '@dental-trust/contracts';
+import type {
+  AppointmentView,
+  AvailabilityBlockView,
+  ClinicDentistView,
+  DentalCaseView,
+} from '@dental-trust/contracts';
 import { ProviderDialog } from '@/components/provider-dialog';
 import { ProviderIcon } from '@/components/provider-icon';
 import {
@@ -19,6 +24,16 @@ import {
   localDateTimeToIso,
 } from '@/lib/provider-time';
 import { formatDate, formatDateTime, formatTime, labelStatus } from '@/lib/presentation';
+import {
+  addSchedulePeriod,
+  dateKey,
+  monthDates,
+  navigationLabel,
+  periodLabel,
+  scheduleHref,
+  type ScheduleView,
+  weekDates,
+} from '@/lib/schedule-view';
 
 type ScheduleDialog = 'appointment' | 'appointmentLifecycle' | 'block' | null;
 
@@ -28,29 +43,67 @@ const appointmentMutationLabels: Readonly<Record<AppointmentMutation, string>> =
   attendance: 'Ghi nhận tham dự',
 };
 
-export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleData }) {
+export function ScheduleWorkspace({
+  data,
+  initialDate,
+  initialView,
+}: {
+  readonly data: ProviderScheduleData;
+  readonly initialDate: string | undefined;
+  readonly initialView: ScheduleView;
+}) {
   const router = useRouter();
   const primaryTimeZone =
     data.onboarding.locations.find((location) => location.active)?.timezone ??
     data.onboarding.locations[0]?.timezone ??
     'Asia/Ho_Chi_Minh';
-  const [selectedDate, setSelectedDate] = useState(() =>
-    isoDateKeyInTimeZone(new Date().toISOString(), primaryTimeZone),
-  );
+  const today = isoDateKeyInTimeZone(new Date().toISOString(), primaryTimeZone);
+  const [selectedDate, setSelectedDate] = useState(() => initialDate ?? today);
+  const [view, setView] = useState<ScheduleView>(initialView);
   const [dialog, setDialog] = useState<ScheduleDialog>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentView | null>(null);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const caseById = useMemo(() => new Map(data.cases.map((item) => [item.id, item])), [data.cases]);
+  const dentistById = useMemo(
+    () => new Map(data.dentists.map((item) => [item.id, item])),
+    [data.dentists],
+  );
+  const blockTimeZoneById = useMemo(() => {
+    const locationTimeZoneById = new Map(
+      data.onboarding.locations.map((location) => [location.id, location.timezone]),
+    );
+    return new Map(
+      data.availability.blocks.map((block) => [
+        block.id,
+        (block.locationId ? locationTimeZoneById.get(block.locationId) : undefined) ??
+          primaryTimeZone,
+      ]),
+    );
+  }, [data.availability.blocks, data.onboarding.locations, primaryTimeZone]);
   const selectedAppointments = data.appointments.filter(
     (item) => isoDateKeyInTimeZone(item.startsAt, item.timezone) === selectedDate,
+  );
+  const selectedBlocks = data.availability.blocks.filter((item) =>
+    rangeIncludesDate(
+      item.startsAt,
+      item.endsAt,
+      selectedDate,
+      blockTimeZoneById.get(item.id) ?? primaryTimeZone,
+    ),
   );
   const upcoming = data.appointments
     .filter((item) => Date.parse(item.endsAt) >= Date.now())
     .slice(0, 6);
   const activeRules = data.availability.rules.filter((rule) => rule.active);
   const week = useMemo(() => weekDates(new Date(`${selectedDate}T12:00:00.000Z`)), [selectedDate]);
+
+  function updateSchedule(nextView: ScheduleView, nextDate: string) {
+    setView(nextView);
+    setSelectedDate(nextDate);
+    router.replace(scheduleHref(nextView, nextDate), { scroll: false });
+  }
 
   async function execute(operation: () => Promise<unknown>, success: string) {
     setPending(true);
@@ -89,40 +142,66 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
         </div>
       ) : null}
       <div className="provider-schedule-toolbar">
-        <div>
-          <button
-            aria-label="Tuần trước"
-            onClick={() => setSelectedDate(addDays(selectedDate, -7))}
-            type="button"
+        <div className="provider-schedule-toolbar__primary">
+          <div className="provider-schedule-navigation">
+            <button
+              aria-label={navigationLabel(view, -1)}
+              className="provider-schedule-nav-button provider-schedule-nav-button--previous"
+              onClick={() => updateSchedule(view, addSchedulePeriod(selectedDate, view, -1))}
+              title={navigationLabel(view, -1)}
+              type="button"
+            >
+              <ProviderIcon name="chevron" />
+            </button>
+            <strong aria-live="polite">{periodLabel(view, selectedDate)}</strong>
+            <button
+              aria-label={navigationLabel(view, 1)}
+              className="provider-schedule-nav-button"
+              onClick={() => updateSchedule(view, addSchedulePeriod(selectedDate, view, 1))}
+              title={navigationLabel(view, 1)}
+              type="button"
+            >
+              <ProviderIcon name="chevron" />
+            </button>
+            <button
+              className="provider-schedule-today-button"
+              onClick={() => updateSchedule(view, today)}
+              type="button"
+            >
+              Hôm nay
+            </button>
+          </div>
+          <div
+            aria-label="Chế độ xem lịch"
+            className="provider-schedule-view-switcher"
+            role="group"
           >
-            <ProviderIcon name="chevron" />
-          </button>
-          <strong>
-            {week.length ? weekLabel(week[0], week[week.length - 1]) : 'Tuần hiện tại'}
-          </strong>
-          <button
-            aria-label="Tuần sau"
-            onClick={() => setSelectedDate(addDays(selectedDate, 7))}
-            type="button"
-          >
-            <ProviderIcon name="chevron" />
-          </button>
-          <button
-            onClick={() =>
-              setSelectedDate(isoDateKeyInTimeZone(new Date().toISOString(), primaryTimeZone))
-            }
-            type="button"
-          >
-            Hôm nay
-          </button>
+            {(
+              [
+                ['day', 'Ngày'],
+                ['week', 'Tuần'],
+                ['month', 'Tháng'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                aria-pressed={view === value}
+                key={value}
+                onClick={() => updateSchedule(value, selectedDate)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div>
+        <div className="provider-schedule-toolbar__actions">
           <button
             className="provider-secondary-button"
             onClick={() => setDialog('block')}
+            title="Đánh dấu khoảng thời gian không nhận lịch hẹn mới"
             type="button"
           >
-            <ProviderIcon name="clock" /> Khóa lịch
+            <ProviderIcon name="clock" /> Khóa khung giờ
           </button>
           <button
             className="provider-primary-button"
@@ -134,130 +213,54 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
         </div>
       </div>
 
-      <nav aria-label="Chọn ngày" className="provider-date-strip provider-date-strip--interactive">
-        {week.map((date) => {
-          const key = dateKey(date);
-          const count = data.appointments.filter(
-            (item) => isoDateKeyInTimeZone(item.startsAt, item.timezone) === key,
-          ).length;
-          return (
-            <button
-              aria-current={key === selectedDate ? 'date' : undefined}
-              key={key}
-              onClick={() => setSelectedDate(key)}
-              type="button"
-            >
-              <small>
-                {new Intl.DateTimeFormat('vi-VN', {
-                  weekday: 'short',
-                  timeZone: 'UTC',
-                }).format(date)}
-              </small>
-              <strong>{date.getUTCDate()}</strong>
-              {count ? <span>{count}</span> : null}
-              {key === selectedDate ? <i /> : null}
-            </button>
-          );
-        })}
-      </nav>
+      {view === 'day' ? (
+        <DateStrip
+          appointments={data.appointments}
+          onSelectDate={(date) => updateSchedule('day', date)}
+          selectedDate={selectedDate}
+          week={week}
+        />
+      ) : null}
 
-      <div className="provider-schedule-layout">
-        <section className="provider-panel provider-agenda">
-          <header className="provider-panel-header">
-            <div>
-              <span className="provider-panel-icon provider-panel-icon--blue">
-                <ProviderIcon name="calendar" />
-              </span>
-              <span>
-                <h2>
-                  {formatDate(`${selectedDate}T12:00:00.000Z`, {
-                    weekday: 'long',
-                    timeZone: 'UTC',
-                  })}
-                </h2>
-                <p>{selectedAppointments.length} lịch hẹn · theo múi giờ từng lịch hẹn</p>
-              </span>
-            </div>
-            <span className="provider-live-indicator">
-              <i /> Dữ liệu trực tiếp
-            </span>
-          </header>
-          {selectedAppointments.length ? (
-            <div className="provider-agenda-list">
-              {selectedAppointments
-                .toSorted((a, b) => a.startsAt.localeCompare(b.startsAt))
-                .map((appointment) => {
-                  const dentalCase = caseById.get(appointment.caseId);
-                  const availableMutations = appointmentMutationsAt(appointment);
-                  return (
-                    <article key={appointment.id}>
-                      <time>{formatTime(appointment.startsAt, appointment.timezone)}</time>
-                      <span className="provider-agenda-line">
-                        <i />
-                      </span>
-                      <span
-                        className={`provider-avatar provider-avatar--${appointment.kind === 'CONSULTATION' ? 'blue' : 'success'}`}
-                      >
-                        {dentalCase ? dentalCase.caseNumber.slice(-2) : 'DT'}
-                      </span>
-                      <div>
-                        <strong>{dentalCase?.title ?? 'Hồ sơ điều trị'}</strong>
-                        <p>
-                          {appointment.kind === 'CONSULTATION'
-                            ? 'Tư vấn trực tuyến'
-                            : 'Khám tại phòng khám'}
-                        </p>
-                        <small>
-                          <ProviderIcon
-                            name={appointment.kind === 'CONSULTATION' ? 'video' : 'clinic'}
-                          />{' '}
-                          {formatTime(appointment.startsAt, appointment.timezone)}–
-                          {formatTime(appointment.endsAt, appointment.timezone)} ·{' '}
-                          {appointment.timezone}
-                        </small>
-                      </div>
-                      <span className="provider-agenda-status">
-                        {labelStatus(appointment.status)}
-                      </span>
-                      {availableMutations.length ? (
-                        <button
-                          aria-label={`Quản lý lịch hẹn ${formatDateTime(appointment.startsAt, appointment.timezone)}`}
-                          onClick={() => {
-                            setSelectedAppointment(appointment);
-                            setDialog('appointmentLifecycle');
-                          }}
-                          type="button"
-                        >
-                          <ProviderIcon name="more" />
-                        </button>
-                      ) : (
-                        <a
-                          aria-label="Mở hồ sơ"
-                          href={`/cases/${appointment.caseId}?tab=appointments`}
-                        >
-                          <ProviderIcon name="chevron" />
-                        </a>
-                      )}
-                    </article>
-                  );
-                })}
-            </div>
-          ) : (
-            <div className="provider-empty-state provider-empty-state--schedule">
-              <span>
-                <ProviderIcon name="calendar" />
-              </span>
-              <strong>Không có lịch hẹn trong ngày này</strong>
-              <p>
-                Chọn ngày khác hoặc tạo lịch hẹn mới. Lịch khóa vẫn được áp dụng khi kiểm tra xung
-                đột.
-              </p>
-              <button onClick={() => setDialog('appointment')} type="button">
-                Tạo lịch hẹn
-              </button>
-            </div>
-          )}
-        </section>
+      <div
+        className={`provider-schedule-layout${view === 'day' ? '' : ' provider-schedule-layout--calendar'}`}
+      >
+        {view === 'day' ? (
+          <DaySchedule
+            appointments={selectedAppointments}
+            blockTimeZoneById={blockTimeZoneById}
+            blocks={selectedBlocks}
+            caseById={caseById}
+            onCreateAppointment={() => setDialog('appointment')}
+            onManageAppointment={(appointment) => {
+              setSelectedAppointment(appointment);
+              setDialog('appointmentLifecycle');
+            }}
+            selectedDate={selectedDate}
+            timeZone={primaryTimeZone}
+          />
+        ) : view === 'week' ? (
+          <WeekSchedule
+            appointments={data.appointments}
+            blockTimeZoneById={blockTimeZoneById}
+            blocks={data.availability.blocks}
+            caseById={caseById}
+            dentistById={dentistById}
+            onOpenDay={(date) => updateSchedule('day', date)}
+            selectedDate={selectedDate}
+            timeZone={primaryTimeZone}
+            week={week}
+          />
+        ) : (
+          <MonthSchedule
+            appointments={data.appointments}
+            blockTimeZoneById={blockTimeZoneById}
+            blocks={data.availability.blocks}
+            onOpenDay={(date) => updateSchedule('day', date)}
+            selectedDate={selectedDate}
+            timeZone={primaryTimeZone}
+          />
+        )}
 
         <aside className="provider-schedule-aside">
           <section className="provider-panel provider-day-summary">
@@ -286,7 +289,7 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
                 </dd>
               </div>
               <div>
-                <dt>Khóa lịch</dt>
+                <dt>Khung giờ khóa</dt>
                 <dd>{data.availability.blocks.length}</dd>
               </div>
             </dl>
@@ -408,13 +411,430 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
         onSubmit={(payload) =>
           void execute(
             () => sendProviderCommand({ command: 'clinic_create_availability_block', payload }),
-            'Đã khóa thời gian trên lịch phòng khám.',
+            'Đã khóa khung giờ trên lịch phòng khám.',
           )
         }
         open={dialog === 'block'}
         pending={pending}
       />
     </>
+  );
+}
+
+function DateStrip({
+  appointments,
+  onSelectDate,
+  selectedDate,
+  week,
+}: {
+  readonly appointments: readonly AppointmentView[];
+  readonly onSelectDate: (date: string) => void;
+  readonly selectedDate: string;
+  readonly week: readonly Date[];
+}) {
+  return (
+    <nav aria-label="Chọn ngày" className="provider-date-strip provider-date-strip--interactive">
+      {week.map((date) => {
+        const key = dateKey(date);
+        const count = appointments.filter(
+          (item) => isoDateKeyInTimeZone(item.startsAt, item.timezone) === key,
+        ).length;
+        return (
+          <button
+            aria-current={key === selectedDate ? 'date' : undefined}
+            aria-label={`${formatDate(`${key}T12:00:00.000Z`, { weekday: 'long', timeZone: 'UTC' })}${count ? `, ${count} lịch hẹn` : ', chưa có lịch hẹn'}`}
+            key={key}
+            onClick={() => onSelectDate(key)}
+            type="button"
+          >
+            <small>
+              {new Intl.DateTimeFormat('vi-VN', {
+                weekday: 'short',
+                timeZone: 'UTC',
+              }).format(date)}
+            </small>
+            <strong>{date.getUTCDate()}</strong>
+            {count ? <span>{count}</span> : null}
+            {key === selectedDate ? <i /> : null}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function DaySchedule({
+  appointments,
+  blockTimeZoneById,
+  blocks,
+  caseById,
+  onCreateAppointment,
+  onManageAppointment,
+  selectedDate,
+  timeZone,
+}: {
+  readonly appointments: readonly AppointmentView[];
+  readonly blockTimeZoneById: ReadonlyMap<string, string>;
+  readonly blocks: readonly AvailabilityBlockView[];
+  readonly caseById: ReadonlyMap<string, DentalCaseView>;
+  readonly onCreateAppointment: () => void;
+  readonly onManageAppointment: (appointment: AppointmentView) => void;
+  readonly selectedDate: string;
+  readonly timeZone: string;
+}) {
+  const events = [
+    ...appointments.map((appointment) => ({
+      appointment,
+      id: `appointment-${appointment.id}`,
+      startsAt: appointment.startsAt,
+      type: 'appointment' as const,
+    })),
+    ...blocks.map((block) => ({
+      block,
+      id: `block-${block.id}`,
+      startsAt: block.startsAt,
+      type: 'block' as const,
+    })),
+  ].toSorted((left, right) => left.startsAt.localeCompare(right.startsAt));
+
+  return (
+    <section className="provider-panel provider-agenda">
+      <header className="provider-panel-header">
+        <div>
+          <span className="provider-panel-icon provider-panel-icon--blue">
+            <ProviderIcon name="calendar" />
+          </span>
+          <span>
+            <h2>
+              {formatDate(`${selectedDate}T12:00:00.000Z`, {
+                weekday: 'long',
+                timeZone: 'UTC',
+              })}
+            </h2>
+            <p>
+              {appointments.length} lịch hẹn · {blocks.length} khung giờ khóa · theo múi giờ từng
+              lịch hẹn
+            </p>
+          </span>
+        </div>
+        <span className="provider-live-indicator">
+          <i /> Dữ liệu trực tiếp
+        </span>
+      </header>
+      {events.length ? (
+        <div className="provider-agenda-list">
+          {events.map((event) => {
+            if (event.type === 'block') {
+              const blockTimeZone = blockTimeZoneById.get(event.block.id) ?? timeZone;
+              return (
+                <article className="provider-agenda-block" key={event.id}>
+                  <time>{formatTime(event.block.startsAt, blockTimeZone)}</time>
+                  <span className="provider-agenda-line">
+                    <i />
+                  </span>
+                  <span className="provider-avatar provider-avatar--blocked">
+                    <ProviderIcon name="clock" />
+                  </span>
+                  <div>
+                    <strong>{event.block.reason || 'Khung giờ không nhận lịch hẹn'}</strong>
+                    <p>{event.block.kind === 'TIME_OFF' ? 'Nghỉ phép' : 'Khóa vận hành'}</p>
+                    <small>
+                      <ProviderIcon name="clock" />{' '}
+                      {formatTime(event.block.startsAt, blockTimeZone)}–
+                      {formatTime(event.block.endsAt, blockTimeZone)} · {blockTimeZone}
+                    </small>
+                  </div>
+                  <span className="provider-agenda-status">Đã khóa</span>
+                  <span aria-hidden="true" className="provider-agenda-action-spacer" />
+                </article>
+              );
+            }
+
+            const appointment = event.appointment;
+            const dentalCase = caseById.get(appointment.caseId);
+            const availableMutations = appointmentMutationsAt(appointment);
+            return (
+              <article
+                className={appointment.status === 'CANCELLED' ? 'is-cancelled' : undefined}
+                key={event.id}
+              >
+                <time>{formatTime(appointment.startsAt, appointment.timezone)}</time>
+                <span className="provider-agenda-line">
+                  <i />
+                </span>
+                <span
+                  className={`provider-avatar provider-avatar--${appointment.kind === 'CONSULTATION' ? 'blue' : 'success'}`}
+                >
+                  {dentalCase ? dentalCase.caseNumber.slice(-2) : 'DT'}
+                </span>
+                <div>
+                  <strong>{dentalCase?.title ?? 'Hồ sơ điều trị'}</strong>
+                  <p>
+                    {appointment.kind === 'CONSULTATION'
+                      ? 'Tư vấn trực tuyến'
+                      : 'Khám tại phòng khám'}
+                  </p>
+                  <small>
+                    <ProviderIcon name={appointment.kind === 'CONSULTATION' ? 'video' : 'clinic'} />{' '}
+                    {formatTime(appointment.startsAt, appointment.timezone)}–
+                    {formatTime(appointment.endsAt, appointment.timezone)} · {appointment.timezone}
+                  </small>
+                </div>
+                <span className="provider-agenda-status">{labelStatus(appointment.status)}</span>
+                {availableMutations.length ? (
+                  <button
+                    aria-label={`Quản lý lịch hẹn ${formatDateTime(appointment.startsAt, appointment.timezone)}`}
+                    onClick={() => onManageAppointment(appointment)}
+                    type="button"
+                  >
+                    <ProviderIcon name="more" />
+                  </button>
+                ) : (
+                  <a aria-label="Mở hồ sơ" href={`/cases/${appointment.caseId}?tab=appointments`}>
+                    <ProviderIcon name="chevron" />
+                  </a>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="provider-empty-state provider-empty-state--schedule">
+          <span>
+            <ProviderIcon name="calendar" />
+          </span>
+          <strong>Không có lịch hẹn trong ngày này</strong>
+          <p>
+            Chọn ngày khác hoặc tạo lịch hẹn mới. Khung giờ khóa vẫn được áp dụng khi kiểm tra xung
+            đột.
+          </p>
+          <button onClick={onCreateAppointment} type="button">
+            Tạo lịch hẹn
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function WeekSchedule({
+  appointments,
+  blockTimeZoneById,
+  blocks,
+  caseById,
+  dentistById,
+  onOpenDay,
+  selectedDate,
+  timeZone,
+  week,
+}: {
+  readonly appointments: readonly AppointmentView[];
+  readonly blockTimeZoneById: ReadonlyMap<string, string>;
+  readonly blocks: readonly AvailabilityBlockView[];
+  readonly caseById: ReadonlyMap<string, DentalCaseView>;
+  readonly dentistById: ReadonlyMap<string, ClinicDentistView>;
+  readonly onOpenDay: (date: string) => void;
+  readonly selectedDate: string;
+  readonly timeZone: string;
+  readonly week: readonly Date[];
+}) {
+  const weekDateKeys = new Set(week.map(dateKey));
+  const appointmentCount = appointments.filter((item) =>
+    weekDateKeys.has(isoDateKeyInTimeZone(item.startsAt, item.timezone)),
+  ).length;
+
+  return (
+    <section className="provider-panel provider-calendar-panel">
+      <header className="provider-panel-header">
+        <div>
+          <span className="provider-panel-icon provider-panel-icon--blue">
+            <ProviderIcon name="calendar" />
+          </span>
+          <span>
+            <h2>Lịch tuần</h2>
+            <p>{appointmentCount} lịch hẹn · chọn một ngày để xem chi tiết</p>
+          </span>
+        </div>
+        <span className="provider-live-indicator">
+          <i /> Dữ liệu trực tiếp
+        </span>
+      </header>
+      <div className="provider-week-calendar">
+        {week.map((date) => {
+          const key = dateKey(date);
+          const dayAppointments = appointments
+            .filter((item) => isoDateKeyInTimeZone(item.startsAt, item.timezone) === key)
+            .map((appointment) => ({
+              appointment,
+              id: `appointment-${appointment.id}`,
+              startsAt: appointment.startsAt,
+              type: 'appointment' as const,
+            }));
+          const dayBlocks = blocks
+            .filter((block) =>
+              rangeIncludesDate(
+                block.startsAt,
+                block.endsAt,
+                key,
+                blockTimeZoneById.get(block.id) ?? timeZone,
+              ),
+            )
+            .map((block) => ({
+              block,
+              id: `block-${block.id}`,
+              startsAt: block.startsAt,
+              type: 'block' as const,
+            }));
+          const events = [...dayAppointments, ...dayBlocks].toSorted((left, right) =>
+            left.startsAt.localeCompare(right.startsAt),
+          );
+          return (
+            <article className={key === selectedDate ? 'is-selected' : undefined} key={key}>
+              <button
+                aria-label={`Mở lịch ${formatDate(`${key}T12:00:00.000Z`, { weekday: 'long', timeZone: 'UTC' })}`}
+                onClick={() => onOpenDay(key)}
+                type="button"
+              >
+                <small>
+                  {new Intl.DateTimeFormat('vi-VN', { weekday: 'short', timeZone: 'UTC' }).format(
+                    date,
+                  )}
+                </small>
+                <strong>{date.getUTCDate()}</strong>
+                {events.length ? <span>{events.length}</span> : null}
+              </button>
+              <div>
+                {events.length ? (
+                  events.map((event) =>
+                    event.type === 'block' ? (
+                      <div
+                        className="provider-week-event provider-week-event--blocked"
+                        key={event.id}
+                      >
+                        <time>
+                          {formatTime(
+                            event.block.startsAt,
+                            blockTimeZoneById.get(event.block.id) ?? timeZone,
+                          )}
+                        </time>
+                        <strong>{event.block.reason || 'Khóa khung giờ'}</strong>
+                        <small>{event.block.kind === 'TIME_OFF' ? 'Nghỉ phép' : 'Đã khóa'}</small>
+                      </div>
+                    ) : (
+                      <a
+                        className={`provider-week-event provider-week-event--${event.appointment.status.toLowerCase()}`}
+                        href={`/cases/${event.appointment.caseId}?tab=appointments`}
+                        key={event.id}
+                      >
+                        <time>
+                          {formatTime(event.appointment.startsAt, event.appointment.timezone)}
+                        </time>
+                        <strong>
+                          {caseById.get(event.appointment.caseId)?.title ?? 'Hồ sơ điều trị'}
+                        </strong>
+                        <small>
+                          {event.appointment.dentistId
+                            ? (dentistById.get(event.appointment.dentistId)?.fullName ??
+                              labelStatus(event.appointment.status))
+                            : labelStatus(event.appointment.status)}
+                        </small>
+                      </a>
+                    ),
+                  )
+                ) : (
+                  <p>Trống</p>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MonthSchedule({
+  appointments,
+  blockTimeZoneById,
+  blocks,
+  onOpenDay,
+  selectedDate,
+  timeZone,
+}: {
+  readonly appointments: readonly AppointmentView[];
+  readonly blockTimeZoneById: ReadonlyMap<string, string>;
+  readonly blocks: readonly AvailabilityBlockView[];
+  readonly onOpenDay: (date: string) => void;
+  readonly selectedDate: string;
+  readonly timeZone: string;
+}) {
+  const selected = new Date(`${selectedDate}T12:00:00.000Z`);
+  const dates = monthDates(selected);
+  const selectedMonth = selected.getUTCMonth();
+  const today = isoDateKeyInTimeZone(new Date().toISOString(), timeZone);
+
+  return (
+    <section className="provider-panel provider-calendar-panel">
+      <header className="provider-panel-header">
+        <div>
+          <span className="provider-panel-icon provider-panel-icon--blue">
+            <ProviderIcon name="calendar" />
+          </span>
+          <span>
+            <h2>Lịch tháng</h2>
+            <p>Tổng quan lịch hẹn và khung giờ khóa · chọn một ngày để xem chi tiết</p>
+          </span>
+        </div>
+        <span className="provider-live-indicator">
+          <i /> Dữ liệu trực tiếp
+        </span>
+      </header>
+      <div className="provider-month-calendar">
+        {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'].map((label) => (
+          <strong aria-hidden="true" className="provider-month-calendar__weekday" key={label}>
+            {label}
+          </strong>
+        ))}
+        {dates.map((date) => {
+          const key = dateKey(date);
+          const appointmentCount = appointments.filter(
+            (item) => isoDateKeyInTimeZone(item.startsAt, item.timezone) === key,
+          ).length;
+          const blockCount = blocks.filter((block) =>
+            rangeIncludesDate(
+              block.startsAt,
+              block.endsAt,
+              key,
+              blockTimeZoneById.get(block.id) ?? timeZone,
+            ),
+          ).length;
+          const className = [
+            date.getUTCMonth() !== selectedMonth ? 'is-outside' : '',
+            key === selectedDate ? 'is-selected' : '',
+            key === today ? 'is-today' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <button
+              aria-label={`${formatDate(`${key}T12:00:00.000Z`, { weekday: 'long', timeZone: 'UTC' })}, ${appointmentCount} lịch hẹn, ${blockCount} khung giờ khóa`}
+              className={className || undefined}
+              key={key}
+              onClick={() => onOpenDay(key)}
+              type="button"
+            >
+              <span className="provider-month-calendar__date">{date.getUTCDate()}</span>
+              <span className="provider-month-calendar__metrics">
+                {appointmentCount ? (
+                  <small className="has-appointments">{appointmentCount} lịch hẹn</small>
+                ) : null}
+                {blockCount ? <small className="has-blocks">{blockCount} khóa</small> : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -765,10 +1185,10 @@ function BlockDialog({
 
   return (
     <ProviderDialog
-      description="Khóa lịch được áp dụng khi kiểm tra availability và không xóa lịch hẹn hiện hữu."
+      description="Đánh dấu khoảng thời gian phòng khám không nhận lịch hẹn mới. Khung giờ khóa được dùng khi kiểm tra xung đột và không xóa lịch hẹn hiện hữu."
       onClose={onClose}
       open={open}
-      title="Khóa thời gian"
+      title="Khóa khung giờ"
     >
       <form
         className="provider-form provider-form--grid"
@@ -868,7 +1288,7 @@ function BlockDialog({
             Hủy
           </button>
           <button disabled={pending || !activeLocations.length} type="submit">
-            {pending ? 'Đang lưu…' : 'Khóa thời gian'}
+            {pending ? 'Đang lưu…' : 'Khóa khung giờ'}
           </button>
         </footer>
       </form>
@@ -876,28 +1296,21 @@ function BlockDialog({
   );
 }
 
-function dateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+function rangeIncludesDate(
+  startsAt: string,
+  endsAt: string,
+  date: string,
+  timeZone: string,
+): boolean {
+  const inclusiveEnd = new Date(
+    Math.max(Date.parse(startsAt), Date.parse(endsAt) - 1),
+  ).toISOString();
+  return (
+    isoDateKeyInTimeZone(startsAt, timeZone) <= date &&
+    isoDateKeyInTimeZone(inclusiveEnd, timeZone) >= date
+  );
 }
-function addDays(value: string, days: number) {
-  const date = new Date(`${value}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return dateKey(date);
-}
-function weekDates(input: Date) {
-  const date = new Date(input);
-  const mondayOffset = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - mondayOffset);
-  return Array.from({ length: 7 }, (_, index) => {
-    const item = new Date(date);
-    item.setUTCDate(date.getUTCDate() + index);
-    return item;
-  });
-}
-function weekLabel(start: Date | undefined, end: Date | undefined) {
-  if (!start || !end) return 'Tuần hiện tại';
-  return `${new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: 'short', timeZone: 'UTC' }).format(start)} – ${new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(end)}`;
-}
+
 function localDateTimeMin(timeZone: string) {
   return isoToLocalDateTimeInput(new Date(Date.now() + 15 * 60_000).toISOString(), timeZone);
 }

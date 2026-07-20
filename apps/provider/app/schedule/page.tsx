@@ -2,8 +2,14 @@ import { ScheduleWorkspace } from '@/components/schedule-workspace';
 import { ProviderIcon } from '@/components/provider-icon';
 import { ProviderApiError } from '@/lib/provider-api';
 import { getProviderSchedule } from '@/lib/provider-data';
+import { isScheduleDate, normalizeScheduleView } from '@/lib/schedule-view';
 
-export default async function Schedule() {
+export default async function Schedule({
+  searchParams,
+}: {
+  readonly searchParams: Promise<{ date?: string; view?: string }>;
+}) {
+  const query = await searchParams;
   let data;
   try {
     data = await getProviderSchedule();
@@ -20,7 +26,11 @@ export default async function Schedule() {
           <p>Quản lý lịch hẹn, capacity, thời gian khóa và đồng bộ lịch theo cơ sở.</p>
         </div>
       </header>
-      <ScheduleWorkspace data={data} />
+      <ScheduleWorkspace
+        data={data}
+        initialDate={isScheduleDate(query.date) ? query.date : undefined}
+        initialView={normalizeScheduleView(query.view)}
+      />
     </main>
   );
 }
