@@ -130,23 +130,23 @@ export function formatDate(value: string | null, options?: Intl.DateTimeFormatOp
   }).format(new Date(value));
 }
 
-export function formatTime(value: string): string {
+export function formatTime(value: string, timeZone = 'Asia/Ho_Chi_Minh'): string {
   return new Intl.DateTimeFormat('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZone: 'Asia/Ho_Chi_Minh',
+    timeZone,
   }).format(new Date(value));
 }
 
-export function formatDateTime(value: string): string {
+export function formatDateTime(value: string, timeZone = 'Asia/Ho_Chi_Minh'): string {
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZone: 'Asia/Ho_Chi_Minh',
+    timeZone,
   }).format(new Date(value));
 }
 

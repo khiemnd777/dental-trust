@@ -4,6 +4,7 @@ import {
   caseDocumentViewSchema,
   clinicAnalyticsViewSchema,
   clinicAvailabilityViewSchema,
+  clinicBillingViewSchema,
   clinicDentistViewSchema,
   clinicOnboardingViewSchema,
   clinicOpportunityViewSchema,
@@ -12,14 +13,24 @@ import {
   clinicTeamViewSchema,
   dentalCaseViewSchema,
   journeySummaryViewSchema,
+  internalNoteViewSchema,
+  incidentUpdateViewSchema,
+  incidentViewSchema,
+  implantRecordInputSchema,
+  journeyMilestoneViewSchema,
   messageThreadViewSchema,
   messageViewSchema,
+  materialRecordInputSchema,
+  planChangeViewSchema,
+  prescriptionRecordInputSchema,
+  treatmentInstructionViewSchema,
   treatmentPlanVersionViewSchema,
   type AftercarePlanView,
   type AppointmentView,
   type CaseDocumentView,
   type ClinicAnalyticsView,
   type ClinicAvailabilityView,
+  type ClinicBillingView,
   type ClinicDentistView,
   type ClinicOnboardingView,
   type ClinicOpportunityView,
@@ -28,12 +39,69 @@ import {
   type ClinicTeamView,
   type DentalCaseView,
   type JourneySummaryView,
+  type InternalNoteView,
   type MessageThreadView,
   type MessageView,
   type TreatmentPlanVersionView,
 } from '@dental-trust/contracts';
+import { z } from 'zod';
 
-import { providerApi } from './provider-api';
+import {
+  ProviderApiError,
+  providerApi,
+  providerApiPage,
+  type ProviderApiPage,
+} from './provider-api';
+import { isAttachableCaseDocument } from './messaging';
+
+export const providerClinicalJourneySchema = z.object({
+  id: z.uuid(),
+  caseNumber: z.string().min(1),
+  title: z.string().min(1),
+  status: z.string().min(1),
+  version: z.number().int().positive(),
+  milestones: journeyMilestoneViewSchema.array(),
+  instructions: treatmentInstructionViewSchema.array(),
+  planChanges: planChangeViewSchema.array(),
+});
+
+export const providerPassportVersionSchema = z.object({
+  id: z.uuid(),
+  caseId: z.uuid(),
+  caseNumber: z.string().min(1),
+  version: z.number().int().positive(),
+  schemaVersion: z.number().int().positive(),
+  status: z.enum(['DRAFT', 'PUBLISHED', 'SUPERSEDED', 'REVOKED']),
+  clinic: z.object({ id: z.uuid(), name: z.string().min(1) }),
+  treatingDentist: z.object({ id: z.uuid(), fullName: z.string().min(1) }),
+  treatmentCompletedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+  treatmentSummary: z.string(),
+  dischargeInstructions: z.string(),
+  followUpInstructions: z.string(),
+  implants: implantRecordInputSchema.array(),
+  materials: materialRecordInputSchema.array(),
+  prescriptions: prescriptionRecordInputSchema.array(),
+  integrity: z.object({
+    algorithm: z.string().min(1),
+    contentChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
+    previousVersionChecksum: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .nullable(),
+    verified: z.boolean(),
+  }),
+  publishedAt: z.string().datetime({ offset: true }).nullable(),
+  createdAt: z.string().datetime({ offset: true }),
+  downloadable: z.boolean(),
+});
+
+export const providerIncidentViewSchema = incidentViewSchema.extend({
+  internalNotes: incidentUpdateViewSchema.array().default([]),
+});
+
+export type ProviderClinicalJourney = z.infer<typeof providerClinicalJourneySchema>;
+export type ProviderPassportVersion = z.infer<typeof providerPassportVersionSchema>;
+export type ProviderIncidentView = z.infer<typeof providerIncidentViewSchema>;
 
 export interface ProviderDashboardData {
   readonly overview: ClinicOverviewView | null;
@@ -58,6 +126,11 @@ export interface ProviderCaseWorkspaceData {
   readonly threads: readonly MessageThreadView[] | null;
   readonly messages: Readonly<Record<string, readonly MessageView[]>>;
   readonly aftercare: readonly AftercarePlanView[] | null;
+  readonly incidents: readonly ProviderIncidentView[] | null;
+  readonly team: ClinicTeamView | null;
+  readonly clinicalJourney: ProviderClinicalJourney | null;
+  readonly passport: ProviderPassportVersion | null;
+  readonly passportUnavailable: boolean;
   readonly opportunity: ClinicOpportunityView | null;
   readonly dentists: readonly ClinicDentistView[];
   readonly onboarding: ClinicOnboardingView;
@@ -75,6 +148,8 @@ export interface ProviderMessageThread extends MessageThreadView {
   readonly caseNumber: string;
   readonly caseTitle: string;
   readonly messages: readonly MessageView[];
+  readonly internalNotes: readonly InternalNoteView[] | null;
+  readonly attachableDocuments: readonly CaseDocumentView[];
 }
 
 export interface ProviderClinicData {
@@ -82,9 +157,10 @@ export interface ProviderClinicData {
   readonly onboarding: ClinicOnboardingView;
   readonly team: ClinicTeamView;
   readonly dentists: readonly ClinicDentistView[];
-  readonly availability: ClinicAvailabilityView;
+  readonly availability: ClinicAvailabilityView | null;
   readonly services: ClinicServicesWorkspaceView;
-  readonly analytics: ClinicAnalyticsView;
+  readonly analytics: ClinicAnalyticsView | null;
+  readonly billing: ClinicBillingView | null;
 }
 
 export async function getProviderDashboard(): Promise<ProviderDashboardData> {
@@ -123,7 +199,12 @@ export async function getProviderCaseWorkspace(caseId: string): Promise<Provider
     documents,
     threadsResult,
     aftercare,
-    index,
+    incidents,
+    team,
+    clinicalJourney,
+    passportResult,
+    opportunities,
+    dentists,
     onboarding,
   ] = await Promise.all([
     providerApi<unknown>(`cases/${caseId}`).then((value) => dentalCaseViewSchema.parse(value)),
@@ -155,7 +236,28 @@ export async function getProviderCaseWorkspace(caseId: string): Promise<Provider
         aftercarePlanViewSchema.array().parse(value.aftercarePlans),
       ),
     ),
-    getProviderCaseIndex(),
+    optional(() =>
+      providerApi<unknown>(`trust/incidents?caseId=${caseId}&limit=50`).then((value) =>
+        providerIncidentViewSchema.array().parse(value),
+      ),
+    ),
+    optional(() =>
+      providerApi<unknown>('clinic-operations/team').then((value) =>
+        clinicTeamViewSchema.parse(value),
+      ),
+    ),
+    optional(() =>
+      providerApi<unknown>(`cases/${caseId}/journey`).then((value) =>
+        providerClinicalJourneySchema.parse(value),
+      ),
+    ),
+    optionalNotFound(() =>
+      providerApi<unknown>(`cases/${caseId}/passport`).then((value) =>
+        providerPassportVersionSchema.parse(value),
+      ),
+    ),
+    optional(() => getClinicOpportunities()),
+    getClinicDentists(),
     getClinicOnboarding(),
   ]);
   const messages: Record<string, readonly MessageView[]> = {};
@@ -178,8 +280,13 @@ export async function getProviderCaseWorkspace(caseId: string): Promise<Provider
     threads: threadsResult,
     messages,
     aftercare,
-    opportunity: index.opportunities.find((item) => item.caseId === caseId) ?? null,
-    dentists: index.dentists,
+    incidents,
+    team,
+    clinicalJourney,
+    passport: passportResult.data,
+    passportUnavailable: passportResult.unavailable,
+    opportunity: opportunities?.find((item) => item.caseId === caseId) ?? null,
+    dentists,
     onboarding,
   };
 }
@@ -211,23 +318,40 @@ export async function getProviderMessages(): Promise<readonly ProviderMessageThr
   const cases = await getCases();
   const groups = await Promise.all(
     cases.map(async (dentalCase) => {
-      const threads = await optional(() =>
-        providerApi<{ threads?: unknown }>(`cases/${dentalCase.id}/threads`).then((value) =>
-          messageThreadViewSchema.array().parse(value.threads),
+      const [threads, documents] = await Promise.all([
+        optional(() =>
+          providerApi<{ threads?: unknown }>(`cases/${dentalCase.id}/threads`).then((value) =>
+            messageThreadViewSchema.array().parse(value.threads),
+          ),
         ),
-      );
+        optional(() =>
+          providerApi<{ files?: unknown }>(`cases/${dentalCase.id}/documents`).then((value) =>
+            caseDocumentViewSchema.array().parse(value.files),
+          ),
+        ),
+      ]);
+      const attachableDocuments = (documents ?? []).filter(isAttachableCaseDocument);
       return Promise.all(
         (threads ?? []).map(async (thread) => {
-          const messages = await optional(() =>
-            providerApi<{ messages?: unknown }>(
-              `cases/${dentalCase.id}/threads/${thread.id}/messages`,
-            ).then((value) => messageViewSchema.array().parse(value.messages)),
-          );
+          const [messages, internalNotes] = await Promise.all([
+            optional(() =>
+              providerApi<{ messages?: unknown }>(
+                `cases/${dentalCase.id}/threads/${thread.id}/messages`,
+              ).then((value) => messageViewSchema.array().parse(value.messages)),
+            ),
+            optional(() =>
+              providerApi<{ internalNotes?: unknown }>(
+                `cases/${dentalCase.id}/threads/${thread.id}/internal-notes`,
+              ).then((value) => internalNoteViewSchema.array().parse(value.internalNotes)),
+            ),
+          ]);
           return {
             ...thread,
             caseNumber: dentalCase.caseNumber,
             caseTitle: dentalCase.title,
             messages: messages ?? [],
+            internalNotes,
+            attachableDocuments,
           };
         }),
       );
@@ -241,7 +365,7 @@ export async function getProviderMessages(): Promise<readonly ProviderMessageThr
 }
 
 export async function getProviderClinic(): Promise<ProviderClinicData> {
-  const [overview, onboarding, team, dentists, availability, services, analytics] =
+  const [overview, onboarding, team, dentists, availability, services, analytics, billing] =
     await Promise.all([
       getClinicOverview(),
       getClinicOnboarding(),
@@ -249,19 +373,22 @@ export async function getProviderClinic(): Promise<ProviderClinicData> {
         clinicTeamViewSchema.parse(value),
       ),
       getClinicDentists(),
-      getClinicAvailability(),
+      optional(() => getClinicAvailability()),
       providerApi<unknown>('clinic-operations/services').then((value) =>
         clinicServicesWorkspaceViewSchema.parse(value),
       ),
-      getClinicAnalytics(),
+      optional(() => getClinicAnalytics()),
+      optional(() =>
+        providerApi<unknown>('clinic-operations/billing').then((value) =>
+          clinicBillingViewSchema.parse(value),
+        ),
+      ),
     ]);
-  return { overview, onboarding, team, dentists, availability, services, analytics };
+  return { overview, onboarding, team, dentists, availability, services, analytics, billing };
 }
 
 export async function getCases(): Promise<readonly DentalCaseView[]> {
-  return providerApi<unknown>('cases?limit=100').then((value) =>
-    dentalCaseViewSchema.array().parse(value),
-  );
+  return pagedList('cases', dentalCaseViewSchema);
 }
 
 export async function getTodayCases(): Promise<readonly JourneySummaryView[]> {
@@ -277,9 +404,7 @@ export async function getClinicOverview(): Promise<ClinicOverviewView> {
 }
 
 export async function getClinicOpportunities(): Promise<readonly ClinicOpportunityView[]> {
-  return providerApi<unknown>('clinic-operations/cases?limit=100').then((value) =>
-    clinicOpportunityViewSchema.array().parse(value),
-  );
+  return pagedList('clinic-operations/cases', clinicOpportunityViewSchema);
 }
 
 export async function getClinicDentists(): Promise<readonly ClinicDentistView[]> {
@@ -311,6 +436,38 @@ async function optional<T>(operation: () => Promise<T>): Promise<T | null> {
     return await operation();
   } catch {
     return null;
+  }
+}
+
+async function pagedList<T>(path: string, schema: z.ZodType<T>): Promise<readonly T[]> {
+  const records: T[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+  for (let pageNumber = 0; pageNumber < 1_000; pageNumber += 1) {
+    const page: ProviderApiPage<unknown> = await providerApiPage<unknown>(
+      `${path}?limit=100${cursor ? `&cursor=${cursor}` : ''}`,
+    );
+    records.push(...schema.array().parse(page.data));
+    if (!page.nextCursor) return records;
+    if (!/^[a-z0-9_-]+$/iu.test(page.nextCursor) || seenCursors.has(page.nextCursor)) {
+      throw new ProviderApiError(502, 'invalid_api_pagination');
+    }
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+  throw new ProviderApiError(502, 'api_pagination_limit_exceeded');
+}
+
+async function optionalNotFound<T>(
+  operation: () => Promise<T>,
+): Promise<{ readonly data: T | null; readonly unavailable: boolean }> {
+  try {
+    return { data: await operation(), unavailable: false };
+  } catch (error) {
+    if (error instanceof ProviderApiError && error.status === 404) {
+      return { data: null, unavailable: false };
+    }
+    return { data: null, unavailable: true };
   }
 }
 

@@ -18,7 +18,15 @@ const incidentRecordInclude = {
   events: {
     where: { visibility: 'PARTICIPANTS' as const },
     orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
-    select: { id: true, eventType: true, details: true, createdAt: true },
+    select: { id: true, eventType: true, visibility: true, details: true, createdAt: true },
+  },
+  warrantyClaim: true,
+} satisfies Prisma.IncidentInclude;
+
+const clinicIncidentRecordInclude = {
+  events: {
+    orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
+    select: { id: true, eventType: true, visibility: true, details: true, createdAt: true },
   },
   warrantyClaim: true,
 } satisfies Prisma.IncidentInclude;
@@ -74,6 +82,7 @@ export interface TrustQueryScope {
   readonly userId: string;
   readonly organizationIds: readonly string[];
   readonly includeAll: boolean;
+  readonly clinicId?: string;
 }
 
 export interface TrustPageOptions {
@@ -120,6 +129,18 @@ export interface CreateIncidentPersistenceInput {
     readonly clinicId: string;
     readonly warrantyTerms: string;
   };
+}
+
+export interface AddClinicIncidentEventInput {
+  readonly incidentId: string;
+  readonly clinicId: string;
+  readonly organizationId: string;
+  readonly expectedVersion: number;
+  readonly kind: 'CLINIC_RESPONSE' | 'INTERNAL_NOTE';
+  readonly message: string;
+  readonly actor: AuditActor;
+  readonly requestId: string;
+  readonly command: IdempotentTrustCommand;
 }
 
 export interface ReviewEligibilityRecord {
@@ -288,6 +309,7 @@ export class TrustSafetyRepository {
       where: {
         AND: [
           { dentalCase: { is: this.caseScopeWhere(scope) } },
+          scope.clinicId ? { clinicId: scope.clinicId } : {},
           options.caseId ? { caseId: options.caseId } : {},
           options.status ? { status: options.status } : {},
         ],
@@ -295,7 +317,7 @@ export class TrustSafetyRepository {
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
       take: options.limit + 1,
-      include: incidentRecordInclude,
+      include: scope.clinicId ? clinicIncidentRecordInclude : incidentRecordInclude,
     });
   }
 
@@ -304,7 +326,13 @@ export class TrustSafetyRepository {
     incidentId: string,
   ): Promise<IncidentRecord | null> {
     return this.db.incident.findFirst({
-      where: { id: incidentId, dentalCase: { is: this.caseScopeWhere(scope) } },
+      where: {
+        AND: [
+          { id: incidentId },
+          { dentalCase: { is: this.caseScopeWhere(scope) } },
+          scope.clinicId ? { clinicId: scope.clinicId } : {},
+        ],
+      },
       include: incidentRecordInclude,
     });
   }
@@ -355,6 +383,88 @@ export class TrustSafetyRepository {
           },
         });
         return { resourceId: incidentId, result: updated };
+      },
+    );
+  }
+
+  async findClinicIncidentScoped(
+    incidentId: string,
+    clinicId: string,
+    organizationId: string,
+  ): Promise<IncidentRecord | null> {
+    return this.db.incident.findFirst({
+      where: { id: incidentId, ...clinicIncidentScope(clinicId, organizationId) },
+      include: clinicIncidentRecordInclude,
+    });
+  }
+
+  async addClinicIncidentEvent(input: AddClinicIncidentEventInput): Promise<IncidentRecord> {
+    const visibility = input.kind === 'INTERNAL_NOTE' ? 'STAFF_INTERNAL' : 'PARTICIPANTS';
+    const action =
+      input.kind === 'INTERNAL_NOTE'
+        ? 'incident.internal-note-added'
+        : 'incident.clinic-response-added';
+    return this.runIdempotent(
+      input.command,
+      (resourceId) =>
+        this.findClinicIncidentScoped(resourceId, input.clinicId, input.organizationId),
+      async (transaction) => {
+        const scope = clinicIncidentScope(input.clinicId, input.organizationId);
+        const current = await transaction.incident.findFirst({
+          where: { id: input.incidentId, ...scope },
+          select: { id: true, caseId: true, status: true, version: true },
+        });
+        if (!current) throw new TrustResourceNotFoundError();
+        if (current.status === 'CLOSED') {
+          throw new TrustConflictError('Reopen the incident before adding a clinic update.');
+        }
+        const result = await transaction.incident.updateMany({
+          where: {
+            id: input.incidentId,
+            ...scope,
+            version: input.expectedVersion,
+          },
+          data: { version: { increment: 1 } },
+        });
+        if (result.count !== 1) throw new TrustConflictError('Incident version changed.');
+        await transaction.incidentEvent.create({
+          data: {
+            incidentId: input.incidentId,
+            actorUserId: input.actor.userId,
+            eventType: input.kind,
+            visibility,
+            details: { message: input.message },
+          },
+        });
+        const updated = await transaction.incident.findUniqueOrThrow({
+          where: { id: input.incidentId },
+          include: clinicIncidentRecordInclude,
+        });
+        await transaction.auditLog.create({
+          data: auditData(input.actor, {
+            action,
+            resourceType: 'Incident',
+            resourceId: input.incidentId,
+            requestId: input.requestId,
+            afterMetadata: { version: updated.version, audience: visibility },
+          }),
+        });
+        await transaction.outboxEvent.create({
+          data: {
+            aggregateType: 'Incident',
+            aggregateId: input.incidentId,
+            eventType: action,
+            payload: {
+              incidentId: input.incidentId,
+              caseId: updated.caseId,
+              clinicId: input.clinicId,
+              audience: visibility,
+            },
+            correlationId: input.requestId,
+            idempotencyKey: `${action}:${input.command.userId}:${input.command.key}`,
+          },
+        });
+        return { resourceId: input.incidentId, result: updated };
       },
     );
   }
@@ -1484,6 +1594,23 @@ export class TrustSafetyRepository {
 
   private caseScopeWhere(scope: TrustQueryScope): Prisma.DentalCaseWhereInput {
     if (scope.includeAll) return {};
+    if (scope.clinicId) {
+      return {
+        assignments: {
+          some: {
+            organizationId: { in: [...scope.organizationIds] },
+            endedAt: null,
+            organization: {
+              is: {
+                memberships: {
+                  some: { userId: scope.userId, status: 'ACTIVE' },
+                },
+              },
+            },
+          },
+        },
+      };
+    }
     return {
       OR: [
         { patientProfile: { userId: scope.userId } },
@@ -1621,6 +1748,16 @@ export class TrustSafetyRepository {
       'The original command is still in progress; retry shortly.',
     );
   }
+}
+
+function clinicIncidentScope(clinicId: string, organizationId: string): Prisma.IncidentWhereInput {
+  return {
+    clinicId,
+    clinic: { organizationId, deletedAt: null },
+    dentalCase: {
+      assignments: { some: { organizationId, endedAt: null } },
+    },
+  };
 }
 
 function auditData(

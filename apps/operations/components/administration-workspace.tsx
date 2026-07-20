@@ -14,8 +14,11 @@ import type {
 
 import { OperationsIcon, type OperationsIconName } from './operations-icon';
 import { OpsAvatar, OpsEmpty, OpsMetric, OpsPanelHeader, OpsStatus } from './operations-ui';
+import { RoleControlWorkspace, type RoleControlView } from './role-control-workspace';
 import type { AdministrationData } from '@/lib/operations-data';
 import { commandErrorMessage, sendOperationsCommand } from '@/lib/operations-command';
+import type { RoleOperationsData } from '@/lib/operations-role-data';
+import type { OperationsPageMetadata } from '@/lib/operations-api';
 import {
   auditActionLabel,
   auditResourceLabel,
@@ -26,7 +29,16 @@ import {
 } from '@/lib/presentation';
 
 export type AdministrationView =
-  'overview' | 'users' | 'organizations' | 'reliability' | 'audit' | 'security';
+  | 'overview'
+  | 'users'
+  | 'organizations'
+  | 'directory'
+  | 'finance'
+  | 'governance'
+  | 'trust'
+  | 'reliability'
+  | 'audit'
+  | 'security';
 
 type ReliabilityView = 'outbox' | 'notifications' | 'webhooks';
 type PrivilegedAction =
@@ -43,6 +55,10 @@ const navigation: readonly {
   { href: 'overview', label: 'Tổng quan', icon: 'dashboard' },
   { href: 'users', label: 'Người dùng', icon: 'users' },
   { href: 'organizations', label: 'Tổ chức', icon: 'organization' },
+  { href: 'directory', label: 'Danh bạ', icon: 'inbox' },
+  { href: 'finance', label: 'Tài chính', icon: 'jobs' },
+  { href: 'governance', label: 'Nội dung', icon: 'document' },
+  { href: 'trust', label: 'Trust & Support', icon: 'shield' },
   { href: 'reliability', label: 'Reliability', icon: 'jobs' },
   { href: 'audit', label: 'Audit log', icon: 'audit' },
   { href: 'security', label: 'Bảo mật', icon: 'lock' },
@@ -50,20 +66,30 @@ const navigation: readonly {
 
 export function AdministrationWorkspace({
   data,
+  roleData,
   initialView,
   roles,
   mfaRequired,
   mfaVerified,
+  pageSection,
+  cursorActive,
 }: {
   readonly data: AdministrationData;
+  readonly roleData: RoleOperationsData;
   readonly initialView: AdministrationView;
   readonly roles: readonly string[];
   readonly mfaRequired: boolean;
   readonly mfaVerified: boolean;
+  readonly pageSection: string | null;
+  readonly cursorActive: boolean;
 }) {
   const router = useRouter();
   const [view, setView] = useState(initialView);
-  const [reliabilityView, setReliabilityView] = useState<ReliabilityView>('outbox');
+  const [reliabilityView, setReliabilityView] = useState<ReliabilityView>(
+    ['outbox', 'notifications', 'webhooks'].includes(pageSection ?? '')
+      ? (pageSection as ReliabilityView)
+      : 'outbox',
+  );
   const [query, setQuery] = useState('');
   const [action, setAction] = useState<PrivilegedAction>(null);
   const [pending, setPending] = useState(false);
@@ -91,10 +117,20 @@ export function AdministrationWorkspace({
     }
   }
 
-  const failures =
-    (data.summary?.failedOutboxEvents ?? 0) +
-    (data.summary?.failedNotifications ?? 0) +
-    (data.summary?.failedWebhooks ?? 0);
+  const failures = data.summary
+    ? data.summary.failedOutboxEvents +
+      data.summary.failedNotifications +
+      data.summary.failedWebhooks
+    : null;
+  const visibleNavigation = navigation.filter((item) => canAccessView(item.href, roles));
+  const isAdministrator = roles.some((role) => ['PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(role));
+  const statusLabel = failures
+    ? `${failures} delivery cần xử lý`
+    : data.summary
+      ? 'Nền tảng ổn định'
+      : isAdministrator
+        ? 'Telemetry chưa khả dụng'
+        : 'Control plane theo vai trò';
 
   return (
     <main className="ops-main ops-main--workspace">
@@ -123,10 +159,12 @@ export function AdministrationWorkspace({
           <h1>Quản trị nền tảng</h1>
           <p>Kiểm soát danh tính, reliability và audit bằng các thao tác có chủ đích.</p>
         </div>
-        <div className={`ops-page-header__status${failures ? ' is-warning' : ''}`}>
+        <div
+          className={`ops-page-header__status${(failures ?? 0) > 0 || (isAdministrator && !data.summary) ? ' is-warning' : ''}`}
+        >
           <i />
           <span>
-            <strong>{failures ? `${failures} delivery cần xử lý` : 'Nền tảng ổn định'}</strong>
+            <strong>{statusLabel}</strong>
             <small>
               {data.summary
                 ? `Cập nhật ${formatDateTime(data.summary.generatedAt)}`
@@ -137,7 +175,7 @@ export function AdministrationWorkspace({
       </header>
 
       <nav aria-label="Khu vực quản trị" className="ops-admin-tabs">
-        {navigation.map((item) => (
+        {visibleNavigation.map((item) => (
           <button
             aria-current={view === item.href ? 'page' : undefined}
             key={item.href}
@@ -157,22 +195,49 @@ export function AdministrationWorkspace({
         <UsersView
           data={data.users}
           onAction={(item) => setAction({ kind: 'user', item })}
+          cursorActive={cursorActive && pageSection === 'users'}
+          page={data.pages.users}
           query={query}
           setQuery={setQuery}
         />
       ) : null}
       {view === 'organizations' ? (
-        <OrganizationsView data={data.organizations} query={query} setQuery={setQuery} />
+        <OrganizationsView
+          cursorActive={cursorActive && pageSection === 'organizations'}
+          data={data.organizations}
+          page={data.pages.organizations}
+          query={query}
+          setQuery={setQuery}
+        />
+      ) : null}
+      {(['directory', 'finance', 'governance', 'trust'] as const).includes(
+        view as RoleControlView,
+      ) ? (
+        <RoleControlWorkspace
+          data={roleData}
+          cursorActive={cursorActive}
+          initialSection={pageSection}
+          roles={roles}
+          view={view as RoleControlView}
+        />
       ) : null}
       {view === 'reliability' ? (
         <ReliabilityViewPanel
           data={data}
+          cursorActive={cursorActive}
           onAction={setAction}
           selected={reliabilityView}
           setSelected={setReliabilityView}
         />
       ) : null}
-      {view === 'audit' ? <AuditView data={data} query={query} setQuery={setQuery} /> : null}
+      {view === 'audit' ? (
+        <AuditView
+          cursorActive={cursorActive && pageSection === 'audit'}
+          data={data}
+          query={query}
+          setQuery={setQuery}
+        />
+      ) : null}
       {view === 'security' ? (
         <SecurityView mfaRequired={mfaRequired} mfaVerified={mfaVerified} roles={roles} />
       ) : null}
@@ -195,7 +260,7 @@ function AdministrationOverview({
   onSelect,
 }: {
   readonly data: AdministrationData;
-  readonly failures: number;
+  readonly failures: number | null;
   readonly onSelect: (view: AdministrationView) => void;
 }) {
   const summary = data.summary;
@@ -226,8 +291,8 @@ function AdministrationOverview({
           icon="jobs"
           label="Delivery thất bại"
           note="Outbox · notification · webhook"
-          tone={failures ? 'coral' : 'teal'}
-          value={failures}
+          tone={failures === null ? 'amber' : failures ? 'coral' : 'teal'}
+          value={failures ?? '—'}
         />
       </section>
 
@@ -259,7 +324,7 @@ function AdministrationOverview({
                 'reliability',
                 'Reliability console',
                 'Outbox, notification và webhook delivery',
-                failures ? `${failures} lỗi mở` : 'Ổn định',
+                failures === null ? 'Chưa xác định' : failures ? `${failures} lỗi mở` : 'Ổn định',
               ],
               [
                 'audit',
@@ -341,11 +406,15 @@ function UsersView({
   query,
   setQuery,
   onAction,
+  page,
+  cursorActive,
 }: {
   readonly data: readonly AdminUserView[];
   readonly query: string;
   readonly setQuery: (value: string) => void;
   readonly onAction: (item: AdminUserView) => void;
+  readonly page: OperationsPageMetadata | null;
+  readonly cursorActive: boolean;
 }) {
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('vi-VN');
@@ -405,6 +474,7 @@ function UsersView({
           title="Không có người dùng phù hợp"
         />
       )}
+      <AdminPagination cursorActive={cursorActive} page={page} section="users" view="users" />
     </section>
   );
 }
@@ -413,10 +483,14 @@ function OrganizationsView({
   data,
   query,
   setQuery,
+  page,
+  cursorActive,
 }: {
   readonly data: readonly AdminOrganizationView[];
   readonly query: string;
   readonly setQuery: (value: string) => void;
+  readonly page: OperationsPageMetadata | null;
+  readonly cursorActive: boolean;
 }) {
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('vi-VN');
@@ -480,6 +554,12 @@ function OrganizationsView({
           title="Không có tổ chức phù hợp"
         />
       )}
+      <AdminPagination
+        cursorActive={cursorActive}
+        page={page}
+        section="organizations"
+        view="organizations"
+      />
     </section>
   );
 }
@@ -489,11 +569,13 @@ function ReliabilityViewPanel({
   selected,
   setSelected,
   onAction,
+  cursorActive,
 }: {
   readonly data: AdministrationData;
   readonly selected: ReliabilityView;
   readonly setSelected: (view: ReliabilityView) => void;
   readonly onAction: (action: PrivilegedAction) => void;
+  readonly cursorActive: boolean;
 }) {
   const failedOutbox = data.outbox.filter((item) =>
     ['FAILED', 'DEAD_LETTER'].includes(item.status),
@@ -536,6 +618,12 @@ function ReliabilityViewPanel({
         />
       ) : null}
       {selected === 'webhooks' ? <WebhookList data={data.webhooks} /> : null}
+      <AdminPagination
+        cursorActive={cursorActive}
+        page={data.pages[selected]}
+        section={selected}
+        view="reliability"
+      />
     </section>
   );
 }
@@ -667,10 +755,12 @@ function AuditView({
   data,
   query,
   setQuery,
+  cursorActive,
 }: {
   readonly data: AdministrationData;
   readonly query: string;
   readonly setQuery: (value: string) => void;
+  readonly cursorActive: boolean;
 }) {
   const [auditFilter, setAuditFilter] = useState<'all' | 'changes' | 'reads' | 'failed'>('all');
   const filtered = useMemo(() => {
@@ -759,6 +849,12 @@ function AuditView({
           title="Không có sự kiện phù hợp"
         />
       )}
+      <AdminPagination
+        cursorActive={cursorActive}
+        page={data.pages.audit}
+        section="audit"
+        view="audit"
+      />
     </section>
   );
 }
@@ -869,6 +965,34 @@ function DirectorySearch({
   );
 }
 
+function AdminPagination({
+  page,
+  view,
+  section,
+  cursorActive,
+}: {
+  readonly page: OperationsPageMetadata | null;
+  readonly view: AdministrationView;
+  readonly section: string;
+  readonly cursorActive: boolean;
+}) {
+  if (!cursorActive && !page?.nextCursor) return null;
+  return (
+    <nav aria-label="Phân trang quản trị" className="ops-pagination">
+      {cursorActive ? <Link href={`/administration?view=${view}`}>Về trang đầu</Link> : <span />}
+      {page?.nextCursor ? (
+        <Link
+          href={`/administration?view=${view}&section=${section}&cursor=${encodeURIComponent(page.nextCursor)}`}
+        >
+          Trang tiếp <OperationsIcon name="arrow" />
+        </Link>
+      ) : (
+        <span>Đã đến cuối danh sách</span>
+      )}
+    </nav>
+  );
+}
+
 function PrivilegedActionDialog({
   action,
   onClose,
@@ -880,9 +1004,10 @@ function PrivilegedActionDialog({
   readonly onExecute: (operation: () => Promise<unknown>, success: string) => Promise<void>;
   readonly pending: boolean;
 }) {
+  const [userOperation, setUserOperation] = useState<'status' | 'role'>('status');
   const title =
     action.kind === 'user'
-      ? 'Thay đổi trạng thái tài khoản'
+      ? 'Quản trị tài khoản và vai trò'
       : action.kind === 'outbox'
         ? 'Retry outbox delivery'
         : 'Retry notification';
@@ -911,14 +1036,33 @@ function PrivilegedActionDialog({
             const form = new FormData(event.currentTarget);
             const reason = String(form.get('reason'));
             if (action.kind === 'user') {
-              const toStatus = String(form.get('toStatus'));
+              if (userOperation === 'role') {
+                const role = String(form.get('role'));
+                const roleAction = String(form.get('roleAction'));
+                void onExecute(
+                  () =>
+                    sendOperationsCommand({
+                      command: 'admin_change_user_role',
+                      resourceId: action.item.id,
+                      payload: {
+                        role,
+                        action: roleAction,
+                        expectedRolePresent: action.item.roles.includes(role),
+                        reason,
+                        confirmation: 'CHANGE USER ROLE',
+                      },
+                    }),
+                  'Đã cập nhật vai trò tài khoản.',
+                );
+                return;
+              }
               void onExecute(
                 () =>
                   sendOperationsCommand({
                     command: 'admin_change_user_status',
                     resourceId: action.item.id,
                     payload: {
-                      toStatus,
+                      toStatus: String(form.get('toStatus')),
                       expectedStatus: action.item.accountStatus,
                       reason,
                       confirmation: 'CHANGE ACCOUNT STATUS',
@@ -956,17 +1100,55 @@ function PrivilegedActionDialog({
           }}
         >
           {action.kind === 'user' ? (
-            <label>
-              <span>Trạng thái mới</span>
-              <CustomSelect
-                defaultValue={action.item.accountStatus === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'}
-                name="toStatus"
-              >
-                <option value="ACTIVE">Kích hoạt</option>
-                <option value="LOCKED">Khóa tài khoản</option>
-                <option value="SUSPENDED">Tạm ngưng</option>
-              </CustomSelect>
-            </label>
+            <>
+              <label>
+                <span>Loại thay đổi</span>
+                <CustomSelect
+                  name="userOperation"
+                  onChange={(event) => setUserOperation(event.target.value as 'status' | 'role')}
+                  value={userOperation}
+                >
+                  <option value="status">Trạng thái tài khoản</option>
+                  <option value="role">Vai trò hệ thống</option>
+                </CustomSelect>
+              </label>
+              {userOperation === 'status' ? (
+                <label>
+                  <span>Trạng thái mới</span>
+                  <CustomSelect
+                    defaultValue={action.item.accountStatus === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'}
+                    name="toStatus"
+                  >
+                    <option value="ACTIVE">Kích hoạt</option>
+                    <option value="LOCKED">Khóa tài khoản</option>
+                    <option value="SUSPENDED">Tạm ngưng</option>
+                  </CustomSelect>
+                </label>
+              ) : (
+                <>
+                  <label>
+                    <span>Vai trò</span>
+                    <CustomSelect defaultValue="SUPPORT_AGENT" name="role">
+                      <option value="PATIENT">Patient</option>
+                      <option value="CAREGIVER">Caregiver</option>
+                      <option value="VERIFICATION_OFFICER">Verification officer</option>
+                      <option value="SUPPORT_AGENT">Support agent</option>
+                      <option value="FINANCE_ADMIN">Finance administrator</option>
+                      <option value="CONTENT_ADMIN">Content administrator</option>
+                      <option value="PLATFORM_ADMIN">Platform administrator</option>
+                      <option value="SUPER_ADMIN">Super administrator</option>
+                    </CustomSelect>
+                  </label>
+                  <label>
+                    <span>Thao tác</span>
+                    <CustomSelect defaultValue="GRANT" name="roleAction">
+                      <option value="GRANT">Cấp vai trò</option>
+                      <option value="REVOKE">Thu hồi vai trò</option>
+                    </CustomSelect>
+                  </label>
+                </>
+              )}
+            </>
           ) : (
             <div className="ops-dialog-record">
               <OperationsIcon name="jobs" />
@@ -1007,4 +1189,14 @@ function PrivilegedActionDialog({
       </section>
     </div>
   );
+}
+
+function canAccessView(view: AdministrationView, roles: readonly string[]): boolean {
+  if (view === 'security') return true;
+  const administrator = roles.some((role) => ['SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(role));
+  if (['overview', 'users', 'organizations', 'directory', 'reliability', 'audit'].includes(view))
+    return administrator;
+  if (view === 'finance') return administrator || roles.includes('FINANCE_ADMIN');
+  if (view === 'governance') return administrator || roles.includes('CONTENT_ADMIN');
+  return administrator || roles.includes('SUPPORT_AGENT') || roles.includes('CONTENT_ADMIN');
 }

@@ -30,6 +30,21 @@ const commands = [
     label: 'Tra cứu audit log',
     hint: 'Lịch sử thao tác đặc quyền',
   },
+  {
+    href: '/administration?view=finance',
+    label: 'Mở vận hành tài chính',
+    hint: 'Thanh toán và hoàn tiền',
+  },
+  {
+    href: '/administration?view=governance',
+    label: 'Mở quản trị nội dung',
+    hint: 'Nội dung, taxonomy và template',
+  },
+  {
+    href: '/administration?view=trust',
+    label: 'Mở trung tâm hỗ trợ',
+    hint: 'Sự cố, báo cáo và quyền hỗ trợ',
+  },
 ] as const;
 
 export function OperationsShell({
@@ -256,7 +271,26 @@ function canAccess(href: string, roles: readonly string[]): boolean {
     return roles.some((role) => ['CONCIERGE_AGENT', 'PLATFORM_ADMIN'].includes(role));
   if (href.startsWith('/verification'))
     return roles.some((role) => ['VERIFICATION_OFFICER', 'PLATFORM_ADMIN'].includes(role));
-  return roles.some((role) => ['FINANCE_ADMIN', 'CONTENT_ADMIN', 'PLATFORM_ADMIN'].includes(role));
+  if (href.includes('view=reliability') || href.includes('view=audit'))
+    return roles.some((role) => ['PLATFORM_ADMIN'].includes(role));
+  if (href.includes('view=finance'))
+    return roles.some((role) => ['FINANCE_ADMIN', 'PLATFORM_ADMIN'].includes(role));
+  if (href.includes('view=governance'))
+    return roles.some((role) => ['CONTENT_ADMIN', 'PLATFORM_ADMIN'].includes(role));
+  if (href.includes('view=trust'))
+    return roles.some((role) =>
+      ['SUPPORT_AGENT', 'CONTENT_ADMIN', 'PLATFORM_ADMIN'].includes(role),
+    );
+  return roles.some((role) =>
+    [
+      'SUPPORT_AGENT',
+      'FINANCE_ADMIN',
+      'CONTENT_ADMIN',
+      'PLATFORM_ADMIN',
+      'VERIFICATION_OFFICER',
+      'CONCIERGE_AGENT',
+    ].includes(role),
+  );
 }
 
 function roleLabel(roles: readonly string[]): string {
@@ -265,5 +299,7 @@ function roleLabel(roles: readonly string[]): string {
   if (roles.includes('VERIFICATION_OFFICER')) return 'Verification officer';
   if (roles.includes('CONCIERGE_AGENT')) return 'Điều phối viên';
   if (roles.includes('FINANCE_ADMIN')) return 'Finance administrator';
+  if (roles.includes('CONTENT_ADMIN')) return 'Content administrator';
+  if (roles.includes('SUPPORT_AGENT')) return 'Support agent';
   return 'Operations member';
 }

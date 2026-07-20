@@ -7,7 +7,16 @@ import { getProviderCaseWorkspace } from '@/lib/provider-data';
 import { labelStatus, toneForStatus } from '@/lib/presentation';
 import { requireProviderSession } from '@/lib/require-session';
 
-const tabs = new Set(['overview', 'plan', 'records', 'appointments', 'messages', 'aftercare']);
+const tabs = new Set([
+  'overview',
+  'plan',
+  'clinical',
+  'records',
+  'appointments',
+  'messages',
+  'aftercare',
+  'incidents',
+]);
 
 export default async function CaseDetail({
   params,

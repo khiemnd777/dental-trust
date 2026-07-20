@@ -14,8 +14,14 @@ export class ProviderApiError extends Error {
 
 interface ApiEnvelope<T> {
   readonly data?: T;
-  readonly error?: string;
+  readonly error?: string | { readonly code?: unknown };
   readonly requestId?: string;
+  readonly page?: { readonly nextCursor?: unknown };
+}
+
+export interface ProviderApiPage<T> {
+  readonly data: T;
+  readonly nextCursor: string | null;
 }
 
 interface ProviderApiOptions {
@@ -30,11 +36,35 @@ export async function providerApi<T>(path: string, options: ProviderApiOptions =
   return providerApiForSession<T>(session, path, options);
 }
 
+export async function providerApiPage<T>(path: string): Promise<ProviderApiPage<T>> {
+  const session = await requireProviderSession();
+  return providerApiPageForSession<T>(session, path);
+}
+
+export async function providerApiPageForSession<T>(
+  session: ProviderSession,
+  path: string,
+): Promise<ProviderApiPage<T>> {
+  const envelope = await providerApiEnvelopeForSession<T>(session, path);
+  return {
+    data: envelope.data,
+    nextCursor: typeof envelope.page?.nextCursor === 'string' ? envelope.page.nextCursor : null,
+  };
+}
+
 export async function providerApiForSession<T>(
   session: ProviderSession,
   path: string,
   options: ProviderApiOptions = {},
 ): Promise<T> {
+  return (await providerApiEnvelopeForSession<T>(session, path, options)).data;
+}
+
+async function providerApiEnvelopeForSession<T>(
+  session: ProviderSession,
+  path: string,
+  options: ProviderApiOptions = {},
+): Promise<{ readonly data: T; readonly page?: ApiEnvelope<T>['page'] }> {
   if (!/^[a-z0-9][a-z0-9?&=/_-]*$/iu.test(path) || path.includes('..')) {
     throw new ProviderApiError(400, 'invalid_provider_api_path');
   }
@@ -58,9 +88,15 @@ export async function providerApiForSession<T>(
     throw new ProviderApiError(response.status, 'invalid_api_response');
   }
   if (!response.ok || envelope.data === undefined) {
-    throw new ProviderApiError(response.status, envelope.error ?? 'provider_api_request_failed');
+    const code =
+      typeof envelope.error === 'string'
+        ? envelope.error
+        : typeof envelope.error?.code === 'string'
+          ? envelope.error.code
+          : 'provider_api_request_failed';
+    throw new ProviderApiError(response.status, code);
   }
-  return envelope.data;
+  return { data: envelope.data, ...(envelope.page ? { page: envelope.page } : {}) };
 }
 
 export function apiBaseUrl(): string {

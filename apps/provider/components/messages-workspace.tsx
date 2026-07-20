@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { CustomSelect } from '@dental-trust/ui';
@@ -9,6 +9,7 @@ import { ProviderDialog } from '@/components/provider-dialog';
 import { ProviderIcon } from '@/components/provider-icon';
 import type { ProviderMessageThread } from '@/lib/provider-data';
 import { commandErrorMessage, sendProviderCommand } from '@/lib/provider-command';
+import { MAX_MESSAGE_ATTACHMENTS, unreadParticipantMessageIds } from '@/lib/messaging';
 import { formatDateTime, initials } from '@/lib/presentation';
 
 export function MessagesWorkspace({
@@ -26,6 +27,10 @@ export function MessagesWorkspace({
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [draft, setDraft] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [internalNotesOpen, setInternalNotesOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [internalNoteDraft, setInternalNoteDraft] = useState('');
+  const [attachmentIds, setAttachmentIds] = useState<readonly string[]>([]);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +44,35 @@ export function MessagesWorkspace({
       );
     });
   }, [query, threads, unreadOnly]);
-  const selected = threads.find((thread) => thread.id === selectedId) ?? filtered[0] ?? null;
+  const selected =
+    filtered.find((thread) => thread.id === selectedId) ??
+    (selectedId === null && !query.trim() && !unreadOnly ? (filtered[0] ?? null) : null);
+
+  useEffect(() => {
+    if (!selected) return;
+    const messageIds = unreadParticipantMessageIds(selected.messages, currentUserId);
+    if (!messageIds.length) return;
+    let active = true;
+    void Promise.all(
+      messageIds.map((messageId) =>
+        sendProviderCommand({
+          command: 'mark_message_read',
+          resourceId: selected.caseId,
+          secondaryId: selected.id,
+          payload: { messageId },
+        }),
+      ),
+    )
+      .then(() => {
+        if (active) router.refresh();
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(commandErrorMessage(reason));
+      });
+    return () => {
+      active = false;
+    };
+  }, [currentUserId, router, selected]);
 
   async function execute(operation: () => Promise<unknown>, success: string): Promise<boolean> {
     setPending(true);
@@ -116,7 +149,10 @@ export function MessagesWorkspace({
                   <button
                     className={selected?.id === thread.id ? 'is-active' : ''}
                     key={thread.id}
-                    onClick={() => setSelectedId(thread.id)}
+                    onClick={() => {
+                      setSelectedId(thread.id);
+                      setAttachmentIds([]);
+                    }}
                     type="button"
                   >
                     <span className="provider-avatar provider-avatar--blue">
@@ -152,7 +188,10 @@ export function MessagesWorkspace({
                 <button
                   aria-label="Quay lại danh sách hội thoại"
                   className="provider-chat-back"
-                  onClick={() => setSelectedId(null)}
+                  onClick={() => {
+                    setSelectedId(null);
+                    setAttachmentIds([]);
+                  }}
                   type="button"
                 >
                   <ProviderIcon name="chevron" />
@@ -169,13 +208,21 @@ export function MessagesWorkspace({
                 <a aria-label="Mở hồ sơ" href={`/cases/${selected.caseId}?tab=messages`}>
                   <ProviderIcon name="document" />
                 </a>
-                <button aria-label="Tùy chọn" className="provider-chat-options" type="button">
-                  <ProviderIcon name="more" />
+                <button
+                  aria-label={`Ghi chú nội bộ (${selected.internalNotes?.length ?? 0})`}
+                  className="provider-chat-options"
+                  onClick={() => {
+                    setInternalNoteDraft('');
+                    setInternalNotesOpen(true);
+                  }}
+                  type="button"
+                >
+                  <ProviderIcon name="shield" />
                 </button>
               </header>
               <div className="provider-chat-security">
-                <ProviderIcon name="shield" /> Nội dung chỉ hiển thị cho thành viên có quyền truy
-                cập hồ sơ
+                <ProviderIcon name="shield" /> Tin nhắn được chia sẻ với bệnh nhân; ghi chú nội bộ
+                nằm trong khu vực riêng
               </div>
               <div className="provider-chat-body">
                 {selected.messages.length ? (
@@ -189,6 +236,14 @@ export function MessagesWorkspace({
                       )}
                       <div>
                         <p>{message.messageBody}</p>
+                        {message.attachments.length ? (
+                          <small>
+                            Tệp đính kèm:{' '}
+                            {message.attachments
+                              .map((attachment) => attachment.originalFileName)
+                              .join(', ')}
+                          </small>
+                        ) : null}
                         <small>
                           {formatDateTime(message.createdAt)}
                           {message.readByCurrentUser ? ' · Đã đọc' : ''}
@@ -214,22 +269,43 @@ export function MessagesWorkspace({
                         command: 'send_message',
                         resourceId: selected.caseId,
                         secondaryId: selected.id,
-                        payload: { messageBody, fileAssetIds: [] },
+                        payload: { messageBody, fileAssetIds: attachmentIds },
                       }),
                     'Tin nhắn đã được gửi.',
                   ).then((sent) => {
-                    if (sent) setDraft('');
+                    if (sent) {
+                      setDraft('');
+                      setAttachmentIds([]);
+                    }
                   });
                 }}
               >
-                <button aria-label="Đính kèm tệp" disabled type="button">
+                <button
+                  aria-label={
+                    attachmentIds.length
+                      ? `Đính kèm tệp (${attachmentIds.length} đã chọn)`
+                      : 'Đính kèm tệp'
+                  }
+                  disabled={pending || !selected.attachableDocuments.length}
+                  onClick={() => setAttachmentsOpen(true)}
+                  title={
+                    selected.attachableDocuments.length
+                      ? `${attachmentIds.length}/${MAX_MESSAGE_ATTACHMENTS} tệp đã chọn`
+                      : 'Hồ sơ chưa có tài liệu sạch và sẵn sàng để đính kèm'
+                  }
+                  type="button"
+                >
                   <ProviderIcon name="plus" />
                 </button>
                 <input
                   aria-label="Nội dung tin nhắn"
                   disabled={pending}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Nhập tin nhắn bảo mật…"
+                  placeholder={
+                    attachmentIds.length
+                      ? `Nhập tin nhắn bảo mật… (${attachmentIds.length} tệp)`
+                      : 'Nhập tin nhắn bảo mật…'
+                  }
                   value={draft}
                 />
                 <button aria-label="Gửi" disabled={pending || !draft.trim()} type="submit">
@@ -310,6 +386,131 @@ export function MessagesWorkspace({
             </button>
           </footer>
         </form>
+      </ProviderDialog>
+      <ProviderDialog
+        description="Chỉ thành viên phòng khám được phân công mới có thể đọc phần này. Ghi chú không bao giờ xuất hiện trong hội thoại với bệnh nhân."
+        onClose={() => setInternalNotesOpen(false)}
+        open={internalNotesOpen}
+        title="Ghi chú nội bộ"
+      >
+        {selected?.internalNotes ? (
+          <form
+            className="provider-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const internalNote = internalNoteDraft.trim();
+              if (!internalNote) return;
+              void execute(
+                () =>
+                  sendProviderCommand({
+                    command: 'create_internal_note',
+                    resourceId: selected.caseId,
+                    secondaryId: selected.id,
+                    payload: { internalNote },
+                  }),
+                'Đã lưu ghi chú nội bộ.',
+              ).then((created) => {
+                if (created) {
+                  setInternalNoteDraft('');
+                  setInternalNotesOpen(false);
+                }
+              });
+            }}
+          >
+            <section className="provider-form-section" aria-label="Lịch sử ghi chú nội bộ">
+              <strong>Lịch sử ({selected.internalNotes.length})</strong>
+              <div>
+                {selected.internalNotes.length ? (
+                  selected.internalNotes.map((note) => (
+                    <article key={note.id}>
+                      <p>{note.internalNote}</p>
+                      <small>{formatDateTime(note.createdAt)}</small>
+                    </article>
+                  ))
+                ) : (
+                  <p>Chưa có ghi chú nội bộ cho cuộc trò chuyện này.</p>
+                )}
+              </div>
+            </section>
+            <label>
+              <span>Ghi chú mới — chỉ đội ngũ phòng khám</span>
+              <textarea
+                disabled={pending}
+                maxLength={8000}
+                onChange={(event) => setInternalNoteDraft(event.target.value)}
+                required
+                rows={5}
+                value={internalNoteDraft}
+              />
+            </label>
+            <footer>
+              <button onClick={() => setInternalNotesOpen(false)} type="button">
+                Đóng
+              </button>
+              <button disabled={pending || !internalNoteDraft.trim()} type="submit">
+                {pending ? 'Đang lưu…' : 'Lưu ghi chú nội bộ'}
+              </button>
+            </footer>
+          </form>
+        ) : (
+          <div className="provider-form">
+            <p>
+              Không thể tải ghi chú nội bộ. Tài khoản có thể chưa được phân công vào hồ sơ này hoặc
+              dịch vụ đang tạm thời không khả dụng.
+            </p>
+            <footer>
+              <button onClick={() => setInternalNotesOpen(false)} type="button">
+                Đóng
+              </button>
+            </footer>
+          </div>
+        )}
+      </ProviderDialog>
+      <ProviderDialog
+        description={`Chỉ tài liệu hồ sơ đã quét sạch và ở trạng thái sẵn sàng mới có thể được gửi. Tối đa ${MAX_MESSAGE_ATTACHMENTS} tệp.`}
+        onClose={() => setAttachmentsOpen(false)}
+        open={attachmentsOpen}
+        title="Đính kèm tài liệu hồ sơ"
+      >
+        <div className="provider-form">
+          {selected?.attachableDocuments.length ? (
+            <fieldset>
+              <legend>Tài liệu có thể đính kèm</legend>
+              <div className="provider-check-grid">
+                {selected.attachableDocuments.map((document) => {
+                  const checked = attachmentIds.includes(document.fileAssetId);
+                  return (
+                    <label className="provider-checkbox" key={document.id}>
+                      <input
+                        checked={checked}
+                        disabled={!checked && attachmentIds.length >= MAX_MESSAGE_ATTACHMENTS}
+                        onChange={(event) =>
+                          setAttachmentIds((current) =>
+                            event.target.checked
+                              ? [...current, document.fileAssetId]
+                              : current.filter((id) => id !== document.fileAssetId),
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      <span>{document.originalFileName}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ) : (
+            <p>Hồ sơ chưa có tài liệu sạch và sẵn sàng để đính kèm.</p>
+          )}
+          <footer>
+            <button onClick={() => setAttachmentIds([])} type="button">
+              Bỏ chọn
+            </button>
+            <button onClick={() => setAttachmentsOpen(false)} type="button">
+              Xong ({attachmentIds.length})
+            </button>
+          </footer>
+        </div>
       </ProviderDialog>
     </>
   );

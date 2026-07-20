@@ -25,11 +25,19 @@ export default async function Layout({ children }: { children: ReactNode }) {
     : session.roles.includes('DENTIST')
       ? 'Nha sĩ'
       : 'Nhân viên phòng khám';
+  const primaryLocation =
+    onboarding?.locations.find((location) => location.active) ?? onboarding?.locations[0];
+  const clinicDetail = primaryLocation
+    ? [primaryLocation.district, primaryLocation.city].filter(Boolean).join(' · ')
+    : onboarding?.verificationStatus
+      ? `Xác minh: ${onboarding.verificationStatus.replaceAll('_', ' ').toLocaleLowerCase('vi-VN')}`
+      : 'Chưa khai báo cơ sở';
   return (
     <html lang="vi">
       <body>
         <ProviderShell
           clinicName={onboarding?.clinicName ?? 'Provider workspace'}
+          clinicDetail={clinicDetail}
           logout={logoutProviderAction}
           mfaRequired={session.mfaRequired && !session.mfaVerified}
           roleLabel={primaryRole}

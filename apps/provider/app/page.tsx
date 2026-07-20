@@ -5,6 +5,7 @@ import { getProviderDashboard } from '@/lib/provider-data';
 import {
   formatDateTime,
   formatPercent,
+  formatTime,
   initials,
   labelAction,
   labelStatus,
@@ -20,6 +21,10 @@ export default async function ProviderToday() {
     .filter((item) => Date.parse(item.startsAt) >= Date.now())
     .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
   const next = nextAppointments[0];
+  const dashboardTimeZone =
+    next?.timezone ??
+    data.availability?.rules.find((rule) => rule.active)?.timezone ??
+    'Asia/Ho_Chi_Minh';
   const aftercareCount = data.today.filter((item) => item.status === 'AFTERCARE_ACTIVE').length;
   const totalCapacity =
     data.availability?.rules
@@ -42,7 +47,9 @@ export default async function ProviderToday() {
     {
       label: 'Lịch sắp tới',
       value: String(nextAppointments.length),
-      detail: next ? `Tiếp theo ${formatDateTime(next.startsAt)}` : 'Chưa có lịch sắp tới',
+      detail: next
+        ? `Tiếp theo ${formatDateTime(next.startsAt, next.timezone)}`
+        : 'Chưa có lịch sắp tới',
       icon: 'calendar',
       tone: 'blue',
     },
@@ -59,7 +66,7 @@ export default async function ProviderToday() {
     <main className="provider-main">
       <header className="provider-page-header">
         <div>
-          <span className="provider-eyebrow">{todayLabel()}</span>
+          <span className="provider-eyebrow">{todayLabel(dashboardTimeZone)}</span>
           <h1>Trung tâm công việc hôm nay</h1>
           <p>Triage theo SLA, tiếp tục ca đang xử lý và chuẩn bị lịch hẹn kế tiếp.</p>
         </div>
@@ -174,14 +181,7 @@ export default async function ProviderToday() {
             {next ? (
               <div className="provider-appointment-feature">
                 <div className="provider-appointment-time">
-                  <strong>
-                    {new Intl.DateTimeFormat('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                      timeZone: 'Asia/Ho_Chi_Minh',
-                    }).format(new Date(next.startsAt))}
-                  </strong>
+                  <strong>{formatTime(next.startsAt, next.timezone)}</strong>
                   <small>{next.kind === 'CONSULTATION' ? 'Tư vấn' : 'Tại phòng khám'}</small>
                 </div>
                 <div>
@@ -263,13 +263,13 @@ export default async function ProviderToday() {
   );
 }
 
-function todayLabel(): string {
+function todayLabel(timeZone: string): string {
   return new Intl.DateTimeFormat('vi-VN', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    timeZone: 'Asia/Ho_Chi_Minh',
+    timeZone,
   })
     .format(new Date())
     .toUpperCase();

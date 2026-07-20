@@ -39,12 +39,10 @@ export const readProviderSession = cache(
           mfaRequired?: unknown;
         };
       };
-      const roles = [
-        ...(Array.isArray(envelope.data?.roles) ? envelope.data.roles : []),
-        ...(Array.isArray(envelope.data?.memberships)
-          ? envelope.data.memberships.map(({ role }) => role)
-          : []),
-      ].filter((role): role is string => typeof role === 'string');
+      const roles = (Array.isArray(envelope.data?.memberships) ? envelope.data.memberships : [])
+        .filter((membership) => membership.organizationId === organizationId)
+        .map(({ role }) => role)
+        .filter((role): role is string => typeof role === 'string');
       if (
         typeof envelope.data?.id !== 'string' ||
         envelope.data.selectedOrganizationId !== organizationId ||

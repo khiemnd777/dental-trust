@@ -58,21 +58,52 @@ describe('CaseRepository query scoping', () => {
 });
 
 describe('TrustSafetyRepository query scoping', () => {
-  it('keeps incident reads inside the caller tenant and selects only patient-visible events', async () => {
+  it('keeps clinic incident reads inside the caller tenant and selects event visibility for audience separation', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const repository = new TrustSafetyRepository({
       incident: { findMany },
     } as unknown as PrismaClient);
 
     await repository.listIncidentsScoped(
-      { userId: 'staff-a', organizationIds: ['clinic-a'], includeAll: false },
+      {
+        userId: 'staff-a',
+        organizationIds: ['organization-a'],
+        includeAll: false,
+        clinicId: 'clinic-a',
+      },
       { limit: 25 },
     );
 
     const call = findMany.mock.calls[0]?.[0] as { where: unknown; include: unknown };
+    expect(JSON.stringify(call.where)).toContain('organization-a');
     expect(JSON.stringify(call.where)).toContain('clinic-a');
-    expect(JSON.stringify(call.where)).not.toContain('clinic-b');
-    expect(call.include).toMatchObject({ events: { where: { visibility: 'PARTICIPANTS' } } });
+    expect(JSON.stringify(call.where)).not.toContain('organization-b');
+    expect(JSON.stringify(call.where)).not.toContain('assignedUserId');
+    expect(call.include).toMatchObject({ events: { select: { visibility: true } } });
+    expect(call.include).not.toMatchObject({
+      events: { where: { visibility: 'PARTICIPANTS' } },
+    });
+  });
+
+  it('loads only patient-visible incident events outside clinic-operator scope', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const repository = new TrustSafetyRepository({
+      incident: { findMany },
+    } as unknown as PrismaClient);
+
+    await repository.listIncidentsScoped(
+      {
+        userId: 'patient-a',
+        organizationIds: [],
+        includeAll: false,
+      },
+      { limit: 25 },
+    );
+
+    const call = findMany.mock.calls[0]?.[0] as { include: unknown };
+    expect(call.include).toMatchObject({
+      events: { where: { visibility: 'PARTICIPANTS' } },
+    });
   });
 
   it('adds requester ownership to direct privacy-request reads', async () => {

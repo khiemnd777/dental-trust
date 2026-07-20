@@ -575,6 +575,10 @@ export class ClinicOperationsService {
 
   async opportunities(access: AccessContext, query: ClinicOpportunityQuery) {
     const scope = await this.scope(access, 'clinic:manage:cases', 'CASE_INBOX');
+    return this.opportunityPage(scope, query);
+  }
+
+  private async opportunityPage(scope: ClinicOperatorScope, query: ClinicOpportunityQuery) {
     const page = await this.operations.opportunities(scope.clinicId, scope.organizationId, {
       limit: query.limit,
       ...(query.cursor ? { cursor: query.cursor } : {}),
@@ -646,7 +650,7 @@ export class ClinicOperationsService {
       actor(access, scope),
       command(idempotencyKey, 'clinic.case.assign-dentist', { caseId, ...input }),
     );
-    return this.opportunities(access, { limit: 25 });
+    return this.opportunityPage(scope, { limit: 25 });
   }
 
   async availability(access: AccessContext) {

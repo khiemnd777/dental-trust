@@ -11,11 +11,13 @@ const managementNavigation = [
   { href: '/clinic?tab=team', label: 'Đội ngũ', icon: 'users' as const },
   { href: '/clinic?tab=services', label: 'Dịch vụ & giá', icon: 'services' as const },
   { href: '/clinic?tab=analytics', label: 'Hiệu suất', icon: 'trend' as const },
+  { href: '/clinic?tab=billing', label: 'Thanh toán', icon: 'document' as const },
 ];
 
 export function ProviderShell({
   children,
   clinicName,
+  clinicDetail,
   logout,
   roleLabel,
   userInitials,
@@ -23,6 +25,7 @@ export function ProviderShell({
 }: {
   readonly children: ReactNode;
   readonly clinicName: string;
+  readonly clinicDetail: string;
   readonly logout: () => Promise<void>;
   readonly roleLabel: string;
   readonly userInitials: string;
@@ -47,7 +50,7 @@ export function ProviderShell({
           <span>
             <strong>{clinicName}</strong>
             <small>
-              <i /> Quận 1 · Đang hoạt động
+              <i /> {clinicDetail}
             </small>
           </span>
           <ProviderIcon name="chevron" />
@@ -66,7 +69,6 @@ export function ProviderShell({
                   <ProviderIcon name={item.icon} variant={active ? 'filled' : 'outline'} />
                 </span>
                 <span>{item.label}</span>
-                {item.href === '/messages' ? <b>3</b> : null}
               </Link>
             );
           })}
@@ -120,7 +122,6 @@ export function ProviderShell({
         <div className="provider-topbar-actions">
           <Link aria-label="Thông báo" className="provider-icon-button" href="/messages">
             <ProviderIcon name="bell" />
-            <i />
           </Link>
           <details className="provider-account provider-account--mobile">
             <summary aria-label="Mở menu tài khoản" className="provider-mobile-account-button">

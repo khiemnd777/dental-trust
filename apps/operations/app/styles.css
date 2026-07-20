@@ -3144,6 +3144,197 @@ svg {
   margin: 0.16rem 0 0;
 }
 
+/* Role-aware operations consoles */
+.ops-role-console {
+  min-width: 0;
+}
+
+.ops-role-search {
+  margin: 0.9rem 1rem;
+  max-width: 34rem;
+  width: calc(100% - 2rem);
+}
+
+.ops-role-search:focus-within {
+  background: var(--ops-surface);
+  border-color: var(--ops-teal-600);
+  box-shadow: 0 0 0 3px rgb(11 145 138 / 12%);
+}
+
+.ops-role-search > svg {
+  color: var(--ops-subtle);
+  flex: 0 0 auto;
+}
+
+.ops-role-search > input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.ops-role-record-list {
+  display: grid;
+}
+
+.ops-role-record-list > article {
+  align-items: center;
+  border-bottom: 1px solid var(--ops-border);
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: minmax(14rem, 1.5fr) auto minmax(12rem, 0.9fr) auto;
+  min-height: 5rem;
+  padding: 0.8rem 1rem;
+}
+
+.ops-role-record-list > article:last-child {
+  border-bottom: 0;
+}
+
+.ops-role-record-list > article:focus-within {
+  background: var(--ops-teal-50);
+}
+
+.ops-role-record-list > article > div,
+.ops-role-record-list > article > span:nth-child(3) {
+  display: grid;
+  min-width: 0;
+}
+
+.ops-role-record-list > article > div > strong,
+.ops-role-record-list > article > div > small,
+.ops-role-record-list > article > span:nth-child(3) > strong,
+.ops-role-record-list > article > span:nth-child(3) > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-role-record-list > article > div > strong {
+  color: var(--ops-navy-950);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.ops-role-record-list > article > div > small,
+.ops-role-record-list > article > span:nth-child(3) > small {
+  color: var(--ops-muted);
+  font-size: 0.69rem;
+  margin-top: 0.12rem;
+}
+
+.ops-role-record-list > article > div > em {
+  color: var(--ops-subtle);
+  font-size: 0.64rem;
+  font-style: normal;
+  margin-top: 0.18rem;
+}
+
+.ops-role-record-list > article > span:nth-child(3) > strong {
+  font-size: 0.75rem;
+  white-space: normal;
+}
+
+.ops-role-record-list > article > .ops-status {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.ops-role-record-list > article > button {
+  background: var(--ops-surface);
+  border: 1px solid var(--ops-border-strong);
+  border-radius: 0.62rem;
+  color: var(--ops-teal-700);
+  font-size: 0.74rem;
+  font-weight: 750;
+  justify-self: end;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.75rem;
+  white-space: nowrap;
+}
+
+.ops-role-record-list > article > button:hover {
+  background: var(--ops-teal-50);
+  border-color: var(--ops-teal-600);
+}
+
+.ops-role-dialog {
+  max-width: 44rem;
+  overscroll-behavior: contain;
+}
+
+.ops-role-dialog > header {
+  background: rgb(255 255 255 / 96%);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.ops-role-dialog form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ops-inline-fields {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+}
+
+.ops-inline-fields > label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.ops-checkbox-fieldset {
+  border: 1px solid var(--ops-border);
+  border-radius: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem 0.75rem;
+}
+
+.ops-checkbox-fieldset legend {
+  color: var(--ops-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0 0.3rem;
+}
+
+.ops-checkbox-fieldset label,
+.ops-checkbox-line {
+  align-items: center;
+  border-radius: 0.55rem;
+  color: var(--ops-ink);
+  display: flex !important;
+  font-size: 0.75rem;
+  font-weight: 650;
+  gap: 0.55rem !important;
+  min-height: 2.65rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.ops-checkbox-fieldset label:hover,
+.ops-checkbox-line:hover {
+  background: var(--ops-teal-50);
+}
+
+.ops-checkbox-fieldset label:focus-within,
+.ops-checkbox-line:focus-within {
+  background: var(--ops-teal-50);
+  box-shadow: inset 0 0 0 1px var(--ops-teal-600);
+}
+
+.ops-checkbox-fieldset input,
+.ops-checkbox-line > input {
+  accent-color: var(--ops-teal-600);
+  flex: 0 0 auto;
+  height: 1.1rem;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+  width: 1.1rem;
+}
+
 .ops-mobile-nav {
   background: rgb(255 255 255 / 96%);
   border-top: 1px solid var(--ops-border);
@@ -3362,6 +3553,58 @@ svg {
     right: 0.7rem;
     top: 1.25rem;
   }
+  .ops-role-search {
+    max-width: none;
+  }
+  .ops-role-record-list > article {
+    align-items: start;
+    gap: 0.65rem 0.75rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 0;
+    padding: 0.9rem;
+  }
+  .ops-role-record-list > article > div {
+    grid-column: 1 / -1;
+  }
+  .ops-role-record-list > article > div > strong {
+    white-space: normal;
+  }
+  .ops-role-record-list > article > .ops-status {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .ops-role-record-list > article > span:nth-child(3) {
+    border-top: 1px solid var(--ops-border);
+    grid-column: 1 / -1;
+    grid-row: 3;
+    padding-top: 0.65rem;
+  }
+  .ops-role-record-list > article > button {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 2.75rem;
+  }
+  .ops-role-dialog {
+    max-height: calc(100dvh - 1rem);
+    width: calc(100% - 1rem);
+  }
+  .ops-role-dialog > header,
+  .ops-role-dialog form {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .ops-role-dialog footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .ops-role-dialog footer > button {
+    min-height: 2.75rem;
+    width: 100%;
+  }
   .ops-detail-section > dl > div {
     grid-template-columns: 1fr;
   }
@@ -3483,11 +3726,59 @@ svg {
   }
 }
 
+.ops-pagination {
+  align-items: center;
+  border-top: 1px solid var(--ops-border);
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  min-height: 3rem;
+  padding: 0.75rem 0.25rem 0;
+}
+
+.ops-pagination a,
+.ops-pagination > span {
+  align-items: center;
+  color: var(--ops-muted);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 750;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  text-decoration: none;
+}
+
+.ops-pagination a {
+  color: var(--ops-ink);
+  padding: 0 0.75rem;
+}
+
+.ops-pagination a:hover,
+.ops-pagination a:focus-visible {
+  background: var(--ops-canvas);
+  border-radius: 0.65rem;
+  outline: none;
+}
+
+.ops-pagination svg {
+  height: 1rem;
+  width: 1rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .ops-role-search:focus-within,
+  .ops-checkbox-fieldset label:focus-within,
+  .ops-checkbox-line:focus-within {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 }

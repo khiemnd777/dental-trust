@@ -1,33 +1,56 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { CustomSelect } from '@dental-trust/ui';
+import type { AppointmentView } from '@dental-trust/contracts';
 import { ProviderDialog } from '@/components/provider-dialog';
 import { ProviderIcon } from '@/components/provider-icon';
+import {
+  appointmentMutationsAt,
+  type AppointmentLifecycleMutation as AppointmentMutation,
+} from '@/lib/appointment-lifecycle';
 import type { ProviderScheduleData } from '@/lib/provider-data';
 import { commandErrorMessage, sendProviderCommand } from '@/lib/provider-command';
+import {
+  isoDateKeyInTimeZone,
+  isoToLocalDateTimeInput,
+  localDateTimeToIso,
+} from '@/lib/provider-time';
 import { formatDate, formatDateTime, formatTime, labelStatus } from '@/lib/presentation';
 
-type ScheduleDialog = 'appointment' | 'block' | null;
+type ScheduleDialog = 'appointment' | 'appointmentLifecycle' | 'block' | null;
+
+const appointmentMutationLabels: Readonly<Record<AppointmentMutation, string>> = {
+  reschedule: 'Đổi thời gian',
+  cancel: 'Hủy lịch hẹn',
+  attendance: 'Ghi nhận tham dự',
+};
 
 export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleData }) {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
+  const primaryTimeZone =
+    data.onboarding.locations.find((location) => location.active)?.timezone ??
+    data.onboarding.locations[0]?.timezone ??
+    'Asia/Ho_Chi_Minh';
+  const [selectedDate, setSelectedDate] = useState(() =>
+    isoDateKeyInTimeZone(new Date().toISOString(), primaryTimeZone),
+  );
   const [dialog, setDialog] = useState<ScheduleDialog>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentView | null>(null);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const caseById = useMemo(() => new Map(data.cases.map((item) => [item.id, item])), [data.cases]);
   const selectedAppointments = data.appointments.filter(
-    (item) => dateKey(new Date(item.startsAt)) === selectedDate,
+    (item) => isoDateKeyInTimeZone(item.startsAt, item.timezone) === selectedDate,
   );
   const upcoming = data.appointments
     .filter((item) => Date.parse(item.endsAt) >= Date.now())
     .slice(0, 6);
   const activeRules = data.availability.rules.filter((rule) => rule.active);
-  const week = useMemo(() => weekDates(new Date(`${selectedDate}T12:00:00`)), [selectedDate]);
+  const week = useMemo(() => weekDates(new Date(`${selectedDate}T12:00:00.000Z`)), [selectedDate]);
 
   async function execute(operation: () => Promise<unknown>, success: string) {
     setPending(true);
@@ -84,7 +107,12 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
           >
             <ProviderIcon name="chevron" />
           </button>
-          <button onClick={() => setSelectedDate(dateKey(new Date()))} type="button">
+          <button
+            onClick={() =>
+              setSelectedDate(isoDateKeyInTimeZone(new Date().toISOString(), primaryTimeZone))
+            }
+            type="button"
+          >
             Hôm nay
           </button>
         </div>
@@ -110,7 +138,7 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
         {week.map((date) => {
           const key = dateKey(date);
           const count = data.appointments.filter(
-            (item) => dateKey(new Date(item.startsAt)) === key,
+            (item) => isoDateKeyInTimeZone(item.startsAt, item.timezone) === key,
           ).length;
           return (
             <button
@@ -119,8 +147,13 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
               onClick={() => setSelectedDate(key)}
               type="button"
             >
-              <small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short' }).format(date)}</small>
-              <strong>{date.getDate()}</strong>
+              <small>
+                {new Intl.DateTimeFormat('vi-VN', {
+                  weekday: 'short',
+                  timeZone: 'UTC',
+                }).format(date)}
+              </small>
+              <strong>{date.getUTCDate()}</strong>
               {count ? <span>{count}</span> : null}
               {key === selectedDate ? <i /> : null}
             </button>
@@ -136,8 +169,13 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
                 <ProviderIcon name="calendar" />
               </span>
               <span>
-                <h2>{formatDate(`${selectedDate}T00:00:00.000Z`, { weekday: 'long' })}</h2>
-                <p>{selectedAppointments.length} lịch hẹn · Múi giờ Asia/Ho_Chi_Minh</p>
+                <h2>
+                  {formatDate(`${selectedDate}T12:00:00.000Z`, {
+                    weekday: 'long',
+                    timeZone: 'UTC',
+                  })}
+                </h2>
+                <p>{selectedAppointments.length} lịch hẹn · theo múi giờ từng lịch hẹn</p>
               </span>
             </div>
             <span className="provider-live-indicator">
@@ -150,9 +188,10 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
                 .toSorted((a, b) => a.startsAt.localeCompare(b.startsAt))
                 .map((appointment) => {
                   const dentalCase = caseById.get(appointment.caseId);
+                  const availableMutations = appointmentMutationsAt(appointment);
                   return (
                     <article key={appointment.id}>
-                      <time>{formatTime(appointment.startsAt)}</time>
+                      <time>{formatTime(appointment.startsAt, appointment.timezone)}</time>
                       <span className="provider-agenda-line">
                         <i />
                       </span>
@@ -172,19 +211,33 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
                           <ProviderIcon
                             name={appointment.kind === 'CONSULTATION' ? 'video' : 'clinic'}
                           />{' '}
-                          {formatTime(appointment.startsAt)}–{formatTime(appointment.endsAt)} ·{' '}
+                          {formatTime(appointment.startsAt, appointment.timezone)}–
+                          {formatTime(appointment.endsAt, appointment.timezone)} ·{' '}
                           {appointment.timezone}
                         </small>
                       </div>
                       <span className="provider-agenda-status">
                         {labelStatus(appointment.status)}
                       </span>
-                      <a
-                        aria-label="Mở hồ sơ"
-                        href={`/cases/${appointment.caseId}?tab=appointments`}
-                      >
-                        <ProviderIcon name="chevron" />
-                      </a>
+                      {availableMutations.length ? (
+                        <button
+                          aria-label={`Quản lý lịch hẹn ${formatDateTime(appointment.startsAt, appointment.timezone)}`}
+                          onClick={() => {
+                            setSelectedAppointment(appointment);
+                            setDialog('appointmentLifecycle');
+                          }}
+                          type="button"
+                        >
+                          <ProviderIcon name="more" />
+                        </button>
+                      ) : (
+                        <a
+                          aria-label="Mở hồ sơ"
+                          href={`/cases/${appointment.caseId}?tab=appointments`}
+                        >
+                          <ProviderIcon name="chevron" />
+                        </a>
+                      )}
                     </article>
                   );
                 })}
@@ -267,7 +320,7 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
             {upcoming.length ? (
               upcoming.slice(0, 3).map((appointment) => (
                 <a href={`/cases/${appointment.caseId}?tab=appointments`} key={appointment.id}>
-                  <time>{formatDateTime(appointment.startsAt)}</time>
+                  <time>{formatDateTime(appointment.startsAt, appointment.timezone)}</time>
                   <strong>{caseById.get(appointment.caseId)?.title ?? 'Hồ sơ điều trị'}</strong>
                   <small>{labelStatus(appointment.status)}</small>
                 </a>
@@ -320,6 +373,35 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
         open={dialog === 'appointment'}
         pending={pending}
       />
+      <AppointmentLifecycleDialog
+        appointment={selectedAppointment}
+        onClose={() => setDialog(null)}
+        onSubmit={(mutation, payload) =>
+          selectedAppointment
+            ? void execute(
+                () =>
+                  sendProviderCommand({
+                    command:
+                      mutation === 'reschedule'
+                        ? 'reschedule_appointment'
+                        : mutation === 'cancel'
+                          ? 'cancel_appointment'
+                          : 'record_appointment_attendance',
+                    resourceId: selectedAppointment.caseId,
+                    secondaryId: selectedAppointment.id,
+                    payload,
+                  }),
+                mutation === 'reschedule'
+                  ? 'Lịch hẹn đã được đổi sang thời gian mới.'
+                  : mutation === 'cancel'
+                    ? 'Lịch hẹn đã được hủy và lưu lý do.'
+                    : 'Kết quả tham dự đã được ghi nhận.',
+              )
+            : undefined
+        }
+        open={dialog === 'appointmentLifecycle'}
+        pending={pending}
+      />
       <BlockDialog
         data={data}
         onClose={() => setDialog(null)}
@@ -336,6 +418,180 @@ export function ScheduleWorkspace({ data }: { readonly data: ProviderScheduleDat
   );
 }
 
+function AppointmentLifecycleDialog({
+  appointment,
+  open,
+  onClose,
+  onSubmit,
+  pending,
+}: {
+  readonly appointment: AppointmentView | null;
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly onSubmit: (mutation: AppointmentMutation, payload: Record<string, unknown>) => void;
+  readonly pending: boolean;
+}) {
+  const [mutation, setMutation] = useState<AppointmentMutation>('reschedule');
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setMutation(
+      appointment ? (appointmentMutationsAt(appointment)[0] ?? 'reschedule') : 'reschedule',
+    );
+    setValidationError(null);
+  }, [appointment, open]);
+
+  if (!appointment) return null;
+  const availableMutations = appointmentMutationsAt(appointment);
+  const durationMinutes = Math.max(
+    15,
+    Math.round((Date.parse(appointment.endsAt) - Date.parse(appointment.startsAt)) / 60_000),
+  );
+
+  return (
+    <ProviderDialog
+      description={`${formatDateTime(appointment.startsAt, appointment.timezone)} · ${labelStatus(appointment.status)} · phiên bản ${appointment.version}`}
+      onClose={onClose}
+      open={open}
+      title="Quản lý lịch hẹn"
+    >
+      <form
+        className="provider-form provider-form--grid"
+        key={`${appointment.id}-${mutation}`}
+        onSubmit={(event) => {
+          event.preventDefault();
+          setValidationError(null);
+          if (!appointmentMutationsAt(appointment).includes(mutation)) {
+            setValidationError(
+              'Thao tác này không còn phù hợp với thời gian hoặc trạng thái lịch hẹn.',
+            );
+            return;
+          }
+          const form = new FormData(event.currentTarget);
+          if (mutation === 'reschedule') {
+            const duration = Number(form.get('duration'));
+            let startsAt: string;
+            try {
+              startsAt = localDateTimeToIso(String(form.get('startsAt')), appointment.timezone);
+            } catch {
+              setValidationError('Thời gian bắt đầu không tồn tại trong timezone của lịch hẹn.');
+              return;
+            }
+            if (!Number.isInteger(duration) || duration < 15) {
+              setValidationError('Thời gian bắt đầu hoặc thời lượng chưa hợp lệ.');
+              return;
+            }
+            onSubmit(mutation, {
+              expectedVersion: appointment.version,
+              startsAt,
+              endsAt: new Date(Date.parse(startsAt) + duration * 60_000).toISOString(),
+              timezone: appointment.timezone,
+            });
+            return;
+          }
+          if (mutation === 'cancel') {
+            const reason = String(form.get('reason') ?? '').trim();
+            if (reason.length < 5) {
+              setValidationError('Lý do hủy cần có ít nhất 5 ký tự.');
+              return;
+            }
+            onSubmit(mutation, { expectedVersion: appointment.version, reason });
+            return;
+          }
+          onSubmit(mutation, {
+            expectedVersion: appointment.version,
+            outcome: String(form.get('outcome')),
+          });
+        }}
+      >
+        <label className="is-wide">
+          <span>Thao tác</span>
+          <CustomSelect
+            onChange={(event) => setMutation(event.target.value as AppointmentMutation)}
+            value={mutation}
+          >
+            {availableMutations.map((value) => (
+              <option key={value} value={value}>
+                {appointmentMutationLabels[value]}
+              </option>
+            ))}
+          </CustomSelect>
+        </label>
+        {mutation === 'reschedule' ? (
+          <>
+            <label>
+              <span>Bắt đầu mới</span>
+              <input
+                defaultValue={isoToLocalDateTimeInput(appointment.startsAt, appointment.timezone)}
+                min={localDateTimeMin(appointment.timezone)}
+                name="startsAt"
+                onChange={(event) => event.currentTarget.setCustomValidity('')}
+                required
+                type="datetime-local"
+              />
+            </label>
+            <label>
+              <span>Thời lượng</span>
+              <CustomSelect defaultValue={String(durationMinutes)} name="duration">
+                {Array.from(new Set([30, 45, 60, 90, 120, durationMinutes]))
+                  .toSorted((a, b) => a - b)
+                  .map((value) => (
+                    <option key={value} value={value}>
+                      {value} phút
+                    </option>
+                  ))}
+              </CustomSelect>
+            </label>
+          </>
+        ) : mutation === 'cancel' ? (
+          <label className="is-wide">
+            <span>Lý do hủy</span>
+            <textarea
+              maxLength={500}
+              minLength={5}
+              name="reason"
+              placeholder="Nêu lý do để đội ngũ và bệnh nhân cùng theo dõi…"
+              required
+              rows={5}
+            />
+          </label>
+        ) : (
+          <label className="is-wide">
+            <span>Kết quả tham dự</span>
+            <CustomSelect defaultValue="COMPLETED" name="outcome">
+              <option value="COMPLETED">Đã hoàn thành</option>
+              <option value="NO_SHOW">Bệnh nhân không đến</option>
+            </CustomSelect>
+          </label>
+        )}
+        <p className="is-wide">
+          <a href={`/cases/${appointment.caseId}?tab=appointments`}>Mở hồ sơ lịch hẹn</a>
+        </p>
+        {validationError ? (
+          <p className="is-wide" role="alert">
+            {validationError}
+          </p>
+        ) : null}
+        <footer>
+          <button onClick={onClose} type="button">
+            Đóng
+          </button>
+          <button disabled={pending} type="submit">
+            {pending
+              ? 'Đang lưu…'
+              : mutation === 'reschedule'
+                ? 'Xác nhận đổi lịch'
+                : mutation === 'cancel'
+                  ? 'Xác nhận hủy'
+                  : 'Lưu kết quả'}
+          </button>
+        </footer>
+      </form>
+    </ProviderDialog>
+  );
+}
+
 function GlobalAppointmentDialog({
   data,
   open,
@@ -349,6 +605,16 @@ function GlobalAppointmentDialog({
   readonly onSubmit: (caseId: string, payload: Record<string, unknown>) => void;
   readonly pending: boolean;
 }) {
+  const activeLocations = data.onboarding.locations.filter((location) => location.active);
+  const defaultLocationId = activeLocations[0]?.id ?? '';
+  const [locationId, setLocationId] = useState(defaultLocationId);
+  const timezone =
+    activeLocations.find((location) => location.id === locationId)?.timezone ?? 'Asia/Ho_Chi_Minh';
+
+  useEffect(() => {
+    if (open) setLocationId(defaultLocationId);
+  }, [defaultLocationId, open]);
+
   return (
     <ProviderDialog
       description="Lịch hẹn được kiểm tra theo ca, nha sĩ, cơ sở và timezone."
@@ -360,20 +626,30 @@ function GlobalAppointmentDialog({
         className="provider-form provider-form--grid"
         onSubmit={(event) => {
           event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          const start = new Date(String(form.get('startsAt')));
+          const formElement = event.currentTarget;
+          const form = new FormData(formElement);
+          const startsAtInput = formElement.elements.namedItem('startsAt') as HTMLInputElement;
+          let startsAt: string;
+          try {
+            startsAt = localDateTimeToIso(String(form.get('startsAt')), timezone);
+            startsAtInput.setCustomValidity('');
+          } catch {
+            startsAtInput.setCustomValidity(
+              'Thời gian này không tồn tại trong timezone của cơ sở.',
+            );
+            startsAtInput.reportValidity();
+            return;
+          }
           const duration = Number(form.get('duration'));
           const kind = String(form.get('kind'));
           onSubmit(String(form.get('caseId')), {
             clinicId: data.onboarding.clinicId,
-            ...(kind === 'CLINICAL_VISIT'
-              ? { clinicLocationId: String(form.get('locationId')) }
-              : {}),
+            ...(kind === 'CLINICAL_VISIT' ? { clinicLocationId: locationId } : {}),
             dentistId: String(form.get('dentistId')),
             kind,
-            startsAt: start.toISOString(),
-            endsAt: new Date(start.getTime() + duration * 60_000).toISOString(),
-            timezone: 'Asia/Ho_Chi_Minh',
+            startsAt,
+            endsAt: new Date(Date.parse(startsAt) + duration * 60_000).toISOString(),
+            timezone,
           });
         }}
       >
@@ -410,19 +686,28 @@ function GlobalAppointmentDialog({
         </label>
         <label>
           <span>Cơ sở</span>
-          <CustomSelect name="locationId" required>
-            {data.onboarding.locations
-              .filter((item) => item.active)
-              .map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+          <CustomSelect
+            name="locationId"
+            onChange={(event) => setLocationId(event.target.value)}
+            required
+            value={locationId}
+          >
+            {activeLocations.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
           </CustomSelect>
         </label>
         <label>
           <span>Bắt đầu</span>
-          <input min={localDateTimeMin()} name="startsAt" required type="datetime-local" />
+          <input
+            min={localDateTimeMin(timezone)}
+            name="startsAt"
+            onChange={(event) => event.currentTarget.setCustomValidity('')}
+            required
+            type="datetime-local"
+          />
         </label>
         <label>
           <span>Thời lượng</span>
@@ -437,7 +722,12 @@ function GlobalAppointmentDialog({
           <button onClick={onClose} type="button">
             Hủy
           </button>
-          <button disabled={pending || !data.cases.length || !data.dentists.length} type="submit">
+          <button
+            disabled={
+              pending || !data.cases.length || !data.dentists.length || !activeLocations.length
+            }
+            type="submit"
+          >
             {pending ? 'Đang tạo…' : 'Tạo lịch hẹn'}
           </button>
         </footer>
@@ -459,6 +749,20 @@ function BlockDialog({
   readonly onSubmit: (payload: Record<string, unknown>) => void;
   readonly pending: boolean;
 }) {
+  const activeLocations = data.onboarding.locations.filter((location) => location.active);
+  const defaultLocationId = activeLocations[0]?.id ?? '';
+  const [locationId, setLocationId] = useState(defaultLocationId);
+  const [startsAtValue, setStartsAtValue] = useState('');
+  const timezone =
+    activeLocations.find((location) => location.id === locationId)?.timezone ?? 'Asia/Ho_Chi_Minh';
+  const minimumDateTime = localDateTimeMin(timezone);
+
+  useEffect(() => {
+    if (!open) return;
+    setLocationId(defaultLocationId);
+    setStartsAtValue('');
+  }, [defaultLocationId, open]);
+
   return (
     <ProviderDialog
       description="Khóa lịch được áp dụng khi kiểm tra availability và không xóa lịch hẹn hiện hữu."
@@ -470,26 +774,59 @@ function BlockDialog({
         className="provider-form provider-form--grid"
         onSubmit={(event) => {
           event.preventDefault();
-          const form = new FormData(event.currentTarget);
+          const formElement = event.currentTarget;
+          const form = new FormData(formElement);
+          const startsAtInput = formElement.elements.namedItem('startsAt') as HTMLInputElement;
+          const endsAtInput = formElement.elements.namedItem('endsAt') as HTMLInputElement;
+          let startsAt: string;
+          let endsAt: string;
+          try {
+            startsAt = localDateTimeToIso(String(form.get('startsAt')), timezone);
+            startsAtInput.setCustomValidity('');
+          } catch {
+            startsAtInput.setCustomValidity(
+              'Thời gian bắt đầu không tồn tại trong timezone của cơ sở.',
+            );
+            startsAtInput.reportValidity();
+            return;
+          }
+          try {
+            endsAt = localDateTimeToIso(String(form.get('endsAt')), timezone);
+            endsAtInput.setCustomValidity('');
+          } catch {
+            endsAtInput.setCustomValidity(
+              'Thời gian kết thúc không tồn tại trong timezone của cơ sở.',
+            );
+            endsAtInput.reportValidity();
+            return;
+          }
+          if (Date.parse(endsAt) <= Date.parse(startsAt)) {
+            endsAtInput.setCustomValidity('Thời gian kết thúc phải sau thời gian bắt đầu.');
+            endsAtInput.reportValidity();
+            return;
+          }
           onSubmit({
-            locationId: String(form.get('locationId')),
+            locationId,
             kind: String(form.get('kind')),
-            startsAt: new Date(String(form.get('startsAt'))).toISOString(),
-            endsAt: new Date(String(form.get('endsAt'))).toISOString(),
+            startsAt,
+            endsAt,
             reason: String(form.get('reason')),
           });
         }}
       >
         <label>
           <span>Phạm vi cơ sở</span>
-          <CustomSelect name="locationId" required>
-            {data.onboarding.locations
-              .filter((item) => item.active)
-              .map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+          <CustomSelect
+            name="locationId"
+            onChange={(event) => setLocationId(event.target.value)}
+            required
+            value={locationId}
+          >
+            {activeLocations.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
           </CustomSelect>
         </label>
         <label>
@@ -501,11 +838,26 @@ function BlockDialog({
         </label>
         <label>
           <span>Bắt đầu</span>
-          <input min={localDateTimeMin()} name="startsAt" required type="datetime-local" />
+          <input
+            min={minimumDateTime}
+            name="startsAt"
+            onChange={(event) => {
+              event.currentTarget.setCustomValidity('');
+              setStartsAtValue(event.target.value);
+            }}
+            required
+            type="datetime-local"
+          />
         </label>
         <label>
           <span>Kết thúc</span>
-          <input min={localDateTimeMin()} name="endsAt" required type="datetime-local" />
+          <input
+            min={startsAtValue || minimumDateTime}
+            name="endsAt"
+            onChange={(event) => event.currentTarget.setCustomValidity('')}
+            required
+            type="datetime-local"
+          />
         </label>
         <label className="is-wide">
           <span>Lý do</span>
@@ -515,7 +867,7 @@ function BlockDialog({
           <button onClick={onClose} type="button">
             Hủy
           </button>
-          <button disabled={pending} type="submit">
+          <button disabled={pending || !activeLocations.length} type="submit">
             {pending ? 'Đang lưu…' : 'Khóa thời gian'}
           </button>
         </footer>
@@ -525,31 +877,27 @@ function BlockDialog({
 }
 
 function dateKey(date: Date) {
-  const local = new Date(date);
-  local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-  return local.toISOString().slice(0, 10);
+  return date.toISOString().slice(0, 10);
 }
 function addDays(value: string, days: number) {
-  const date = new Date(`${value}T12:00:00`);
-  date.setDate(date.getDate() + days);
+  const date = new Date(`${value}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
   return dateKey(date);
 }
 function weekDates(input: Date) {
   const date = new Date(input);
-  const mondayOffset = (date.getDay() + 6) % 7;
-  date.setDate(date.getDate() - mondayOffset);
+  const mondayOffset = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - mondayOffset);
   return Array.from({ length: 7 }, (_, index) => {
     const item = new Date(date);
-    item.setDate(date.getDate() + index);
+    item.setUTCDate(date.getUTCDate() + index);
     return item;
   });
 }
 function weekLabel(start: Date | undefined, end: Date | undefined) {
   if (!start || !end) return 'Tuần hiện tại';
-  return `${new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: 'short' }).format(start)} – ${new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' }).format(end)}`;
+  return `${new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: 'short', timeZone: 'UTC' }).format(start)} – ${new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(end)}`;
 }
-function localDateTimeMin() {
-  const date = new Date(Date.now() + 15 * 60_000);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
+function localDateTimeMin(timeZone: string) {
+  return isoToLocalDateTimeInput(new Date(Date.now() + 15 * 60_000).toISOString(), timeZone);
 }

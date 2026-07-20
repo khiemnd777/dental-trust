@@ -43,8 +43,14 @@ import type {
   SupportElevationView,
   TriageIncidentRequest,
 } from '@dental-trust/contracts';
+import type {
+  IncidentClinicResponseRequest,
+  IncidentInternalNoteRequest,
+} from '@dental-trust/contracts/trust-safety-workflows';
 import type { ServerEnvironment } from '@dental-trust/config/server';
 import {
+  ClinicOperationsRepository,
+  type ClinicOperatorScope,
   type IncidentRecord,
   type Prisma,
   type PrismaClient,
@@ -71,9 +77,15 @@ import { PrivateObjectStorageProvider } from '../infrastructure/providers/privat
 
 const PRIVACY_RESPONSE_TARGET_DAYS = 30;
 
+type ClinicIncidentView = IncidentView & {
+  readonly internalNotes: IncidentView['updates'];
+};
+type IncidentResponseView = IncidentView | ClinicIncidentView;
+
 @Injectable()
 export class TrustSafetyService {
   private readonly trust: TrustSafetyRepository;
+  private readonly clinicOperations: ClinicOperationsRepository;
   private readonly cipher: SensitiveFieldCipher;
   private readonly storage: PrivateObjectStorageProvider;
 
@@ -82,6 +94,7 @@ export class TrustSafetyService {
     @Inject(SERVER_ENV) private readonly environment: ServerEnvironment,
   ) {
     this.trust = new TrustSafetyRepository(db);
+    this.clinicOperations = new ClinicOperationsRepository(db);
     this.cipher = new SensitiveFieldCipher(environment.FIELD_ENCRYPTION_KEY);
     this.storage = new PrivateObjectStorageProvider(environment);
   }
@@ -157,9 +170,12 @@ export class TrustSafetyService {
   async listIncidents(
     access: AccessContext,
     query: IncidentListQuery,
-  ): Promise<{ readonly data: readonly IncidentView[]; readonly nextCursor: string | null }> {
-    this.assertIncidentRead(access);
-    const records = await this.trust.listIncidentsScoped(scopeFor(access), {
+  ): Promise<{
+    readonly data: readonly IncidentResponseView[];
+    readonly nextCursor: string | null;
+  }> {
+    const scope = await this.incidentReadScope(access);
+    const records = await this.trust.listIncidentsScoped(scope, {
       limit: query.limit,
       ...(query.cursor ? { cursor: query.cursor } : {}),
       ...(query.caseId ? { caseId: query.caseId } : {}),
@@ -168,7 +184,9 @@ export class TrustSafetyService {
     const hasNext = records.length > query.limit;
     const page = hasNext ? records.slice(0, query.limit) : records;
     return {
-      data: page.map((record) => this.toIncidentView(record)),
+      data: page.map((record) =>
+        'clinicId' in scope ? this.toClinicIncidentView(record) : this.toIncidentView(record),
+      ),
       nextCursor: hasNext ? (page.at(-1)?.id ?? null) : null,
     };
   }
@@ -204,6 +222,62 @@ export class TrustSafetyService {
       }),
     );
     return this.toIncidentView(updated);
+  }
+
+  async addClinicResponse(
+    access: AccessContext,
+    incidentId: string,
+    input: IncidentClinicResponseRequest,
+    idempotencyKey: string,
+  ): Promise<ClinicIncidentView> {
+    const { operator, incident } = await this.loadClinicIncident(access, incidentId);
+    if (incident.status === 'CLOSED') {
+      throw new ConflictException('Reopen the incident before adding a clinic response.');
+    }
+    return this.toClinicIncidentView(
+      await this.trust.addClinicIncidentEvent({
+        incidentId,
+        clinicId: operator.clinicId,
+        organizationId: operator.organizationId,
+        expectedVersion: input.expectedVersion,
+        kind: 'CLINIC_RESPONSE',
+        message: input.message,
+        actor: auditActor(access, operator.organizationId),
+        requestId: access.requestId,
+        command: command(access, idempotencyKey, 'incident.clinic-response', {
+          incidentId,
+          ...input,
+        }),
+      }),
+    );
+  }
+
+  async addIncidentInternalNote(
+    access: AccessContext,
+    incidentId: string,
+    input: IncidentInternalNoteRequest,
+    idempotencyKey: string,
+  ): Promise<ClinicIncidentView> {
+    const { operator, incident } = await this.loadClinicIncident(access, incidentId);
+    if (incident.status === 'CLOSED') {
+      throw new ConflictException('Reopen the incident before adding an internal note.');
+    }
+    return this.toClinicIncidentView(
+      await this.trust.addClinicIncidentEvent({
+        incidentId,
+        clinicId: operator.clinicId,
+        organizationId: operator.organizationId,
+        expectedVersion: input.expectedVersion,
+        kind: 'INTERNAL_NOTE',
+        message: input.note,
+        actor: auditActor(access, operator.organizationId),
+        requestId: access.requestId,
+        command: command(access, idempotencyKey, 'incident.internal-note', {
+          incidentId,
+          ...input,
+        }),
+      }),
+    );
   }
 
   async triageIncident(
@@ -829,10 +903,62 @@ export class TrustSafetyService {
   }
 
   private async loadIncident(access: AccessContext, incidentId: string): Promise<IncidentRecord> {
-    this.assertIncidentRead(access);
-    const incident = await this.trust.findIncidentScoped(scopeFor(access), incidentId);
+    const incident = await this.trust.findIncidentScoped(
+      await this.incidentReadScope(access),
+      incidentId,
+    );
     if (!incident) throw new NotFoundException();
     return incident;
+  }
+
+  private async loadClinicIncident(
+    access: AccessContext,
+    incidentId: string,
+  ): Promise<{ readonly operator: ClinicOperatorScope; readonly incident: IncidentRecord }> {
+    const operator = await this.loadClinicIncidentOperator(access);
+    const incident = await this.trust.findClinicIncidentScoped(
+      incidentId,
+      operator.clinicId,
+      operator.organizationId,
+    );
+    if (!incident) throw new NotFoundException();
+    return { operator, incident };
+  }
+
+  private async incidentReadScope(access: AccessContext) {
+    this.assertIncidentRead(access);
+    const isClinicOperator = access.memberships.some(({ role }) =>
+      ['DENTIST', 'CLINIC_STAFF', 'CLINIC_ADMIN'].includes(role),
+    );
+    if (!isClinicOperator || hasPermission(access, 'case:read:any')) {
+      return scopeFor(access);
+    }
+    const operator = await this.loadClinicIncidentOperator(access);
+    return {
+      userId: access.userId,
+      organizationIds: [operator.organizationId],
+      includeAll: false,
+      clinicId: operator.clinicId,
+    };
+  }
+
+  private async loadClinicIncidentOperator(access: AccessContext): Promise<ClinicOperatorScope> {
+    if (
+      access.impersonation ||
+      requiresMfa(access) ||
+      !access.selectedOrganizationId ||
+      !hasPermission(access, 'incident:read:assigned')
+    ) {
+      throw new ForbiddenException();
+    }
+    const operator = await this.clinicOperations.loadOperator(
+      access.userId,
+      access.selectedOrganizationId,
+    );
+    if (!operator?.permissions.includes('INCIDENT_RESPONSE')) {
+      throw new ForbiddenException();
+    }
+    return operator;
   }
 
   private toIncidentView(incident: IncidentRecord): IncidentView {
@@ -851,12 +977,14 @@ export class TrustSafetyService {
       closedAt: incident.closedAt?.toISOString() ?? null,
       createdAt: incident.createdAt.toISOString(),
       updatedAt: incident.updatedAt.toISOString(),
-      updates: incident.events.map((event) => ({
-        id: event.id,
-        eventType: event.eventType,
-        message: incidentEventMessage(event.details),
-        createdAt: event.createdAt.toISOString(),
-      })),
+      updates: incident.events
+        .filter((event) => event.visibility === 'PARTICIPANTS')
+        .map((event) => ({
+          id: event.id,
+          eventType: event.eventType,
+          message: incidentEventMessage(event.details),
+          createdAt: event.createdAt.toISOString(),
+        })),
       warrantyClaim: incident.warrantyClaim
         ? {
             id: incident.warrantyClaim.id,
@@ -865,6 +993,20 @@ export class TrustSafetyService {
             resolution: incident.warrantyClaim.resolution,
           }
         : null,
+    };
+  }
+
+  private toClinicIncidentView(incident: IncidentRecord): ClinicIncidentView {
+    return {
+      ...this.toIncidentView(incident),
+      internalNotes: incident.events
+        .filter((event) => event.visibility === 'STAFF_INTERNAL')
+        .map((event) => ({
+          id: event.id,
+          eventType: event.eventType,
+          message: incidentEventMessage(event.details),
+          createdAt: event.createdAt.toISOString(),
+        })),
     };
   }
 

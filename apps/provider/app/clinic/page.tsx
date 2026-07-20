@@ -2,6 +2,7 @@ import { ClinicWorkspace } from '@/components/clinic-workspace';
 import { ProviderIcon } from '@/components/provider-icon';
 import { resolveClinicWorkspaceTab } from '@/lib/clinic-tabs';
 import { getProviderClinic } from '@/lib/provider-data';
+import { requireProviderSession } from '@/lib/require-session';
 
 export default async function Clinic({
   searchParams,
@@ -10,7 +11,10 @@ export default async function Clinic({
 }) {
   const query = await searchParams;
   const initialTab = resolveClinicWorkspaceTab(query.tab);
-  const data = await getProviderClinic().catch(() => null);
+  const [data, session] = await Promise.all([
+    getProviderClinic().catch(() => null),
+    requireProviderSession(),
+  ]);
 
   return (
     <main className="provider-main provider-main--clinic">
@@ -23,7 +27,12 @@ export default async function Clinic({
       </header>
 
       {data ? (
-        <ClinicWorkspace data={data} initialTab={initialTab} key={initialTab} />
+        <ClinicWorkspace
+          currentUserId={session.userId}
+          data={data}
+          initialTab={initialTab}
+          key={initialTab}
+        />
       ) : (
         <section className="provider-inline-alert provider-inline-alert--error" role="alert">
           <ProviderIcon name="alert" />

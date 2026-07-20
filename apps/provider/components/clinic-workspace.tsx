@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { CustomSelect } from '@dental-trust/ui';
 import type {
+  ClinicAnalyticsView,
+  ClinicAvailabilityView,
+  ClinicCalendarConnectionView,
+  ClinicDentistView,
   ClinicOnboardingView,
   ClinicServiceView,
   ClinicTeamMemberView,
@@ -24,7 +28,19 @@ import {
   labelStatus,
 } from '@/lib/presentation';
 
-type ClinicDialog = 'profile' | 'invite' | 'service' | 'rule' | 'policy' | 'submit' | null;
+type ClinicDialog =
+  | 'profile'
+  | 'location'
+  | 'dentist'
+  | 'member-access'
+  | 'member-status'
+  | 'calendar'
+  | 'invite'
+  | 'service'
+  | 'rule'
+  | 'policy'
+  | 'submit'
+  | null;
 
 const tabs: readonly {
   id: ClinicWorkspaceTab;
@@ -36,6 +52,7 @@ const tabs: readonly {
   { id: 'services', label: 'Dịch vụ & giá', icon: 'services' },
   { id: 'availability', label: 'Lịch công bố', icon: 'calendar' },
   { id: 'analytics', label: 'Hiệu suất', icon: 'trend' },
+  { id: 'billing', label: 'Thanh toán', icon: 'document' },
   { id: 'security', label: 'Bảo mật', icon: 'shield' },
 ];
 
@@ -51,17 +68,49 @@ const permissionLabels: Readonly<Record<string, string>> = {
   ANALYTICS_READ: 'Xem phân tích',
 };
 
+type ClinicTeamRole = 'DENTIST' | 'CLINIC_STAFF' | 'CLINIC_ADMIN';
+
+const rolePermissions: Readonly<Record<ClinicTeamRole, ReadonlySet<string>>> = {
+  DENTIST: new Set([
+    'CASE_INBOX',
+    'TREATMENT_PLAN',
+    'SCHEDULING',
+    'CLINICAL_RECORDS',
+    'AFTERCARE',
+    'INCIDENT_RESPONSE',
+  ]),
+  CLINIC_STAFF: new Set([
+    'CASE_INBOX',
+    'SCHEDULING',
+    'CLINICAL_RECORDS',
+    'AFTERCARE',
+    'INCIDENT_RESPONSE',
+    'REVIEW_RESPONSE',
+  ]),
+  CLINIC_ADMIN: new Set(Object.keys(permissionLabels)),
+};
+
 export function ClinicWorkspace({
   data,
   initialTab,
+  currentUserId,
 }: {
   readonly data: ProviderClinicData;
   readonly initialTab: ClinicWorkspaceTab;
+  readonly currentUserId: string;
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [dialog, setDialog] = useState<ClinicDialog>(null);
   const [archiveService, setArchiveService] = useState<ClinicServiceView | null>(null);
+  const [selectedMember, setSelectedMember] = useState<ClinicTeamMemberView | null>(null);
+  const [memberStatusAction, setMemberStatusAction] = useState<'suspend' | 'remove'>('suspend');
+  const [selectedLocation, setSelectedLocation] = useState<
+    ClinicOnboardingView['locations'][number] | null
+  >(null);
+  const [selectedCalendar, setSelectedCalendar] = useState<ClinicCalendarConnectionView | null>(
+    null,
+  );
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,12 +119,16 @@ export function ClinicWorkspace({
   const verifiedDentists = data.dentists.filter(
     (item) => item.active && item.licenseStatus.toUpperCase().includes('VERIFIED'),
   );
+  const currentMember = data.team.members.find((member) => member.userId === currentUserId);
+  const canManageClinic = currentMember?.role === 'CLINIC_ADMIN';
+  const canSchedule = currentMember?.permissions.includes('SCHEDULING') === true;
+  const canReadAnalytics = currentMember?.permissions.includes('ANALYTICS_READ') === true;
   const readiness = Math.min(
     100,
     Math.round(
       (onboarding.progressPercent +
         (data.services.services.some((item) => item.active) ? 100 : 0) +
-        (data.availability.rules.some((item) => item.active) ? 100 : 0) +
+        (data.availability?.rules.some((item) => item.active) ? 100 : 0) +
         (data.team.members.some((item) => item.status === 'ACTIVE' && item.mfaEnabled) ? 100 : 0)) /
         4,
     ),
@@ -105,6 +158,38 @@ export function ClinicWorkspace({
     }
   }
 
+  async function beginPayoutOnboarding(): Promise<void> {
+    setPending(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const returnUrl = `${window.location.origin}/clinic?tab=billing`;
+      const result = await sendProviderCommand<{ onboardingUrl: string }>({
+        command: 'clinic_begin_payout',
+        payload: {
+          expectedVersion: onboarding.version,
+          returnUrl,
+          refreshUrl: returnUrl,
+        },
+      });
+      const destination = new URL(result.onboardingUrl);
+      if (
+        destination.protocol !== 'https:' &&
+        !(
+          destination.protocol === 'http:' &&
+          ['localhost', '127.0.0.1'].includes(destination.hostname)
+        )
+      ) {
+        throw new Error('unsafe_payout_onboarding_url');
+      }
+      window.location.assign(destination.toString());
+    } catch (reason) {
+      setError(commandErrorMessage(reason));
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <>
       {notice ? (
@@ -124,6 +209,19 @@ export function ClinicWorkspace({
             ×
           </button>
         </div>
+      ) : null}
+
+      {!canManageClinic && ['overview', 'team', 'services', 'security'].includes(activeTab) ? (
+        <section className="provider-inline-alert" role="status">
+          <ProviderIcon name="shield" />
+          <span>
+            <strong>Phạm vi chỉ đọc</strong>
+            <small>
+              Một số thao tác quản trị yêu cầu vai trò quản trị phòng khám. Dữ liệu hiện tại vẫn có
+              thể được xem trong phạm vi được phân công.
+            </small>
+          </span>
+        </section>
       ) : null}
 
       <section className="provider-clinic-hero provider-clinic-hero--live">
@@ -170,28 +268,120 @@ export function ClinicWorkspace({
         <OverviewTab
           data={data}
           onEditProfile={() => setDialog('profile')}
+          onAddLocation={() => {
+            setSelectedLocation(null);
+            setDialog('location');
+          }}
+          onEditLocation={(location) => {
+            setSelectedLocation(location);
+            setDialog('location');
+          }}
+          canManage={canManageClinic}
           onSelectTab={selectTab}
           onSubmit={() => setDialog('submit')}
           readiness={readiness}
           verifiedDentists={verifiedDentists.length}
         />
       ) : null}
-      {activeTab === 'team' ? <TeamTab data={data} onInvite={() => setDialog('invite')} /> : null}
+      {activeTab === 'team' ? (
+        <TeamTab
+          canManage={canManageClinic}
+          currentUserId={currentUserId}
+          data={data}
+          onAddDentist={() => setDialog('dentist')}
+          onEditMember={(member) => {
+            setSelectedMember(member);
+            setDialog('member-access');
+          }}
+          onInvite={() => setDialog('invite')}
+          onMemberStatus={(member, action) => {
+            setSelectedMember(member);
+            setMemberStatusAction(action);
+            setDialog('member-status');
+          }}
+          onToggleDentist={(dentist) =>
+            void execute(
+              () =>
+                sendProviderCommand({
+                  command: 'clinic_update_dentist',
+                  resourceId: dentist.id,
+                  payload: {
+                    active: !dentist.active,
+                    reason: dentist.active
+                      ? 'Ngừng phân công nha sĩ theo yêu cầu quản trị.'
+                      : 'Kích hoạt lại nha sĩ theo yêu cầu quản trị.',
+                  },
+                }),
+              dentist.active ? 'Đã ngừng phân công nha sĩ.' : 'Đã kích hoạt lại nha sĩ.',
+            )
+          }
+        />
+      ) : null}
       {activeTab === 'services' ? (
         <ServicesTab
           data={data}
+          canManage={canManageClinic}
           onArchive={setArchiveService}
           onPublish={() => setDialog('service')}
         />
       ) : null}
       {activeTab === 'availability' ? (
-        <AvailabilityTab
+        data.availability ? (
+          <AvailabilityTab
+            availability={data.availability}
+            data={data}
+            canManage={canSchedule}
+            onCreateRule={() => setDialog('rule')}
+            onConnectCalendar={() => {
+              setSelectedCalendar(null);
+              setDialog('calendar');
+            }}
+            onDisconnectCalendar={(connection) => {
+              setSelectedCalendar(connection);
+              setDialog('calendar');
+            }}
+            onEditPolicy={() => setDialog('policy')}
+            onSyncCalendar={(connection) =>
+              void execute(
+                () =>
+                  sendProviderCommand({
+                    command: 'clinic_sync_calendar',
+                    resourceId: connection.id,
+                    payload: { expectedStatus: connection.status },
+                  }),
+                'Đã yêu cầu đồng bộ lịch ngoài.',
+              )
+            }
+          />
+        ) : (
+          <PermissionState label="lịch khả dụng" />
+        )
+      ) : null}
+      {activeTab === 'analytics' ? (
+        (canReadAnalytics || canManageClinic) && data.analytics ? (
+          <AnalyticsTab analytics={data.analytics} />
+        ) : (
+          <PermissionState label="phân tích hiệu suất" />
+        )
+      ) : null}
+      {activeTab === 'billing' ? (
+        <BillingTab
+          canManage={canManageClinic}
           data={data}
-          onCreateRule={() => setDialog('rule')}
-          onEditPolicy={() => setDialog('policy')}
+          onBegin={() => void beginPayoutOnboarding()}
+          onRefresh={() =>
+            void execute(
+              () =>
+                sendProviderCommand({
+                  command: 'clinic_refresh_payout',
+                  payload: { expectedVersion: onboarding.version },
+                }),
+              'Đã làm mới trạng thái payout.',
+            )
+          }
+          pending={pending}
         />
       ) : null}
-      {activeTab === 'analytics' ? <AnalyticsTab data={data} /> : null}
       {activeTab === 'security' ? <SecurityTab data={data} /> : null}
 
       <ProfileDialog
@@ -206,6 +396,19 @@ export function ClinicWorkspace({
         open={dialog === 'profile'}
         pending={pending}
       />
+      <LocationDialog
+        data={data}
+        location={selectedLocation}
+        onClose={() => setDialog(null)}
+        onSubmit={(payload) =>
+          void execute(
+            () => sendProviderCommand({ command: 'clinic_upsert_location', payload }),
+            selectedLocation ? 'Đã cập nhật cơ sở.' : 'Đã thêm cơ sở mới.',
+          )
+        }
+        open={dialog === 'location'}
+        pending={pending}
+      />
       <InviteDialog
         data={data}
         onClose={() => setDialog(null)}
@@ -216,6 +419,60 @@ export function ClinicWorkspace({
           )
         }
         open={dialog === 'invite'}
+        pending={pending}
+      />
+      <DentistDialog
+        onClose={() => setDialog(null)}
+        onSubmit={(payload) =>
+          void execute(
+            () => sendProviderCommand({ command: 'clinic_add_dentist', payload }),
+            'Đã thêm nha sĩ vào phòng khám.',
+          )
+        }
+        open={dialog === 'dentist'}
+        pending={pending}
+      />
+      <MemberAccessDialog
+        data={data}
+        member={selectedMember}
+        onClose={() => setDialog(null)}
+        onSubmit={(payload) => {
+          if (!selectedMember) return;
+          void execute(
+            () =>
+              sendProviderCommand({
+                command: 'clinic_update_team_access',
+                resourceId: selectedMember.membershipId,
+                payload,
+              }),
+            'Đã cập nhật vai trò và phạm vi truy cập.',
+          );
+        }}
+        open={dialog === 'member-access'}
+        pending={pending}
+      />
+      <MemberStatusDialog
+        action={memberStatusAction}
+        member={selectedMember}
+        onClose={() => setDialog(null)}
+        onSubmit={(reason) => {
+          if (!selectedMember) return;
+          void execute(
+            () =>
+              sendProviderCommand({
+                command:
+                  memberStatusAction === 'suspend'
+                    ? 'clinic_suspend_team_member'
+                    : 'clinic_remove_team_member',
+                resourceId: selectedMember.membershipId,
+                payload: { expectedVersion: selectedMember.version, reason },
+              }),
+            memberStatusAction === 'suspend'
+              ? 'Đã tạm dừng quyền truy cập.'
+              : 'Đã xóa thành viên khỏi phòng khám.',
+          );
+        }}
+        open={dialog === 'member-status'}
         pending={pending}
       />
       <ServiceDialog
@@ -242,16 +499,38 @@ export function ClinicWorkspace({
         open={dialog === 'rule'}
         pending={pending}
       />
-      <PolicyDialog
+      {data.availability ? (
+        <PolicyDialog
+          availability={data.availability}
+          onClose={() => setDialog(null)}
+          onSubmit={(payload) =>
+            void execute(
+              () => sendProviderCommand({ command: 'clinic_update_scheduling_policy', payload }),
+              'Chính sách đặt lịch đã được cập nhật.',
+            )
+          }
+          open={dialog === 'policy'}
+          pending={pending}
+        />
+      ) : null}
+      <CalendarDialog
+        connection={selectedCalendar}
         data={data}
         onClose={() => setDialog(null)}
         onSubmit={(payload) =>
           void execute(
-            () => sendProviderCommand({ command: 'clinic_update_scheduling_policy', payload }),
-            'Chính sách đặt lịch đã được cập nhật.',
+            () =>
+              selectedCalendar
+                ? sendProviderCommand({
+                    command: 'clinic_disconnect_calendar',
+                    resourceId: selectedCalendar.id,
+                    payload,
+                  })
+                : sendProviderCommand({ command: 'clinic_connect_calendar', payload }),
+            selectedCalendar ? 'Đã ngắt kết nối lịch.' : 'Đã kết nối lịch ngoài.',
           )
         }
-        open={dialog === 'policy'}
+        open={dialog === 'calendar'}
         pending={pending}
       />
       <SubmitDialog
@@ -295,6 +574,9 @@ function OverviewTab({
   onEditProfile,
   onSubmit,
   onSelectTab,
+  canManage,
+  onAddLocation,
+  onEditLocation,
 }: {
   readonly data: ProviderClinicData;
   readonly readiness: number;
@@ -302,6 +584,9 @@ function OverviewTab({
   readonly onEditProfile: () => void;
   readonly onSubmit: () => void;
   readonly onSelectTab: (tab: ClinicWorkspaceTab) => void;
+  readonly canManage: boolean;
+  readonly onAddLocation: () => void;
+  readonly onEditLocation: (location: ClinicOnboardingView['locations'][number]) => void;
 }) {
   const onboarding = data.onboarding;
   const cards = [
@@ -321,8 +606,10 @@ function OverviewTab({
     },
     {
       label: 'Khung lịch hoạt động',
-      value: data.availability.rules.filter((item) => item.active).length,
-      detail: `${data.availability.blocks.length} thời gian đang khóa`,
+      value: data.availability?.rules.filter((item) => item.active).length ?? 0,
+      detail: data.availability
+        ? `${data.availability.blocks.length} thời gian đang khóa`
+        : 'Không có quyền xem lịch khả dụng',
       icon: 'calendar' as const,
       tone: 'mint',
     },
@@ -355,7 +642,12 @@ function OverviewTab({
                 <p>Thông tin được dùng cho xác minh và hiển thị tới bệnh nhân.</p>
               </span>
             </div>
-            <button className="provider-text-button" onClick={onEditProfile} type="button">
+            <button
+              className="provider-text-button"
+              disabled={!canManage}
+              onClick={onEditProfile}
+              type="button"
+            >
               Chỉnh sửa
             </button>
           </header>
@@ -406,12 +698,17 @@ function OverviewTab({
             )}
           </div>
           <footer>
-            <button className="provider-secondary-button" onClick={onEditProfile} type="button">
+            <button
+              className="provider-secondary-button"
+              disabled={!canManage}
+              onClick={onEditProfile}
+              type="button"
+            >
               Cập nhật hồ sơ
             </button>
             <button
               className="provider-primary-button"
-              disabled={Boolean(onboarding.submittedAt) || requirements.length > 0}
+              disabled={!canManage || Boolean(onboarding.submittedAt) || requirements.length > 0}
               onClick={onSubmit}
               type="button"
             >
@@ -450,12 +747,18 @@ function OverviewTab({
               <ProviderIcon name="chevron" />
             </button>
             <button onClick={() => onSelectTab('availability')} type="button">
-              <span className={data.availability.policy ? 'is-ok' : 'is-warning'}>
+              <span className={data.availability?.policy ? 'is-ok' : 'is-warning'}>
                 <ProviderIcon name="calendar" />
               </span>
               <div>
                 <strong>Chính sách đặt lịch</strong>
-                <small>{data.availability.policy ? 'Đã cấu hình' : 'Chưa cấu hình'}</small>
+                <small>
+                  {data.availability?.policy
+                    ? 'Đã cấu hình'
+                    : data.availability
+                      ? 'Chưa cấu hình'
+                      : 'Không có quyền xem'}
+                </small>
               </div>
               <ProviderIcon name="chevron" />
             </button>
@@ -472,6 +775,46 @@ function OverviewTab({
           </section>
         </aside>
       </div>
+      <section className="provider-panel provider-team-table provider-team-table--locations">
+        <header className="provider-panel-header">
+          <div>
+            <span className="provider-panel-icon provider-panel-icon--blue">
+              <ProviderIcon name="location" />
+            </span>
+            <span>
+              <h2>Cơ sở phòng khám</h2>
+              <p>Địa chỉ, timezone và đầu mối vận hành dùng cho lịch hẹn và hồ sơ công khai.</p>
+            </span>
+          </div>
+          <button
+            className="provider-primary-button"
+            disabled={!canManage}
+            onClick={onAddLocation}
+            type="button"
+          >
+            <ProviderIcon name="plus" /> Thêm cơ sở
+          </button>
+        </header>
+        {onboarding.locations.map((location) => (
+          <article className="provider-data-table-row provider-team-row" key={location.id}>
+            <span className="provider-avatar provider-avatar--blue">{initials(location.name)}</span>
+            <div>
+              <strong>{location.name}</strong>
+              <small>{location.address}</small>
+            </div>
+            <span>{[location.district, location.city].filter(Boolean).join(', ')}</span>
+            <span>{location.timezone}</span>
+            <span
+              className={`provider-status provider-status--${location.active ? 'success' : 'neutral'}`}
+            >
+              {location.active ? 'Hoạt động' : 'Tạm dừng'}
+            </span>
+            <button disabled={!canManage} onClick={() => onEditLocation(location)} type="button">
+              Chỉnh sửa
+            </button>
+          </article>
+        ))}
+      </section>
     </div>
   );
 }
@@ -479,9 +822,21 @@ function OverviewTab({
 function TeamTab({
   data,
   onInvite,
+  canManage,
+  onEditMember,
+  onMemberStatus,
+  onAddDentist,
+  onToggleDentist,
+  currentUserId,
 }: {
   readonly data: ProviderClinicData;
   readonly onInvite: () => void;
+  readonly canManage: boolean;
+  readonly onEditMember: (member: ClinicTeamMemberView) => void;
+  readonly onMemberStatus: (member: ClinicTeamMemberView, action: 'suspend' | 'remove') => void;
+  readonly onAddDentist: () => void;
+  readonly onToggleDentist: (dentist: ClinicDentistView) => void;
+  readonly currentUserId: string;
 }) {
   const activeMembers = data.team.members.filter((item) => item.status === 'ACTIVE');
   return (
@@ -494,7 +849,12 @@ function TeamTab({
             đang chờ
           </p>
         </div>
-        <button className="provider-primary-button" onClick={onInvite} type="button">
+        <button
+          className="provider-primary-button"
+          disabled={!canManage}
+          onClick={onInvite}
+          type="button"
+        >
           <ProviderIcon name="plus" /> Mời thành viên
         </button>
       </section>
@@ -507,7 +867,14 @@ function TeamTab({
           <span>Trạng thái</span>
         </header>
         {data.team.members.map((member) => (
-          <TeamMemberRow key={member.membershipId} member={member} />
+          <TeamMemberRow
+            canManage={canManage && member.userId !== currentUserId}
+            key={member.membershipId}
+            member={member}
+            onEdit={() => onEditMember(member)}
+            onRemove={() => onMemberStatus(member, 'remove')}
+            onSuspend={() => onMemberStatus(member, 'suspend')}
+          />
         ))}
         {!data.team.members.length ? (
           <EmptyState
@@ -542,11 +909,69 @@ function TeamTab({
           ))}
         </section>
       ) : null}
+      <section className="provider-tab-toolbar provider-panel">
+        <div>
+          <h2>Nha sĩ liên kết</h2>
+          <p>Trạng thái liên kết và giấy phép được kiểm soát trước khi phân công ca.</p>
+        </div>
+        <button
+          className="provider-primary-button"
+          disabled={!canManage}
+          onClick={onAddDentist}
+          type="button"
+        >
+          <ProviderIcon name="plus" /> Thêm nha sĩ
+        </button>
+      </section>
+      <section className="provider-panel provider-team-table provider-team-table--dentists">
+        <header className="provider-data-table-head">
+          <span>Nha sĩ</span>
+          <span>Giấy phép</span>
+          <span>Trạng thái</span>
+          <span>Liên kết</span>
+          <span />
+        </header>
+        {data.dentists.map((dentist) => (
+          <article className="provider-data-table-row provider-team-row" key={dentist.id}>
+            <span className="provider-avatar provider-avatar--blue">
+              {initials(dentist.fullName)}
+            </span>
+            <div>
+              <strong>{dentist.fullName}</strong>
+              <small>{dentist.slug}</small>
+            </div>
+            <span>{dentist.licenseNumber}</span>
+            <span
+              className={`provider-status provider-status--${dentist.licenseStatus.toUpperCase().includes('VERIFIED') ? 'success' : 'attention'}`}
+            >
+              {verificationLabel(dentist.licenseStatus)}
+            </span>
+            <span>{dentist.active ? 'Đang hoạt động' : 'Đã ngừng'}</span>
+            <span className="provider-row-actions">
+              <button disabled={!canManage} onClick={() => onToggleDentist(dentist)} type="button">
+                {dentist.active ? 'Ngừng' : 'Kích hoạt'}
+              </button>
+            </span>
+          </article>
+        ))}
+      </section>
     </div>
   );
 }
 
-function TeamMemberRow({ member }: { readonly member: ClinicTeamMemberView }) {
+function TeamMemberRow({
+  member,
+  canManage,
+  onEdit,
+  onSuspend,
+  onRemove,
+}: {
+  readonly member: ClinicTeamMemberView;
+  readonly canManage: boolean;
+  readonly onEdit: () => void;
+  readonly onSuspend: () => void;
+  readonly onRemove: () => void;
+}) {
   return (
     <article className="provider-data-table-row provider-team-row">
       <span className="provider-avatar provider-avatar--blue">{initials(member.email)}</span>
@@ -555,7 +980,7 @@ function TeamMemberRow({ member }: { readonly member: ClinicTeamMemberView }) {
         <small>{member.jobTitle || 'Chưa đặt chức danh'}</small>
       </div>
       <span>{roleLabel(member.role)}</span>
-      <span>
+      <span className="provider-row-actions">
         {member.locationIds.length ? `${member.locationIds.length} cơ sở` : 'Toàn tổ chức'}
       </span>
       <span
@@ -571,6 +996,21 @@ function TeamMemberRow({ member }: { readonly member: ClinicTeamMemberView }) {
       >
         {labelStatus(member.status)}
       </span>
+      <span>
+        <button disabled={!canManage || member.status === 'REMOVED'} onClick={onEdit} type="button">
+          Sửa quyền
+        </button>
+        {member.status === 'ACTIVE' ? (
+          <button disabled={!canManage} onClick={onSuspend} type="button">
+            Tạm dừng
+          </button>
+        ) : null}
+        {member.status !== 'REMOVED' ? (
+          <button disabled={!canManage} onClick={onRemove} type="button">
+            Xóa
+          </button>
+        ) : null}
+      </span>
     </article>
   );
 }
@@ -579,10 +1019,12 @@ function ServicesTab({
   data,
   onPublish,
   onArchive,
+  canManage,
 }: {
   readonly data: ProviderClinicData;
   readonly onPublish: () => void;
   readonly onArchive: (service: ClinicServiceView) => void;
+  readonly canManage: boolean;
 }) {
   const active = data.services.services.filter((item) => item.active);
   return (
@@ -594,7 +1036,7 @@ function ServicesTab({
         </div>
         <button
           className="provider-primary-button"
-          disabled={!data.services.catalog.length}
+          disabled={!canManage || !data.services.catalog.length}
           onClick={onPublish}
           type="button"
         >
@@ -653,7 +1095,7 @@ function ServicesTab({
               <footer>
                 <span>{service.versions.length} phiên bản</span>
                 {service.active ? (
-                  <button onClick={() => onArchive(service)} type="button">
+                  <button disabled={!canManage} onClick={() => onArchive(service)} type="button">
                     Ngừng công bố
                   </button>
                 ) : null}
@@ -678,14 +1120,24 @@ function ServicesTab({
 
 function AvailabilityTab({
   data,
+  availability,
   onCreateRule,
   onEditPolicy,
+  canManage,
+  onConnectCalendar,
+  onSyncCalendar,
+  onDisconnectCalendar,
 }: {
   readonly data: ProviderClinicData;
+  readonly availability: ClinicAvailabilityView;
   readonly onCreateRule: () => void;
   readonly onEditPolicy: () => void;
+  readonly canManage: boolean;
+  readonly onConnectCalendar: () => void;
+  readonly onSyncCalendar: (connection: ClinicCalendarConnectionView) => void;
+  readonly onDisconnectCalendar: (connection: ClinicCalendarConnectionView) => void;
 }) {
-  const policy = data.availability.policy;
+  const policy = availability.policy;
   return (
     <div className="provider-clinic-tab">
       <section className="provider-tab-toolbar">
@@ -696,7 +1148,7 @@ function AvailabilityTab({
         <div>
           <button
             className="provider-secondary-button"
-            disabled={!policy}
+            disabled={!canManage || !policy}
             onClick={onEditPolicy}
             type="button"
           >
@@ -704,7 +1156,7 @@ function AvailabilityTab({
           </button>
           <button
             className="provider-primary-button"
-            disabled={!data.onboarding.locations.length}
+            disabled={!canManage || !data.onboarding.locations.length}
             onClick={onCreateRule}
             type="button"
           >
@@ -722,14 +1174,13 @@ function AvailabilityTab({
               <span>
                 <h2>Khung lịch công bố</h2>
                 <p>
-                  {data.availability.rules.filter((item) => item.active).length} quy tắc đang hoạt
-                  động
+                  {availability.rules.filter((item) => item.active).length} quy tắc đang hoạt động
                 </p>
               </span>
             </div>
           </header>
-          {data.availability.rules.length ? (
-            data.availability.rules.map((rule) => (
+          {availability.rules.length ? (
+            availability.rules.map((rule) => (
               <article key={rule.id}>
                 <span className="provider-weekday">{weekdayLabel(rule.dayOfWeek)}</span>
                 <div>
@@ -794,17 +1245,19 @@ function AvailabilityTab({
                 </div>
               </dl>
             ) : null}
-            <button disabled={!policy} onClick={onEditPolicy} type="button">
+            <button disabled={!canManage || !policy} onClick={onEditPolicy} type="button">
               Chỉnh sửa chính sách
             </button>
           </section>
           <section className="provider-panel provider-calendar-connections">
             <header>
               <h2>Đồng bộ lịch</h2>
-              <span>{data.availability.calendarConnections.length}</span>
+              <button disabled={!canManage} onClick={onConnectCalendar} type="button">
+                <ProviderIcon name="plus" /> Kết nối
+              </button>
             </header>
-            {data.availability.calendarConnections.length ? (
-              data.availability.calendarConnections.map((connection) => (
+            {availability.calendarConnections.length ? (
+              availability.calendarConnections.map((connection) => (
                 <div key={connection.id}>
                   <span className={connection.status === 'ACTIVE' ? 'is-ok' : 'is-warning'}>
                     <ProviderIcon name={connection.status === 'ACTIVE' ? 'check' : 'alert'} />
@@ -818,6 +1271,24 @@ function AvailabilityTab({
                     </small>
                   </div>
                   <em>{labelStatus(connection.status)}</em>
+                  {connection.status !== 'DISCONNECTED' ? (
+                    <span className="provider-row-actions">
+                      <button
+                        disabled={!canManage || connection.status === 'PENDING'}
+                        onClick={() => onSyncCalendar(connection)}
+                        type="button"
+                      >
+                        Đồng bộ
+                      </button>
+                      <button
+                        disabled={!canManage}
+                        onClick={() => onDisconnectCalendar(connection)}
+                        type="button"
+                      >
+                        Ngắt
+                      </button>
+                    </span>
+                  ) : null}
                 </div>
               ))
             ) : (
@@ -827,9 +1298,9 @@ function AvailabilityTab({
           <section className="provider-panel provider-calendar-connections">
             <header>
               <h2>Thời gian khóa</h2>
-              <span>{data.availability.blocks.length}</span>
+              <span>{availability.blocks.length}</span>
             </header>
-            {data.availability.blocks.slice(0, 4).map((block) => (
+            {availability.blocks.slice(0, 4).map((block) => (
               <div key={block.id}>
                 <span className="is-warning">
                   <ProviderIcon name="clock" />
@@ -843,9 +1314,7 @@ function AvailabilityTab({
                 <em>{humanize(block.kind)}</em>
               </div>
             ))}
-            {!data.availability.blocks.length ? (
-              <p>Không có thời gian khóa đang ghi nhận.</p>
-            ) : null}
+            {!availability.blocks.length ? <p>Không có thời gian khóa đang ghi nhận.</p> : null}
           </section>
         </aside>
       </div>
@@ -853,8 +1322,8 @@ function AvailabilityTab({
   );
 }
 
-function AnalyticsTab({ data }: { readonly data: ProviderClinicData }) {
-  const { metrics } = data.analytics;
+function AnalyticsTab({ analytics }: { readonly analytics: ClinicAnalyticsView }) {
+  const { metrics } = analytics;
   const rates = [
     ['Tư vấn → phương án', metrics.consultationConversionRate],
     ['Phương án → đặt lịch', metrics.bookingConversionRate],
@@ -867,8 +1336,7 @@ function AnalyticsTab({ data }: { readonly data: ProviderClinicData }) {
         <div>
           <h2>Hiệu suất phòng khám</h2>
           <p>
-            {data.analytics.periodDays} ngày gần nhất · cập nhật{' '}
-            {formatDateTime(data.analytics.generatedAt)}
+            {analytics.periodDays} ngày gần nhất · cập nhật {formatDateTime(analytics.generatedAt)}
           </p>
         </div>
       </section>
@@ -958,14 +1426,108 @@ function AnalyticsTab({ data }: { readonly data: ProviderClinicData }) {
               <dd>{formatDate(metrics.nextVerificationExpiry)}</dd>
             </div>
           </dl>
-          {data.analytics.unavailableMetrics.length ? (
+          {analytics.unavailableMetrics.length ? (
             <p>
-              <ProviderIcon name="alert" /> {data.analytics.unavailableMetrics.length} chỉ số chưa
-              đủ dữ liệu.
+              <ProviderIcon name="alert" /> {analytics.unavailableMetrics.length} chỉ số chưa đủ dữ
+              liệu.
             </p>
           ) : null}
         </aside>
       </div>
+    </div>
+  );
+}
+
+function BillingTab({
+  data,
+  canManage,
+  pending,
+  onBegin,
+  onRefresh,
+}: {
+  readonly data: ProviderClinicData;
+  readonly canManage: boolean;
+  readonly pending: boolean;
+  readonly onBegin: () => void;
+  readonly onRefresh: () => void;
+}) {
+  if (!data.billing) return <PermissionState label="thanh toán và payout" />;
+  const billing = data.billing;
+  const payoutStatus = billing.payout?.status ?? data.onboarding.payoutStatus;
+  const payoutActive = payoutStatus === 'ACTIVE';
+  return (
+    <div className="provider-clinic-tab">
+      <section className="provider-tab-toolbar">
+        <div>
+          <h2>Thanh toán và payout</h2>
+          <p>Trạng thái onboarding nhận tiền và tổng hợp thanh toán theo tiền tệ.</p>
+        </div>
+        <div>
+          <button
+            className="provider-secondary-button"
+            disabled={!canManage || pending || !billing.payout}
+            onClick={onRefresh}
+            type="button"
+          >
+            Làm mới trạng thái
+          </button>
+          {!payoutActive ? (
+            <button
+              className="provider-primary-button"
+              disabled={!canManage || pending}
+              onClick={onBegin}
+              type="button"
+            >
+              Thiết lập payout
+            </button>
+          ) : null}
+        </div>
+      </section>
+      <section className="provider-analytics-metrics">
+        <article className="provider-panel">
+          <small>Trạng thái payout</small>
+          <strong>{labelStatus(payoutStatus)}</strong>
+          <span>
+            {billing.payout?.provider ? humanize(billing.payout.provider) : 'Chưa chọn provider'}
+          </span>
+        </article>
+        {(data.analytics?.paymentSummaries ?? []).map((summary) => (
+          <article className="provider-panel" key={summary.currency}>
+            <small>{summary.currency} đã ghi nhận</small>
+            <strong>{formatCurrency(summary.grossAmountMinor, summary.currency)}</strong>
+            <span>{summary.count} giao dịch trong kỳ</span>
+          </article>
+        ))}
+      </section>
+      <section className="provider-panel provider-team-table provider-team-table--billing">
+        <header className="provider-data-table-head">
+          <span>Tiền tệ</span>
+          <span>Trạng thái</span>
+          <span>Số giao dịch</span>
+          <span>Giá trị</span>
+        </header>
+        {billing.payments.map((payment) => (
+          <article
+            className="provider-data-table-row provider-team-row"
+            key={`${payment.currency}-${payment.status}`}
+          >
+            <span className="provider-avatar provider-avatar--blue">{payment.currency}</span>
+            <div>
+              <strong>{payment.currency}</strong>
+              <small>{labelStatus(payment.status)}</small>
+            </div>
+            <span>{labelStatus(payment.status)}</span>
+            <span>{payment.count}</span>
+            <span>{formatCurrency(payment.amountMinor, payment.currency)}</span>
+          </article>
+        ))}
+        {!billing.payments.length ? (
+          <EmptyState
+            title="Chưa có thanh toán"
+            description="Các tổng hợp thanh toán sẽ xuất hiện sau khi có giao dịch hợp lệ."
+          />
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -1229,6 +1791,145 @@ function ProfileDialog({
   );
 }
 
+function LocationDialog({
+  data,
+  location,
+  open,
+  pending,
+  onClose,
+  onSubmit,
+}: DialogProps & {
+  readonly data: ProviderClinicData;
+  readonly location: ClinicOnboardingView['locations'][number] | null;
+  readonly onSubmit: (payload: Record<string, unknown>) => void;
+}) {
+  const contact = location?.businessContact ?? data.onboarding.businessContact;
+  return (
+    <ProviderDialog
+      description="Cơ sở được dùng để kiểm tra phạm vi nhân sự, lịch công bố và lịch hẹn lâm sàng."
+      onClose={onClose}
+      open={open}
+      title={location ? 'Cập nhật cơ sở' : 'Thêm cơ sở'}
+    >
+      <form
+        className="provider-form provider-form--grid"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          const district = String(form.get('district')).trim();
+          const latitude = String(form.get('latitude')).trim();
+          const longitude = String(form.get('longitude')).trim();
+          const website = String(form.get('website')).trim();
+          onSubmit({
+            ...(location ? { locationId: location.id } : {}),
+            name: String(form.get('name')),
+            address: String(form.get('address')),
+            city: String(form.get('city')),
+            ...(district ? { district } : {}),
+            ...(latitude && longitude
+              ? { coordinates: { latitude: Number(latitude), longitude: Number(longitude) } }
+              : { coordinates: null }),
+            timezone: String(form.get('timezone')),
+            businessContact: {
+              contactName: String(form.get('contactName')),
+              email: String(form.get('email')),
+              phone: String(form.get('phone')),
+              ...(website ? { website } : {}),
+            },
+            active: form.get('active') === 'on',
+          });
+        }}
+      >
+        <label>
+          <span>Tên cơ sở</span>
+          <input defaultValue={location?.name ?? ''} maxLength={160} name="name" required />
+        </label>
+        <label>
+          <span>Thành phố</span>
+          <input defaultValue={location?.city ?? ''} maxLength={120} name="city" required />
+        </label>
+        <label className="is-wide">
+          <span>Địa chỉ</span>
+          <input defaultValue={location?.address ?? ''} maxLength={500} name="address" required />
+        </label>
+        <label>
+          <span>Quận / huyện</span>
+          <input defaultValue={location?.district ?? ''} maxLength={120} name="district" />
+        </label>
+        <label>
+          <span>Timezone</span>
+          <input
+            defaultValue={location?.timezone ?? 'Asia/Ho_Chi_Minh'}
+            maxLength={64}
+            name="timezone"
+            required
+          />
+        </label>
+        <label>
+          <span>Vĩ độ</span>
+          <input
+            defaultValue={location?.coordinates?.latitude ?? ''}
+            max={90}
+            min={-90}
+            name="latitude"
+            step="any"
+            type="number"
+          />
+        </label>
+        <label>
+          <span>Kinh độ</span>
+          <input
+            defaultValue={location?.coordinates?.longitude ?? ''}
+            max={180}
+            min={-180}
+            name="longitude"
+            step="any"
+            type="number"
+          />
+        </label>
+        <label>
+          <span>Người liên hệ</span>
+          <input
+            defaultValue={contact?.contactName ?? ''}
+            maxLength={160}
+            name="contactName"
+            required
+          />
+        </label>
+        <label>
+          <span>Email</span>
+          <input
+            defaultValue={contact?.email ?? ''}
+            maxLength={254}
+            name="email"
+            required
+            type="email"
+          />
+        </label>
+        <label>
+          <span>Số điện thoại</span>
+          <input
+            defaultValue={contact?.phone ?? ''}
+            maxLength={32}
+            minLength={7}
+            name="phone"
+            required
+          />
+        </label>
+        <label>
+          <span>Website</span>
+          <input defaultValue={contact?.website ?? ''} name="website" type="url" />
+        </label>
+        <label className="provider-checkbox is-wide">
+          <input defaultChecked={location?.active ?? true} name="active" type="checkbox" />
+          <span>Cơ sở đang hoạt động</span>
+        </label>
+        <FormFooter onClose={onClose} pending={pending} submitLabel="Lưu cơ sở" />
+      </form>
+    </ProviderDialog>
+  );
+}
+
 function InviteDialog({
   data,
   open,
@@ -1239,6 +1940,10 @@ function InviteDialog({
   readonly data: ProviderClinicData;
   readonly onSubmit: (payload: Record<string, unknown>) => void;
 }) {
+  const [role, setRole] = useState<ClinicTeamRole>('DENTIST');
+  useEffect(() => {
+    if (open) setRole('DENTIST');
+  }, [open]);
   return (
     <ProviderDialog
       description="Chọn đúng phạm vi cơ sở và quyền tối thiểu cần thiết. Người nhận phải chấp nhận lời mời."
@@ -1251,12 +1956,16 @@ function InviteDialog({
         onSubmit={(event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
+          const submittedRole = String(form.get('role')) as ClinicTeamRole;
           onSubmit({
             email: String(form.get('email')),
-            role: String(form.get('role')),
+            role: submittedRole,
             jobTitle: String(form.get('jobTitle')) || undefined,
             locationIds: form.getAll('locationIds').map(String),
-            permissions: form.getAll('permissions').map(String),
+            permissions: form
+              .getAll('permissions')
+              .map(String)
+              .filter((permission) => rolePermissions[submittedRole].has(permission)),
           });
         }}
       >
@@ -1267,7 +1976,11 @@ function InviteDialog({
         <div className="provider-form-row">
           <label>
             <span>Vai trò</span>
-            <CustomSelect defaultValue="DENTIST" name="role">
+            <CustomSelect
+              name="role"
+              onChange={(event) => setRole(event.target.value as ClinicTeamRole)}
+              value={role}
+            >
               <option value="DENTIST">Nha sĩ</option>
               <option value="CLINIC_STAFF">Nhân viên phòng khám</option>
               <option value="CLINIC_ADMIN">Quản trị phòng khám</option>
@@ -1295,6 +2008,7 @@ function InviteDialog({
             {Object.entries(permissionLabels).map(([permission, label]) => (
               <label className="provider-checkbox" key={permission}>
                 <input
+                  disabled={!rolePermissions[role].has(permission)}
                   defaultChecked={['CASE_INBOX', 'TREATMENT_PLAN', 'SCHEDULING'].includes(
                     permission,
                   )}
@@ -1308,6 +2022,323 @@ function InviteDialog({
           </div>
         </fieldset>
         <FormFooter onClose={onClose} pending={pending} submitLabel="Gửi lời mời" />
+      </form>
+    </ProviderDialog>
+  );
+}
+
+function DentistDialog({
+  open,
+  pending,
+  onClose,
+  onSubmit,
+}: DialogProps & {
+  readonly onSubmit: (payload: Record<string, unknown>) => void;
+}) {
+  return (
+    <ProviderDialog
+      description="Nha sĩ chỉ có thể được phân công sau khi liên kết và giấy phép hợp lệ."
+      onClose={onClose}
+      open={open}
+      title="Thêm nha sĩ"
+    >
+      <form
+        className="provider-form provider-form--grid"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          const scopeOfPractice = String(form.get('scopeOfPractice')).trim();
+          const issuedAt = String(form.get('issuedAt'));
+          const expiresAt = String(form.get('expiresAt'));
+          onSubmit({
+            fullName: String(form.get('fullName')),
+            slug: String(form.get('slug')).trim().toLowerCase(),
+            licenseNumber: String(form.get('licenseNumber')),
+            authority: String(form.get('authority')),
+            ...(scopeOfPractice ? { scopeOfPractice } : {}),
+            ...(issuedAt ? { issuedAt } : {}),
+            ...(expiresAt ? { expiresAt } : {}),
+          });
+        }}
+      >
+        <label>
+          <span>Họ và tên</span>
+          <input maxLength={160} name="fullName" required />
+        </label>
+        <label>
+          <span>Slug công khai</span>
+          <input
+            maxLength={80}
+            minLength={3}
+            name="slug"
+            pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+            required
+          />
+        </label>
+        <label>
+          <span>Số giấy phép</span>
+          <input maxLength={100} name="licenseNumber" required />
+        </label>
+        <label>
+          <span>Cơ quan cấp</span>
+          <input maxLength={200} name="authority" required />
+        </label>
+        <label>
+          <span>Ngày cấp</span>
+          <input name="issuedAt" type="date" />
+        </label>
+        <label>
+          <span>Ngày hết hạn</span>
+          <input name="expiresAt" type="date" />
+        </label>
+        <label className="is-wide">
+          <span>Phạm vi hành nghề</span>
+          <textarea maxLength={1000} name="scopeOfPractice" rows={3} />
+        </label>
+        <FormFooter onClose={onClose} pending={pending} submitLabel="Thêm nha sĩ" />
+      </form>
+    </ProviderDialog>
+  );
+}
+
+function MemberAccessDialog({
+  data,
+  member,
+  open,
+  pending,
+  onClose,
+  onSubmit,
+}: DialogProps & {
+  readonly data: ProviderClinicData;
+  readonly member: ClinicTeamMemberView | null;
+  readonly onSubmit: (payload: Record<string, unknown>) => void;
+}) {
+  const [role, setRole] = useState<ClinicTeamRole>('DENTIST');
+  useEffect(() => {
+    if (open && member) setRole(member.role);
+  }, [member, open]);
+  return (
+    <ProviderDialog
+      description="Cập nhật theo nguyên tắc quyền tối thiểu; thay đổi được ghi vào nhật ký quản trị."
+      onClose={onClose}
+      open={open}
+      title="Vai trò và quyền truy cập"
+    >
+      {member ? (
+        <form
+          className="provider-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const submittedRole = String(form.get('role')) as ClinicTeamRole;
+            onSubmit({
+              expectedVersion: member.version,
+              role: submittedRole,
+              jobTitle: String(form.get('jobTitle')).trim() || null,
+              locationIds: form.getAll('locationIds').map(String),
+              permissions: form
+                .getAll('permissions')
+                .map(String)
+                .filter((permission) => rolePermissions[submittedRole].has(permission)),
+            });
+          }}
+        >
+          <p className="provider-dialog-callout">
+            <strong>{member.email}</strong>
+            <span>Phiên bản quyền hiện tại: {member.version}</span>
+          </p>
+          <div className="provider-form-row">
+            <label>
+              <span>Vai trò</span>
+              <CustomSelect
+                name="role"
+                onChange={(event) => setRole(event.target.value as ClinicTeamRole)}
+                value={role}
+              >
+                <option value="DENTIST">Nha sĩ</option>
+                <option value="CLINIC_STAFF">Nhân viên phòng khám</option>
+                <option value="CLINIC_ADMIN">Quản trị phòng khám</option>
+              </CustomSelect>
+            </label>
+            <label>
+              <span>Chức danh</span>
+              <input defaultValue={member.jobTitle ?? ''} maxLength={160} name="jobTitle" />
+            </label>
+          </div>
+          <fieldset>
+            <legend>Phạm vi cơ sở</legend>
+            <div className="provider-check-grid">
+              {data.onboarding.locations.map((location) => (
+                <label className="provider-checkbox" key={location.id}>
+                  <input
+                    defaultChecked={member.locationIds.includes(location.id)}
+                    name="locationIds"
+                    type="checkbox"
+                    value={location.id}
+                  />
+                  <span>{location.name}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Quyền thao tác</legend>
+            <div className="provider-check-grid">
+              {Object.entries(permissionLabels).map(([permission, label]) => (
+                <label className="provider-checkbox" key={permission}>
+                  <input
+                    disabled={!rolePermissions[role].has(permission)}
+                    defaultChecked={member.permissions.includes(
+                      permission as (typeof member.permissions)[number],
+                    )}
+                    name="permissions"
+                    type="checkbox"
+                    value={permission}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <FormFooter onClose={onClose} pending={pending} submitLabel="Lưu quyền truy cập" />
+        </form>
+      ) : null}
+    </ProviderDialog>
+  );
+}
+
+function MemberStatusDialog({
+  member,
+  action,
+  open,
+  pending,
+  onClose,
+  onSubmit,
+}: DialogProps & {
+  readonly member: ClinicTeamMemberView | null;
+  readonly action: 'suspend' | 'remove';
+  readonly onSubmit: (reason: string) => void;
+}) {
+  return (
+    <ProviderDialog
+      description={
+        action === 'suspend'
+          ? 'Thành viên sẽ mất quyền truy cập cho đến khi quản trị viên cập nhật lại trạng thái.'
+          : 'Thành viên sẽ bị xóa khỏi phạm vi phòng khám; lịch sử audit vẫn được giữ lại.'
+      }
+      onClose={onClose}
+      open={open}
+      title={action === 'suspend' ? 'Tạm dừng thành viên' : 'Xóa thành viên'}
+    >
+      <form
+        className="provider-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(String(new FormData(event.currentTarget).get('reason')));
+        }}
+      >
+        <p className="provider-dialog-callout">
+          <strong>{member?.email}</strong>
+        </p>
+        <label>
+          <span>Lý do</span>
+          <textarea maxLength={500} minLength={1} name="reason" required rows={4} />
+        </label>
+        <FormFooter
+          danger
+          onClose={onClose}
+          pending={pending}
+          submitLabel={action === 'suspend' ? 'Tạm dừng' : 'Xóa thành viên'}
+        />
+      </form>
+    </ProviderDialog>
+  );
+}
+
+function CalendarDialog({
+  connection,
+  data,
+  open,
+  pending,
+  onClose,
+  onSubmit,
+}: DialogProps & {
+  readonly connection: ClinicCalendarConnectionView | null;
+  readonly data: ProviderClinicData;
+  readonly onSubmit: (payload: Record<string, unknown>) => void;
+}) {
+  return (
+    <ProviderDialog
+      description={
+        connection
+          ? 'Kết nối sẽ ngừng đồng bộ; lịch nội bộ và lịch hẹn hiện hữu không bị xóa.'
+          : 'Thông tin định danh lịch chỉ được gửi tới adapter đồng bộ đã cấu hình.'
+      }
+      onClose={onClose}
+      open={open}
+      title={connection ? 'Ngắt kết nối lịch' : 'Kết nối lịch ngoài'}
+    >
+      <form
+        className="provider-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          if (connection) onSubmit({ reason: String(form.get('reason')) });
+          else {
+            const dentistId = String(form.get('dentistId'));
+            onSubmit({
+              provider: String(form.get('provider')),
+              externalCalendarReference: String(form.get('externalCalendarReference')),
+              ...(dentistId ? { dentistId } : {}),
+            });
+          }
+        }}
+      >
+        {connection ? (
+          <>
+            <p className="provider-dialog-callout">
+              <strong>{humanize(connection.provider)}</strong>
+              <span>{labelStatus(connection.status)}</span>
+            </p>
+            <label>
+              <span>Lý do</span>
+              <textarea maxLength={500} minLength={1} name="reason" required rows={4} />
+            </label>
+          </>
+        ) : (
+          <>
+            <label>
+              <span>Nhà cung cấp</span>
+              <CustomSelect defaultValue="google" name="provider">
+                <option value="google">Google Calendar</option>
+                <option value="microsoft">Microsoft Outlook</option>
+              </CustomSelect>
+            </label>
+            <label>
+              <span>Định danh lịch</span>
+              <input maxLength={512} name="externalCalendarReference" required />
+            </label>
+            <label>
+              <span>Nha sĩ (tùy chọn)</span>
+              <CustomSelect defaultValue="" name="dentistId">
+                <option value="">Toàn phòng khám</option>
+                {data.dentists
+                  .filter((dentist) => dentist.active)
+                  .map((dentist) => (
+                    <option key={dentist.id} value={dentist.id}>
+                      {dentist.fullName}
+                    </option>
+                  ))}
+              </CustomSelect>
+            </label>
+          </>
+        )}
+        <FormFooter
+          danger={Boolean(connection)}
+          onClose={onClose}
+          pending={pending}
+          submitLabel={connection ? 'Ngắt kết nối' : 'Kết nối'}
+        />
       </form>
     </ProviderDialog>
   );
@@ -1543,16 +2574,16 @@ function AvailabilityRuleDialog({
 }
 
 function PolicyDialog({
-  data,
+  availability,
   open,
   pending,
   onClose,
   onSubmit,
 }: DialogProps & {
-  readonly data: ProviderClinicData;
+  readonly availability: ClinicAvailabilityView;
   readonly onSubmit: (payload: Record<string, unknown>) => void;
 }) {
-  const policy = data.availability.policy;
+  const policy = availability.policy;
   return (
     <ProviderDialog
       description="Chính sách được áp dụng cho kiểm tra lịch mới và thay đổi lịch."
@@ -1803,6 +2834,20 @@ function EmptyState({
         </button>
       ) : null}
     </div>
+  );
+}
+
+function PermissionState({ label }: { readonly label: string }) {
+  return (
+    <section className="provider-panel provider-route-error" role="status">
+      <span>
+        <ProviderIcon name="shield" />
+      </span>
+      <div>
+        <strong>Bạn chưa được cấp quyền xem {label}</strong>
+        <p>Quản trị phòng khám có thể cập nhật quyền trong khu vực Đội ngũ.</p>
+      </div>
+    </section>
   );
 }
 

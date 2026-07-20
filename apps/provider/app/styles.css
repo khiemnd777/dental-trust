@@ -3064,6 +3064,82 @@ textarea:disabled {
   gap: 0.25rem;
 }
 
+.provider-incident-timeline {
+  border-top: 1px solid var(--p-border);
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+}
+
+.provider-incident-timeline > h4 {
+  font-size: var(--p-text-label);
+  margin: 0;
+}
+
+.provider-incident-timeline--internal {
+  background: var(--p-canvas);
+}
+
+.provider-incident-timeline--internal > h4 {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.provider-incident-timeline--internal > h4 svg {
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
+.provider-incident-timeline > article {
+  align-items: start;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.provider-incident-timeline article div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.provider-incident-timeline article p,
+.provider-incident-timeline article small,
+.provider-incident-timeline > p {
+  color: var(--p-muted);
+  font-size: var(--p-text-small);
+  margin: 0;
+}
+
+.provider-incident-actions {
+  border-top: 1px solid var(--p-border);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.provider-incident-actions .provider-form {
+  align-content: start;
+  background: var(--p-canvas);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+}
+
+.provider-incident-internal-note {
+  border: 1px solid var(--p-border);
+}
+
+.provider-incident-internal-note label > span {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.provider-incident-internal-note label svg {
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
 .provider-section-heading > span {
   align-items: center;
   color: var(--p-teal-700);
@@ -4345,6 +4421,37 @@ textarea:disabled {
   gap: 0.3rem;
 }
 
+.provider-row-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  height: auto !important;
+  width: auto !important;
+}
+
+.provider-calendar-connections > div > .provider-row-actions {
+  grid-column: 2 / 4;
+}
+
+.provider-row-actions button,
+.provider-calendar-connections > header button,
+.provider-calendar-connections > div > span:last-child button {
+  background: white;
+  border: 1px solid var(--p-border-strong);
+  border-radius: 0.55rem;
+  color: var(--p-ink);
+  font-size: var(--p-text-caption);
+  font-weight: 750;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.provider-row-actions button:disabled,
+.provider-calendar-connections button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .provider-security-state.is-ok {
   color: var(--p-green-700) !important;
 }
@@ -4991,6 +5098,12 @@ textarea:disabled {
   }
 }
 
+@media (min-width: 48rem) {
+  .provider-incident-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 80rem) {
   .provider-main {
     padding: 2.25rem 2.75rem;
@@ -5226,6 +5339,10 @@ textarea:disabled {
     justify-self: start;
   }
 
+  .provider-row-actions {
+    grid-column: 2;
+  }
+
   .provider-rules-panel > article {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -5299,14 +5416,43 @@ textarea:disabled {
   }
 
   .provider-team-table > .provider-data-table-head {
-    grid-template-columns: minmax(16rem, 1.4fr) 0.7fr 0.65fr 0.8fr 0.65fr;
+    grid-template-columns: minmax(16rem, 1.4fr) 0.7fr 0.65fr 0.8fr 0.65fr minmax(8rem, 0.8fr);
     padding-left: 4.25rem;
   }
 
   .provider-team-row {
-    grid-template-columns: auto minmax(12rem, 1.4fr) 0.7fr 0.65fr 0.8fr 0.65fr;
+    grid-template-columns: auto minmax(12rem, 1.4fr) 0.7fr 0.65fr 0.8fr 0.65fr minmax(8rem, 0.8fr);
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .provider-team-table--locations .provider-team-row {
+    grid-template-columns:
+      auto minmax(12rem, 1.4fr) minmax(9rem, 1fr) minmax(9rem, 0.8fr)
+      0.7fr auto;
+  }
+
+  .provider-team-table--dentists > .provider-data-table-head {
+    grid-template-columns: minmax(16rem, 1.4fr) minmax(9rem, 1fr) 0.7fr 0.7fr minmax(8rem, 0.8fr);
+  }
+
+  .provider-team-table--dentists .provider-team-row {
+    grid-template-columns: auto minmax(12rem, 1.4fr) minmax(9rem, 1fr) 0.7fr 0.7fr minmax(
+        8rem,
+        0.8fr
+      );
+  }
+
+  .provider-team-table--billing > .provider-data-table-head {
+    grid-template-columns: minmax(12rem, 1.4fr) 0.8fr 0.7fr minmax(9rem, 1fr);
+  }
+
+  .provider-team-table--billing .provider-team-row {
+    grid-template-columns: auto minmax(10rem, 1.4fr) 0.8fr 0.7fr minmax(9rem, 1fr);
+  }
+
+  .provider-row-actions {
+    grid-column: auto;
   }
 
   .provider-team-row > span:nth-of-type(2),

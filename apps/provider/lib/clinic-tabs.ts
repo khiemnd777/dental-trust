@@ -4,6 +4,7 @@ export const clinicWorkspaceTabs = [
   'services',
   'availability',
   'analytics',
+  'billing',
   'security',
 ] as const;
 

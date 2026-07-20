@@ -63,6 +63,12 @@ import {
   triageIncidentRequestSchema,
   type TriageIncidentRequest,
 } from '@dental-trust/contracts';
+import {
+  incidentClinicResponseRequestSchema,
+  type IncidentClinicResponseRequest,
+  incidentInternalNoteRequestSchema,
+  type IncidentInternalNoteRequest,
+} from '@dental-trust/contracts/trust-safety-workflows';
 import { parseWithSchema } from '@dental-trust/validation';
 
 import { CurrentAccess } from '../auth/current-access.decorator.js';
@@ -141,6 +147,44 @@ export class TrustSafetyController {
   ) {
     return {
       data: await this.trust.addIncidentUpdate(
+        access,
+        incidentId,
+        body,
+        idempotencyKey(rawIdempotencyKey),
+      ),
+      requestId: access.requestId,
+    };
+  }
+
+  @Post('incidents/:incidentId/clinic-responses')
+  async addClinicResponse(
+    @CurrentAccess() access: AccessContext,
+    @Param('incidentId', new ZodValidationPipe(uuidParameterSchema)) incidentId: string,
+    @Body(new ZodValidationPipe(incidentClinicResponseRequestSchema))
+    body: IncidentClinicResponseRequest,
+    @Headers('x-idempotency-key') rawIdempotencyKey: string | undefined,
+  ) {
+    return {
+      data: await this.trust.addClinicResponse(
+        access,
+        incidentId,
+        body,
+        idempotencyKey(rawIdempotencyKey),
+      ),
+      requestId: access.requestId,
+    };
+  }
+
+  @Post('incidents/:incidentId/internal-notes')
+  async addIncidentInternalNote(
+    @CurrentAccess() access: AccessContext,
+    @Param('incidentId', new ZodValidationPipe(uuidParameterSchema)) incidentId: string,
+    @Body(new ZodValidationPipe(incidentInternalNoteRequestSchema))
+    body: IncidentInternalNoteRequest,
+    @Headers('x-idempotency-key') rawIdempotencyKey: string | undefined,
+  ) {
+    return {
+      data: await this.trust.addIncidentInternalNote(
         access,
         incidentId,
         body,

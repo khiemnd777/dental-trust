@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CustomSelect } from '@dental-trust/ui';
 import type {
+  CorrectiveActionView,
+  SiteAuditView,
   VerificationCaseDetail,
   VerificationEvidenceView,
   VerificationRequirementView,
@@ -15,9 +18,10 @@ import type { VerificationData } from '@/lib/operations-data';
 import { commandErrorMessage, sendOperationsCommand } from '@/lib/operations-command';
 import { formatDateTime, humanize, initials, relativeDue } from '@/lib/presentation';
 
-type VerificationFilter = 'all' | 'mine' | 'unassigned' | 'high' | 'second';
-type DetailTab = 'overview' | 'requirements' | 'reviews' | 'corrective';
-type VerificationAction =
+type VerificationFilter =
+  'all' | 'mine' | 'unassigned' | 'high' | 'review' | 'second' | 'expiring' | 'suspended';
+type DetailTab = 'overview' | 'requirements' | 'reviews' | 'audits' | 'corrective';
+type VerificationReviewAction =
   | {
       readonly kind: 'evidence';
       readonly evidence: VerificationEvidenceView;
@@ -25,17 +29,24 @@ type VerificationAction =
       readonly decision: 'APPROVE' | 'REJECT';
     }
   | { readonly kind: 'decision' }
-  | { readonly kind: 'second'; readonly reviewId: string; readonly approve: boolean }
-  | null;
+  | { readonly kind: 'second'; readonly reviewId: string; readonly approve: boolean };
+type VerificationWorkflowAction =
+  | { readonly kind: 'site-audit-create' }
+  | { readonly kind: 'site-audit-complete'; readonly audit: SiteAuditView }
+  | { readonly kind: 'corrective-create' }
+  | { readonly kind: 'corrective-decide'; readonly correctiveAction: CorrectiveActionView };
+type VerificationAction = VerificationReviewAction | VerificationWorkflowAction | null;
 
 export function VerificationWorkspace({
   data,
   currentUserId,
   initialSelectedId,
+  cursorActive,
 }: {
   readonly data: VerificationData;
   readonly currentUserId: string;
   readonly initialSelectedId: string | null;
+  readonly cursorActive: boolean;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<VerificationFilter>('all');
@@ -57,7 +68,10 @@ export function VerificationWorkspace({
         (filter === 'mine' && item.assignedReviewerUserId === currentUserId) ||
         (filter === 'unassigned' && item.assignedReviewerUserId === null) ||
         (filter === 'high' && item.riskLevel === 'HIGH') ||
-        (filter === 'second' && ['APPROVED', 'UNDER_REVIEW', 'SUBMITTED'].includes(item.status));
+        (filter === 'review' && ['SUBMITTED', 'UNDER_REVIEW'].includes(item.status)) ||
+        (filter === 'second' && item.status === 'APPROVED') ||
+        (filter === 'expiring' && verificationCaseIsExpiring(item)) ||
+        (filter === 'suspended' && item.status === 'SUSPENDED');
       if (!matches) return false;
       if (!normalized) return true;
       return [item.subjectName, item.subjectType, item.status, item.riskLevel].some((value) =>
@@ -120,9 +134,12 @@ export function VerificationWorkspace({
   const unassigned = data.cases.filter(
     ({ assignedReviewerUserId }) => assignedReviewerUserId === null,
   ).length;
-  const expiring = data.cases.filter(
-    ({ expiresAt }) => expiresAt && Date.parse(expiresAt) - Date.now() < 30 * 86_400_000,
+  const expiring = data.cases.filter(verificationCaseIsExpiring).length;
+  const pendingReview = data.cases.filter(({ status }) =>
+    ['SUBMITTED', 'UNDER_REVIEW'].includes(status),
   ).length;
+  const pendingSecondApproval = data.cases.filter(({ status }) => status === 'APPROVED').length;
+  const suspended = data.cases.filter(({ status }) => status === 'SUSPENDED').length;
 
   return (
     <main className="ops-main ops-main--workspace">
@@ -222,13 +239,10 @@ export function VerificationWorkspace({
               ],
               ['unassigned', 'Chưa phân công', unassigned],
               ['high', 'Rủi ro cao', highRisk],
-              [
-                'second',
-                'Cần quyết định',
-                data.cases.filter((item) =>
-                  ['APPROVED', 'UNDER_REVIEW', 'SUBMITTED'].includes(item.status),
-                ).length,
-              ],
+              ['review', 'Cần review', pendingReview],
+              ['second', 'Cần quyết định', pendingSecondApproval],
+              ['expiring', 'Sắp hết hạn', expiring],
+              ['suspended', 'Tạm ngưng', suspended],
             ] as const
           ).map(([value, label, count]) => (
             <button
@@ -328,6 +342,18 @@ export function VerificationWorkspace({
             title="Không có hồ sơ phù hợp"
           />
         )}
+        {data.available && (cursorActive || data.page?.nextCursor) ? (
+          <nav aria-label="Phân trang hồ sơ xác minh" className="ops-pagination">
+            {cursorActive ? <Link href="/verification">Về trang đầu</Link> : <span />}
+            {data.page?.nextCursor ? (
+              <Link href={`/verification?cursor=${encodeURIComponent(data.page.nextCursor)}`}>
+                Trang tiếp <OperationsIcon name="arrow" />
+              </Link>
+            ) : (
+              <span>Đã đến cuối hàng đợi</span>
+            )}
+          </nav>
+        ) : null}
       </section>
 
       {selectedId ? (
@@ -384,13 +410,24 @@ export function VerificationWorkspace({
       ) : null}
 
       {action && detail ? (
-        <VerificationActionDialog
-          action={action}
-          detail={detail}
-          onClose={() => setAction(null)}
-          onExecute={execute}
-          pending={pending}
-        />
+        isVerificationWorkflowAction(action) ? (
+          <VerificationWorkflowDialog
+            action={action}
+            currentUserId={currentUserId}
+            detail={detail}
+            onClose={() => setAction(null)}
+            onExecute={execute}
+            pending={pending}
+          />
+        ) : (
+          <VerificationActionDialog
+            action={action}
+            detail={detail}
+            onClose={() => setAction(null)}
+            onExecute={execute}
+            pending={pending}
+          />
+        )
       ) : null}
     </main>
   );
@@ -511,6 +548,13 @@ function VerificationCasePanel({
           Phê duyệt kép <b>{fourEyes.completed}/2</b>
         </button>
         <button
+          aria-pressed={detailTab === 'audits'}
+          onClick={() => onTabChange('audits')}
+          type="button"
+        >
+          Thực địa <b>{detail.siteAudits.length}</b>
+        </button>
+        <button
           aria-pressed={detailTab === 'corrective'}
           onClick={() => onTabChange('corrective')}
           type="button"
@@ -533,7 +577,12 @@ function VerificationCasePanel({
         {detailTab === 'reviews' ? (
           <Reviews currentUserId={currentUserId} detail={detail} onAction={onAction} />
         ) : null}
-        {detailTab === 'corrective' ? <Corrective detail={detail} /> : null}
+        {detailTab === 'audits' ? (
+          <SiteAudits currentUserId={currentUserId} detail={detail} onAction={onAction} />
+        ) : null}
+        {detailTab === 'corrective' ? (
+          <Corrective currentUserId={currentUserId} detail={detail} onAction={onAction} />
+        ) : null}
       </div>
 
       <footer className="ops-verification-footer">
@@ -1071,25 +1120,183 @@ function Reviews({
   );
 }
 
-function Corrective({ detail }: { readonly detail: VerificationCaseDetail }) {
+function SiteAudits({
+  currentUserId,
+  detail,
+  onAction,
+}: {
+  readonly currentUserId: string;
+  readonly detail: VerificationCaseDetail;
+  readonly onAction: (action: VerificationAction) => void;
+}) {
+  const pendingSecondReview = detail.reviews.some(
+    ({ status }) => status === 'PENDING_SECOND_APPROVAL',
+  );
+  const activeAudit = detail.siteAudits.some(
+    ({ status }) => !['COMPLETED', 'CANCELLED'].includes(status),
+  );
+  const canSchedule =
+    detail.subjectType === 'CLINIC' &&
+    detail.assignedReviewerUserId === currentUserId &&
+    detail.status === 'SITE_AUDIT_REQUIRED' &&
+    !pendingSecondReview &&
+    !activeAudit;
+
   return (
     <section className="ops-detail-section">
-      <h3>Hành động khắc phục</h3>
+      <header className="ops-verification-section__header">
+        <div>
+          <span className="ops-eyebrow">On-site controls</span>
+          <h3>Kiểm tra thực địa</h3>
+          <p>Lịch kiểm tra, checklist và phát hiện được lưu trong audit trail của hồ sơ.</p>
+        </div>
+        {canSchedule ? (
+          <button
+            className="ops-button ops-button--primary"
+            onClick={() => onAction({ kind: 'site-audit-create' })}
+            type="button"
+          >
+            <OperationsIcon name="calendar" />
+            Lên lịch kiểm tra
+          </button>
+        ) : null}
+      </header>
+      {detail.siteAudits.length ? (
+        <div className="ops-corrective-list">
+          {detail.siteAudits.map((audit) => {
+            const canComplete =
+              audit.auditorUserId === currentUserId &&
+              !['COMPLETED', 'CANCELLED'].includes(audit.status) &&
+              !pendingSecondReview;
+            const completedChecks = Object.values(audit.checklist).filter(Boolean).length;
+            return (
+              <article key={audit.id}>
+                <span>
+                  <OperationsIcon name={audit.completedAt ? 'check' : 'calendar'} />
+                </span>
+                <div>
+                  <strong>Kiểm tra {formatDateTime(audit.scheduledAt)}</strong>
+                  <p>
+                    Auditor {audit.auditorUserId === currentUserId ? 'là bạn' : audit.auditorUserId}
+                    {' · '}
+                    {completedChecks}/{Object.keys(audit.checklist).length} mục đạt
+                  </p>
+                  {audit.findings ? <p>{audit.findings}</p> : null}
+                  <small>
+                    Địa điểm {audit.clinicLocationId} · {audit.attachmentFileAssetIds.length} tệp
+                    đính kèm
+                  </small>
+                </div>
+                <div>
+                  <OpsStatus value={audit.status} />
+                  {canComplete ? (
+                    <button
+                      className="ops-button ops-button--secondary"
+                      onClick={() => onAction({ kind: 'site-audit-complete', audit })}
+                      type="button"
+                    >
+                      Hoàn tất kiểm tra
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <OpsEmpty
+          body={
+            detail.subjectType === 'CLINIC'
+              ? 'Chưa có lịch kiểm tra thực địa cho hồ sơ này.'
+              : 'Kiểm tra thực địa chỉ áp dụng cho hồ sơ cơ sở.'
+          }
+          icon="calendar"
+          title="Chưa có site audit"
+        />
+      )}
+    </section>
+  );
+}
+
+function Corrective({
+  currentUserId,
+  detail,
+  onAction,
+}: {
+  readonly currentUserId: string;
+  readonly detail: VerificationCaseDetail;
+  readonly onAction: (action: VerificationAction) => void;
+}) {
+  const pendingSecondReview = detail.reviews.some(
+    ({ status }) => status === 'PENDING_SECOND_APPROVAL',
+  );
+  const assignedToMe = detail.assignedReviewerUserId === currentUserId;
+  const canCreate =
+    assignedToMe &&
+    !pendingSecondReview &&
+    ['UNDER_REVIEW', 'ADDITIONAL_INFORMATION_REQUIRED', 'SITE_AUDIT_REQUIRED'].includes(
+      detail.status,
+    );
+
+  return (
+    <section className="ops-detail-section">
+      <header className="ops-verification-section__header">
+        <div>
+          <span className="ops-eyebrow">Remediation controls</span>
+          <h3>Hành động khắc phục</h3>
+          <p>Yêu cầu applicant xử lý thiếu sót trước khi hồ sơ được quyết định.</p>
+        </div>
+        {canCreate ? (
+          <button
+            className="ops-button ops-button--primary"
+            onClick={() => onAction({ kind: 'corrective-create' })}
+            type="button"
+          >
+            <OperationsIcon name="document" />
+            Tạo yêu cầu
+          </button>
+        ) : null}
+      </header>
       {detail.correctiveActions.length ? (
         <div className="ops-corrective-list">
-          {detail.correctiveActions.map((item) => (
-            <article key={item.id}>
-              <span>
-                <OperationsIcon name="clock" />
-              </span>
-              <div>
-                <strong>{item.title}</strong>
-                <p>{item.description}</p>
-                <small>Hạn {formatDateTime(item.dueAt)}</small>
-              </div>
-              <OpsStatus value={item.status} />
-            </article>
-          ))}
+          {detail.correctiveActions.map((item) => {
+            const canDecide =
+              assignedToMe &&
+              !pendingSecondReview &&
+              ['SUBMITTED', 'UNDER_REVIEW', 'ACCEPTED'].includes(item.status);
+            return (
+              <article key={item.id}>
+                <span>
+                  <OperationsIcon
+                    name={['ACCEPTED', 'CLOSED'].includes(item.status) ? 'check' : 'clock'}
+                  />
+                </span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.description}</p>
+                  {item.response ? <blockquote>Phản hồi: {item.response}</blockquote> : null}
+                  <small>
+                    Hạn {formatDateTime(item.dueAt)} · phiên bản {item.version} ·{' '}
+                    {item.attachmentFileAssetIds.length} tệp đính kèm
+                  </small>
+                </div>
+                <div>
+                  <OpsStatus value={item.status} />
+                  {canDecide ? (
+                    <button
+                      className="ops-button ops-button--secondary"
+                      onClick={() =>
+                        onAction({ kind: 'corrective-decide', correctiveAction: item })
+                      }
+                      type="button"
+                    >
+                      Ghi quyết định
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
         </div>
       ) : (
         <OpsEmpty
@@ -1102,6 +1309,285 @@ function Corrective({ detail }: { readonly detail: VerificationCaseDetail }) {
   );
 }
 
+function VerificationWorkflowDialog({
+  action,
+  currentUserId,
+  detail,
+  onClose,
+  onExecute,
+  pending,
+}: {
+  readonly action: VerificationWorkflowAction;
+  readonly currentUserId: string;
+  readonly detail: VerificationCaseDetail;
+  readonly onClose: () => void;
+  readonly onExecute: (operation: () => Promise<unknown>, success: string) => Promise<void>;
+  readonly pending: boolean;
+}) {
+  const [correctiveDecision, setCorrectiveDecision] = useState<'ACCEPT' | 'REJECT' | 'CLOSE'>(
+    action.kind === 'corrective-decide' && action.correctiveAction.status === 'ACCEPTED'
+      ? 'CLOSE'
+      : 'ACCEPT',
+  );
+  const title =
+    action.kind === 'site-audit-create'
+      ? 'Lên lịch kiểm tra thực địa'
+      : action.kind === 'site-audit-complete'
+        ? 'Hoàn tất kiểm tra thực địa'
+        : action.kind === 'corrective-create'
+          ? 'Tạo yêu cầu khắc phục'
+          : 'Quyết định yêu cầu khắc phục';
+
+  return (
+    <div className="ops-dialog-layer">
+      <button
+        aria-label="Đóng hộp thoại"
+        className="ops-dialog-backdrop"
+        onClick={onClose}
+        type="button"
+      />
+      <section aria-modal="true" className="ops-dialog" role="dialog">
+        <header>
+          <div>
+            <span className="ops-eyebrow">Privileged verification action</span>
+            <h2>{title}</h2>
+            <p>Phiên bản hồ sơ và người thao tác sẽ được ghi trong audit trail.</p>
+          </div>
+          <button aria-label="Đóng" onClick={onClose} type="button">
+            <OperationsIcon name="close" />
+          </button>
+        </header>
+        <form
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            if (action.kind === 'site-audit-create') {
+              const scheduledAt = String(form.get('scheduledAt'));
+              void onExecute(
+                () =>
+                  sendOperationsCommand({
+                    command: 'verification_site_audit_create',
+                    resourceId: detail.id,
+                    payload: {
+                      expectedCaseVersion: detail.version,
+                      auditorUserId: String(form.get('auditorUserId')),
+                      clinicLocationId: String(form.get('clinicLocationId')),
+                      scheduledAt: new Date(scheduledAt).toISOString(),
+                      checklist: checklistFromForm(
+                        form,
+                        SITE_AUDIT_CHECKS.map(({ key }) => key),
+                      ),
+                    },
+                  }),
+                'Đã lên lịch kiểm tra thực địa.',
+              );
+              return;
+            }
+            if (action.kind === 'site-audit-complete') {
+              const checklistKeys = siteAuditChecklistKeys(action.audit);
+              void onExecute(
+                () =>
+                  sendOperationsCommand({
+                    command: 'verification_site_audit_complete',
+                    resourceId: action.audit.id,
+                    payload: {
+                      expectedCaseVersion: detail.version,
+                      findings: String(form.get('findings')),
+                      checklist: checklistFromForm(form, checklistKeys),
+                      attachmentFileAssetIds: [],
+                    },
+                  }),
+                'Đã hoàn tất kiểm tra thực địa.',
+              );
+              return;
+            }
+            if (action.kind === 'corrective-create') {
+              const requirementId = String(form.get('requirementId'));
+              const dueAt = String(form.get('dueAt'));
+              void onExecute(
+                () =>
+                  sendOperationsCommand({
+                    command: 'verification_corrective_create',
+                    resourceId: detail.id,
+                    payload: {
+                      expectedCaseVersion: detail.version,
+                      ...(requirementId ? { requirementId } : {}),
+                      title: String(form.get('title')),
+                      description: String(form.get('description')),
+                      dueAt: new Date(dueAt).toISOString(),
+                    },
+                  }),
+                'Đã tạo yêu cầu khắc phục.',
+              );
+              return;
+            }
+            void onExecute(
+              () =>
+                sendOperationsCommand({
+                  command: 'verification_corrective_decide',
+                  resourceId: action.correctiveAction.id,
+                  payload: {
+                    decision: correctiveDecision,
+                    notes: String(form.get('notes')),
+                    expectedVersion: action.correctiveAction.version,
+                    expectedCaseVersion: detail.version,
+                  },
+                }),
+              correctiveDecision === 'REJECT'
+                ? 'Đã trả lại yêu cầu khắc phục.'
+                : correctiveDecision === 'CLOSE'
+                  ? 'Đã đóng yêu cầu khắc phục.'
+                  : 'Đã chấp nhận kết quả khắc phục.',
+            );
+          }}
+        >
+          {action.kind === 'site-audit-create' ? (
+            <>
+              <label>
+                <span>Auditor user ID</span>
+                <input
+                  defaultValue={currentUserId}
+                  name="auditorUserId"
+                  pattern="[0-9a-fA-F-]{36}"
+                  required
+                />
+              </label>
+              <label>
+                <span>Clinic location ID</span>
+                <input
+                  name="clinicLocationId"
+                  pattern="[0-9a-fA-F-]{36}"
+                  placeholder="UUID của địa điểm cần kiểm tra"
+                  required
+                />
+              </label>
+              <label>
+                <span>Thời gian dự kiến</span>
+                <input name="scheduledAt" required type="datetime-local" />
+              </label>
+              <SiteAuditChecklistFields checklist={{}} />
+            </>
+          ) : null}
+
+          {action.kind === 'site-audit-complete' ? (
+            <>
+              <section className="ops-dialog-record">
+                <span>
+                  <strong>{formatDateTime(action.audit.scheduledAt)}</strong>
+                  <small>Địa điểm {action.audit.clinicLocationId}</small>
+                </span>
+              </section>
+              <SiteAuditChecklistFields checklist={action.audit.checklist} />
+              <label>
+                <span>Phát hiện và kết luận · Bắt buộc</span>
+                <textarea
+                  maxLength={5_000}
+                  minLength={20}
+                  name="findings"
+                  placeholder="Mô tả phát hiện, bằng chứng đối chiếu và kết luận kiểm tra…"
+                  required
+                  rows={6}
+                />
+              </label>
+            </>
+          ) : null}
+
+          {action.kind === 'corrective-create' ? (
+            <>
+              <label>
+                <span>Yêu cầu liên quan · Không bắt buộc</span>
+                <CustomSelect name="requirementId">
+                  <option value="">Toàn bộ hồ sơ</option>
+                  {detail.requirements.map((requirement) => (
+                    <option key={requirement.id} value={requirement.id}>
+                      {requirement.code} ·{' '}
+                      {localizedVerificationText(requirement.names, humanize(requirement.category))}
+                    </option>
+                  ))}
+                </CustomSelect>
+              </label>
+              <label>
+                <span>Tiêu đề</span>
+                <input maxLength={200} minLength={5} name="title" required />
+              </label>
+              <label>
+                <span>Mô tả thiếu sót và kết quả cần đạt</span>
+                <textarea maxLength={5_000} minLength={20} name="description" required rows={6} />
+              </label>
+              <label>
+                <span>Hạn hoàn tất</span>
+                <input name="dueAt" required type="datetime-local" />
+              </label>
+            </>
+          ) : null}
+
+          {action.kind === 'corrective-decide' ? (
+            <>
+              <section className="ops-dialog-evidence-summary">
+                <small>Phản hồi cần quyết định</small>
+                <strong>{action.correctiveAction.title}</strong>
+                <p>{action.correctiveAction.response ?? 'Applicant chưa gửi nội dung phản hồi.'}</p>
+              </section>
+              <label>
+                <span>Quyết định</span>
+                <CustomSelect
+                  name="decision"
+                  onChange={(event) =>
+                    setCorrectiveDecision(event.target.value as 'ACCEPT' | 'REJECT' | 'CLOSE')
+                  }
+                  value={correctiveDecision}
+                >
+                  <option value="ACCEPT">Chấp nhận khắc phục</option>
+                  <option value="REJECT">Trả lại để bổ sung</option>
+                  {action.correctiveAction.status === 'ACCEPTED' ? (
+                    <option value="CLOSE">Đóng yêu cầu</option>
+                  ) : null}
+                </CustomSelect>
+              </label>
+              <label>
+                <span>Lý do / ghi chú</span>
+                <textarea maxLength={2_000} minLength={10} name="notes" required rows={5} />
+              </label>
+            </>
+          ) : null}
+
+          <footer>
+            <button onClick={onClose} type="button">
+              Hủy
+            </button>
+            <button className="ops-button ops-button--primary" disabled={pending} type="submit">
+              {pending ? 'Đang ghi nhận…' : 'Xác nhận'}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function SiteAuditChecklistFields({
+  checklist,
+}: {
+  readonly checklist: Readonly<Record<string, boolean>>;
+}) {
+  return (
+    <fieldset className="ops-review-confirmations">
+      <legend>Checklist thực địa</legend>
+      {siteAuditChecklistKeys({ checklist }).map((key) => (
+        <label key={key}>
+          <input
+            defaultChecked={checklist[key] ?? false}
+            name="auditChecklist"
+            type="checkbox"
+            value={key}
+          />
+          <span>{siteAuditChecklistLabel(key)}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 function VerificationActionDialog({
   action,
   detail,
@@ -1109,7 +1595,7 @@ function VerificationActionDialog({
   onExecute,
   pending,
 }: {
-  readonly action: Exclude<VerificationAction, null>;
+  readonly action: VerificationReviewAction;
   readonly detail: VerificationCaseDetail;
   readonly onClose: () => void;
   readonly onExecute: (operation: () => Promise<unknown>, success: string) => Promise<void>;
@@ -1418,6 +1904,56 @@ function VerificationActionDialog({
       </section>
     </div>
   );
+}
+
+const SITE_AUDIT_CHECKS = [
+  { key: 'license_displayed', label: 'Giấy phép được niêm yết và còn hiệu lực' },
+  { key: 'infection_control', label: 'Quy trình kiểm soát nhiễm khuẩn được thực hiện' },
+  { key: 'equipment_maintenance', label: 'Thiết bị có hồ sơ bảo trì và hiệu chuẩn' },
+  { key: 'emergency_readiness', label: 'Quy trình và thiết bị cấp cứu sẵn sàng' },
+  { key: 'record_traceability', label: 'Hồ sơ lâm sàng và vật liệu có thể truy xuất' },
+] as const;
+
+function isVerificationWorkflowAction(
+  action: Exclude<VerificationAction, null>,
+): action is VerificationWorkflowAction {
+  return [
+    'site-audit-create',
+    'site-audit-complete',
+    'corrective-create',
+    'corrective-decide',
+  ].includes(action.kind);
+}
+
+function checklistFromForm(
+  form: FormData,
+  keys: readonly string[],
+): Readonly<Record<string, boolean>> {
+  const checked = new Set(form.getAll('auditChecklist').map(String));
+  return Object.fromEntries(keys.map((key) => [key, checked.has(key)]));
+}
+
+function siteAuditChecklistKeys(audit: Pick<SiteAuditView, 'checklist'>): readonly string[] {
+  return [
+    ...new Set([...SITE_AUDIT_CHECKS.map(({ key }) => key), ...Object.keys(audit.checklist)]),
+  ];
+}
+
+function siteAuditChecklistLabel(key: string): string {
+  return SITE_AUDIT_CHECKS.find((item) => item.key === key)?.label ?? humanize(key);
+}
+
+function verificationCaseIsExpiring({
+  expiresAt,
+  status,
+}: {
+  readonly expiresAt: string | null;
+  readonly status: VerificationCaseDetail['status'];
+}): boolean {
+  if (status === 'VERIFICATION_EXPIRING') return true;
+  if (!expiresAt) return false;
+  const remaining = Date.parse(expiresAt) - Date.now();
+  return remaining > 0 && remaining < 30 * 86_400_000;
 }
 
 function localizedVerificationText(

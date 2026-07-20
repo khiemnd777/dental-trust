@@ -33,6 +33,32 @@ describe('ClinicOperationsService security and provider orchestration', () => {
     expect(overview).toHaveBeenCalledWith(clinicId, organizationId);
   });
 
+  it('returns the refreshed opportunity after assignment without requiring CASE_INBOX', async () => {
+    const service = createService();
+    const restrictedOperator = {
+      ...operator(),
+      permissions: ['CASE_ASSIGN_DENTIST'] as const,
+    };
+    const assignDentist = vi.fn().mockResolvedValue(undefined);
+    const opportunities = vi.fn().mockResolvedValue({ records: [], nextCursor: null });
+    replaceOperations(service, {
+      loadOperator: vi.fn().mockResolvedValue(restrictedOperator),
+      assignDentist,
+      opportunities,
+    });
+
+    await expect(
+      service.assignDentist(
+        access(),
+        '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e09',
+        { dentistId },
+        '018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e10',
+      ),
+    ).resolves.toEqual({ records: [], nextCursor: null });
+    expect(assignDentist).toHaveBeenCalledOnce();
+    expect(opportunities).toHaveBeenCalledWith(clinicId, organizationId, { limit: 25 });
+  });
+
   it('encrypts business contact fields before repository persistence', async () => {
     const service = createService();
     let encryptedBusinessContact = '';

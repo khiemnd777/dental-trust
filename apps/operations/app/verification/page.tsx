@@ -1,22 +1,35 @@
 import { VerificationWorkspace } from '@/components/verification-workspace';
 import { getVerificationData } from '@/lib/operations-data';
 import { requireOperationsSession } from '@/lib/require-session';
+import { redirect } from 'next/navigation';
 
 export default async function Verification({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ selected?: string }>;
+  readonly searchParams: Promise<{ selected?: string; cursor?: string }>;
 }) {
-  const [data, session, query] = await Promise.all([
-    getVerificationData(),
-    requireOperationsSession(),
-    searchParams,
-  ]);
+  const [query, session] = await Promise.all([searchParams, requireOperationsSession()]);
+  if (
+    !session.roles.some((role) =>
+      ['VERIFICATION_OFFICER', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(role),
+    )
+  )
+    redirect('/');
+  const cursor = validCursor(query.cursor) ? query.cursor : undefined;
+  const data = await getVerificationData(cursor);
   return (
     <VerificationWorkspace
+      cursorActive={Boolean(cursor)}
       currentUserId={session.userId}
       data={data}
       initialSelectedId={query.selected ?? null}
     />
+  );
+}
+
+function validCursor(value: string | undefined): value is string {
+  return Boolean(
+    value &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value),
   );
 }
