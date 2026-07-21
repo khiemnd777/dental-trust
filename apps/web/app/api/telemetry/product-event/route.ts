@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { getSession } from '@/lib/session';
+import { consumeLocalAbuseBudget } from '@/lib/local-abuse-budget';
 
 const eventNames = new Set([
   'today_viewed',
@@ -17,6 +18,28 @@ export async function POST(request: Request) {
   const requestHeaders = await headers();
   if (!allowedOrigin(requestHeaders.get('origin')))
     return NextResponse.json({ error: 'invalid_origin' }, { status: 403 });
+  const rawContentLength = request.headers.get('content-length');
+  if (!rawContentLength) return NextResponse.json({ error: 'length_required' }, { status: 411 });
+  if (!/^\d+$/u.test(rawContentLength))
+    return NextResponse.json({ error: 'invalid_content_length' }, { status: 400 });
+  const contentLength = Number(rawContentLength);
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0)
+    return NextResponse.json({ error: 'invalid_content_length' }, { status: 400 });
+  if (contentLength > 2_048)
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
+
+  const budget = consumeLocalAbuseBudget('product-event', 600, 60_000);
+  if (!budget.allowed)
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      {
+        status: 429,
+        headers: {
+          'cache-control': 'no-store',
+          'retry-after': String(budget.retryAfterSeconds),
+        },
+      },
+    );
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   let body: { name?: unknown; properties?: unknown };

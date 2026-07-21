@@ -15,6 +15,7 @@ const redirect = vi.hoisted(() =>
 );
 
 vi.mock('next/headers', () => ({
+  headers: vi.fn(async () => new Headers({ 'x-real-ip': '203.0.113.8' })),
   cookies: vi.fn(async () => ({
     get: (name: string) => {
       const value = cookieState.values.get(name);
@@ -54,6 +55,7 @@ beforeEach(() => {
   cookieState.delete.mockReset();
   redirect.mockClear();
   vi.stubEnv('AUTH_SECRET', 'test-only-auth-secret-that-is-long-enough');
+  vi.stubEnv('BFF_CLIENT_CONTEXT_SECRET', 'test-bff-context-secret-that-is-long-enough');
 });
 
 afterEach(() => {
@@ -147,7 +149,9 @@ describe('web session lifecycle', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'https://api.example.test/auth/me',
-      expect.objectContaining({ headers: { authorization: 'Bearer opaque-session' } }),
+      expect.objectContaining({
+        headers: expect.objectContaining({ authorization: 'Bearer opaque-session' }),
+      }),
     );
   });
 
@@ -229,10 +233,14 @@ describe('web session lifecycle', () => {
 describe('portal authorization helpers', () => {
   it('constructs scoped API headers only when a tenant is selected', () => {
     const patient = demoSessionFor('patient');
-    expect(sessionApiHeaders(patient, 'token')).toEqual({ authorization: 'Bearer token' });
-    expect(sessionApiHeaders({ ...patient, organizationId }, 'token')).toEqual({
+    expect(sessionApiHeaders(patient, 'token')).toMatchObject({
+      authorization: 'Bearer token',
+      'x-dental-trust-client-context': expect.stringMatching(/^v1\./u),
+    });
+    expect(sessionApiHeaders({ ...patient, organizationId }, 'token')).toMatchObject({
       authorization: 'Bearer token',
       'x-organization-id': organizationId,
+      'x-dental-trust-client-context': expect.stringMatching(/^v1\./u),
     });
   });
 

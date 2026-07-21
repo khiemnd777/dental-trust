@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { Locale } from '@dental-trust/i18n';
+import { bffClientContextHeaders, bffSessionContextHeaders } from './bff-client-context';
 import type { PortalArea } from './routing';
 
 export type SystemRole =
@@ -188,9 +189,11 @@ async function fetchApiSession(
   const api = process.env.NEXT_PUBLIC_API_URL;
   if (!api) return null;
   try {
+    const clientContext = await bffClientContextHeaders();
     const load = (organizationId?: string) =>
       fetch(`${api}/auth/me`, {
         headers: {
+          ...clientContext,
           authorization: `Bearer ${token}`,
           ...(organizationId ? { 'x-organization-id': organizationId } : {}),
         },
@@ -291,8 +294,9 @@ export async function selectActiveOrganization(
   const token = cookieStore.get(sessionCookie)?.value;
   if (!api || !token) return null;
   try {
+    const clientContext = await bffClientContextHeaders();
     const response = await fetch(`${api}/auth/me`, {
-      headers: { authorization: `Bearer ${token}` },
+      headers: { ...clientContext, authorization: `Bearer ${token}` },
       cache: 'no-store',
       signal: AbortSignal.timeout(3_000),
     });
@@ -319,6 +323,7 @@ export async function selectActiveOrganization(
 
 export function sessionApiHeaders(session: WebSession, token: string): Record<string, string> {
   return {
+    ...bffSessionContextHeaders(session.id),
     authorization: `Bearer ${token}`,
     ...(session.organizationId ? { 'x-organization-id': session.organizationId } : {}),
   };

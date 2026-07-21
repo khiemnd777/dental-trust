@@ -26,9 +26,11 @@ import {
   PAYMENT_PROVIDER,
   PAYOUT_PROVIDER,
   PRISMA,
+  RATE_LIMIT_STORAGE,
   SERVER_ENV,
   TRACE_EXPORTER,
 } from './tokens.js';
+import { RedisThrottlerStorage } from './redis-throttler.storage.js';
 
 const environment = parseServerEnvironment(process.env);
 
@@ -36,6 +38,11 @@ const environment = parseServerEnvironment(process.env);
 @Module({
   providers: [
     { provide: SERVER_ENV, useValue: environment },
+    {
+      provide: RATE_LIMIT_STORAGE,
+      useFactory: () =>
+        new RedisThrottlerStorage(environment.REDIS_URL, environment.RATE_LIMIT_REDIS_PREFIX),
+    },
     { provide: PRISMA, useValue: prisma },
     {
       provide: ASSISTANT_MODEL_PROVIDER,
@@ -48,7 +55,10 @@ const environment = parseServerEnvironment(process.env);
     { provide: METRICS, useValue: applicationMetrics },
     {
       provide: TRACE_EXPORTER,
-      useValue: createTraceExporter(environment.OTEL_EXPORTER_OTLP_ENDPOINT),
+      useValue: createTraceExporter(environment.OTEL_EXPORTER_OTLP_ENDPOINT, {
+        sampleRate: environment.TRACE_SAMPLE_RATE,
+        maxConcurrency: environment.TRACE_MAX_CONCURRENCY,
+      }),
     },
     { provide: ERROR_REPORTER, useValue: createErrorReporter(environment.ERROR_TRACKING_DSN) },
     {
@@ -79,6 +89,7 @@ const environment = parseServerEnvironment(process.env);
   ],
   exports: [
     SERVER_ENV,
+    RATE_LIMIT_STORAGE,
     PRISMA,
     LOGGER,
     METRICS,

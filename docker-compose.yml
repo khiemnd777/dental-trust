@@ -8,9 +8,23 @@ x-backend-environment: &backend-environment
   DATABASE_URL: postgresql://${POSTGRES_USER:-dental_trust}:${POSTGRES_PASSWORD:-dental_trust_dev_only}@postgres:5432/${POSTGRES_DB:-dental_trust}?schema=public
   DIRECT_DATABASE_URL: postgresql://${POSTGRES_USER:-dental_trust}:${POSTGRES_PASSWORD:-dental_trust_dev_only}@postgres:5432/${POSTGRES_DB:-dental_trust}?schema=public
   REDIS_URL: redis://redis:6379
+  RATE_LIMIT_REDIS_PREFIX: ${RATE_LIMIT_REDIS_PREFIX:-dental-trust:rate-limit}
+  RATE_LIMIT_NETWORK_PER_MINUTE: ${RATE_LIMIT_NETWORK_PER_MINUTE:-6000}
   AUTH_SECRET: ${AUTH_SECRET:-development-only-change-me-32-bytes-minimum}
   AUTH_ISSUER: ${AUTH_ISSUER:-dental-trust}
   AUTH_AUDIENCE: ${AUTH_AUDIENCE:-dental-trust-web}
+  AUTH_HASH_CONCURRENCY: ${AUTH_HASH_CONCURRENCY:-2}
+  AUTH_HASH_MAX_QUEUE: ${AUTH_HASH_MAX_QUEUE:-32}
+  BFF_CLIENT_CONTEXT_SECRET: ${BFF_CLIENT_CONTEXT_SECRET:-local-compose-only-bff-context-secret-change-me}
+  BFF_TRUSTED_CLIENT_IP_HEADER: ${BFF_TRUSTED_CLIENT_IP_HEADER:-x-real-ip}
+  CARE_AUTH_VERIFY_CONCURRENCY: ${CARE_AUTH_VERIFY_CONCURRENCY:-8}
+  CARE_MULTIPART_CONCURRENCY: ${CARE_MULTIPART_CONCURRENCY:-2}
+  INTERNAL_HEALTH_TOKEN: ${INTERNAL_HEALTH_TOKEN:-development-internal-health-token-change-me}
+  TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+  HTTP_HEADERS_TIMEOUT_MS: ${HTTP_HEADERS_TIMEOUT_MS:-15000}
+  HTTP_REQUEST_TIMEOUT_MS: ${HTTP_REQUEST_TIMEOUT_MS:-45000}
+  HTTP_KEEP_ALIVE_TIMEOUT_MS: ${HTTP_KEEP_ALIVE_TIMEOUT_MS:-5000}
+  HTTP_MAX_REQUESTS_PER_SOCKET: ${HTTP_MAX_REQUESTS_PER_SOCKET:-1000}
   FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-development-only-field-key-change-me}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -20,6 +34,16 @@ x-backend-environment: &backend-environment
   OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-gpt-4o-mini-tts}
   OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-marin}
   OPENAI_AUDIO_TIMEOUT_MS: ${OPENAI_AUDIO_TIMEOUT_MS:-30000}
+  TRACE_SAMPLE_RATE: ${TRACE_SAMPLE_RATE:-1}
+  TRACE_MAX_CONCURRENCY: ${TRACE_MAX_CONCURRENCY:-16}
+  UPLOAD_MAX_ACTIVE_PER_USER: ${UPLOAD_MAX_ACTIVE_PER_USER:-5}
+  UPLOAD_MAX_BYTES_PER_USER_WINDOW: ${UPLOAD_MAX_BYTES_PER_USER_WINDOW:-5368709120}
+  UPLOAD_QUOTA_WINDOW_SECONDS: ${UPLOAD_QUOTA_WINDOW_SECONDS:-86400}
+  FILE_SCAN_CONCURRENCY: ${FILE_SCAN_CONCURRENCY:-2}
+  FILE_SCAN_MAX_JOBS_PER_MINUTE: ${FILE_SCAN_MAX_JOBS_PER_MINUTE:-20}
+  FILE_SCAN_DEADLINE_MILLISECONDS: ${FILE_SCAN_DEADLINE_MILLISECONDS:-120000}
+  FILE_SCAN_MAX_QUEUED_JOBS: ${FILE_SCAN_MAX_QUEUED_JOBS:-500}
+  UPLOAD_QUARANTINE_MAX_AGE_SECONDS: ${UPLOAD_QUARANTINE_MAX_AGE_SECONDS:-1800}
   S3_ENDPOINT: http://minio:9000
   S3_REGION: ${S3_REGION:-ap-southeast-1}
   S3_BUCKET: ${S3_BUCKET:-dental-trust-private}
@@ -41,6 +65,10 @@ x-backend-environment: &backend-environment
 x-frontend-environment: &frontend-environment
   NEXT_PUBLIC_API_URL: http://api:4000/api/v1
   PUBLIC_APP_URL: http://localhost:3003
+  BFF_CLIENT_CONTEXT_SECRET: ${BFF_CLIENT_CONTEXT_SECRET:-local-compose-only-bff-context-secret-change-me}
+  BFF_TRUSTED_CLIENT_IP_HEADER: ${BFF_TRUSTED_CLIENT_IP_HEADER:-x-real-ip}
+  CARE_AUTH_VERIFY_CONCURRENCY: ${CARE_AUTH_VERIFY_CONCURRENCY:-8}
+  CARE_MULTIPART_CONCURRENCY: ${CARE_MULTIPART_CONCURRENCY:-2}
 
 services:
   postgres:
@@ -210,7 +238,7 @@ services:
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:4000/api/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:4000/api/v1/health/ready',{headers:{'x-internal-health-token':process.env.INTERNAL_HEALTH_TOKEN??''}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 5s

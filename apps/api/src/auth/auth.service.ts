@@ -1,5 +1,4 @@
 import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import argon2 from 'argon2';
 
 import type {
   EmailVerificationConsume,
@@ -32,6 +31,7 @@ import {
   normalizeRecoveryCode,
   verifyTotpCode,
 } from './totp.js';
+import { PasswordHasher } from './password-hasher.js';
 
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1_000;
 const EMAIL_VERIFICATION_DURATION_MS = 24 * 60 * 60 * 1_000;
@@ -47,6 +47,7 @@ export class AuthService {
   constructor(
     @Inject(PRISMA) db: PrismaClient,
     @Inject(SERVER_ENV) private readonly environment: ServerEnvironment,
+    @Inject(PasswordHasher) private readonly passwordHasher: PasswordHasher,
   ) {
     this.identities = new IdentityRepository(db);
     this.lifecycle = new AccountLifecycleRepository(db);
@@ -62,12 +63,7 @@ export class AuthService {
       'email-verification',
       EMAIL_VERIFICATION_DURATION_MS,
     );
-    const passwordHash = await argon2.hash(input.password, {
-      type: argon2.argon2id,
-      memoryCost: 65_536,
-      timeCost: 3,
-      parallelism: 1,
-    });
+    const passwordHash = await this.passwordHasher.hash(input.password);
     const user = await this.identities.registerPatient({
       email: input.email,
       passwordHash,
@@ -127,9 +123,13 @@ export class AuthService {
     input: PasswordResetConsume,
     requestId: string,
   ): Promise<{ readonly reset: true }> {
-    const passwordHash = await hashPassword(input.newPassword);
+    const tokenHash = sha256(input.token);
+    if (!(await this.lifecycle.isPasswordResetConsumable(tokenHash))) {
+      throw new BadRequestException('The password reset link is invalid or expired.');
+    }
+    const passwordHash = await this.passwordHasher.hash(input.newPassword);
     try {
-      await this.lifecycle.consumePasswordReset(sha256(input.token), passwordHash, requestId);
+      await this.lifecycle.consumePasswordReset(tokenHash, passwordHash, requestId);
     } catch (error) {
       if (error instanceof InvalidAccountLifecycleTokenError) {
         throw new BadRequestException('The password reset link is invalid or expired.');
@@ -150,12 +150,12 @@ export class AuthService {
   }> {
     const user = await this.identities.findByEmail(input.email);
     if (!user) {
-      await constantTimePasswordCheck(input.password);
+      await this.passwordHasher.constantTimeCheck(input.password);
       throw new UnauthorizedException();
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) throw new UnauthorizedException();
 
-    const valid = await argon2.verify(user.passwordHash, input.password);
+    const valid = await this.passwordHasher.verify(user.passwordHash, input.password);
     if (!valid) {
       await this.identities.recordFailedLogin(user.userId);
       throw new UnauthorizedException();
@@ -203,7 +203,7 @@ export class AuthService {
   ): Promise<Readonly<Record<string, unknown>>> {
     const user = await this.identities.findByUserId(userId);
     if (!user || user.accountStatus !== 'ACTIVE') throw new UnauthorizedException();
-    const validPassword = await argon2.verify(user.passwordHash, input.password);
+    const validPassword = await this.passwordHasher.verify(user.passwordHash, input.password);
     if (!validPassword) throw new UnauthorizedException();
 
     const secret = generateTotpSecret();
@@ -318,25 +318,6 @@ export class AuthService {
     return sha256(
       `${this.environment.AUTH_SECRET}:mfa-recovery:${userId}:${normalizeRecoveryCode(code)}`,
     );
-  }
-}
-
-async function hashPassword(password: string): Promise<string> {
-  return argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 65_536,
-    timeCost: 3,
-    parallelism: 1,
-  });
-}
-
-async function constantTimePasswordCheck(password: string): Promise<void> {
-  const dummyHash =
-    '$argon2id$v=19$m=65536,t=3,p=1$ZmFrZS1zYWx0LWZvci10aW1pbmc$2yP7NXMwLP9BUXvtVG5VTS6vZrd8S2Wkm+QhDPshGSc';
-  try {
-    await argon2.verify(dummyHash, password);
-  } catch {
-    // The hash is intentionally fixed and no error details leave this boundary.
   }
 }
 

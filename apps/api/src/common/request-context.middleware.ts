@@ -23,12 +23,20 @@ export class RequestContextMiddleware implements NestMiddleware {
   ) {}
 
   use(request: AuthenticatedRequest, response: Response, next: NextFunction): void {
+    const route = normalizedRoute(request.originalUrl || request.url);
+    if (isOperationalHealthRoute(route)) {
+      // Health probes have their own bounded guard. Keep this hot path free of
+      // per-request UUID, span, log, metric, and exporter work during floods.
+      request.requestId = 'health-check';
+      response.setHeader('x-request-id', 'health-check');
+      next();
+      return;
+    }
     const incoming = request.headers['x-request-id']?.toString();
     const requestId =
       incoming && /^[A-Za-z0-9._:-]{8,128}$/u.test(incoming) ? incoming : randomUUID();
     request.requestId = requestId;
     response.setHeader('x-request-id', requestId);
-    const route = normalizedRoute(request.originalUrl || request.url);
     const incomingTraceparent = Array.isArray(request.headers.traceparent)
       ? request.headers.traceparent[0]
       : request.headers.traceparent;
@@ -72,6 +80,10 @@ export class RequestContextMiddleware implements NestMiddleware {
     });
     runWithRequestContext({ requestId, traceId: span.traceId, spanId: span.spanId }, next);
   }
+}
+
+export function isOperationalHealthRoute(route: string): boolean {
+  return /^(?:\/api\/v1)?\/health\/(?:live|ready|metrics)$/u.test(route);
 }
 
 export function normalizedRoute(rawUrl: string): string {

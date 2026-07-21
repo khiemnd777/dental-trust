@@ -37,6 +37,20 @@ export class AccountLifecycleRepository {
     );
   }
 
+  async isPasswordResetConsumable(tokenHash: string): Promise<boolean> {
+    const token = await this.db.accountLifecycleToken.findFirst({
+      where: {
+        tokenHash,
+        type: 'PASSWORD_RESET',
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+        user: { accountStatus: 'ACTIVE', deletedAt: null },
+      },
+      select: { id: true },
+    });
+    return token !== null;
+  }
+
   async consumeEmailVerification(tokenHash: string, requestId: string): Promise<string> {
     return this.db.$transaction(async (transaction) => {
       const token = await findConsumableToken(transaction, tokenHash, 'EMAIL_VERIFICATION');

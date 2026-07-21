@@ -14,6 +14,10 @@ const optionalString = z.preprocess(
   (value) => (value === '' ? undefined : value),
   z.string().min(1).optional(),
 );
+const optionalSecret = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().min(32).optional(),
+);
 
 export const serverEnvironmentSchema = z
   .object({
@@ -23,15 +27,40 @@ export const serverEnvironmentSchema = z
     APP_URL: z.url().default('http://localhost:3000'),
     API_URL: z.url().default('http://localhost:4000'),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+    HTTP_HEADERS_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(15_000),
+    HTTP_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(300_000).default(45_000),
+    HTTP_KEEP_ALIVE_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
+    HTTP_MAX_REQUESTS_PER_SOCKET: z.coerce.number().int().min(1).max(10_000).default(1_000),
     DATABASE_URL: z
       .string()
       .min(1)
       .default('postgresql://dental_trust:dental_trust@localhost:5432/dental_trust'),
     DIRECT_DATABASE_URL: z.string().min(1).optional(),
     REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
+    RATE_LIMIT_REDIS_PREFIX: z
+      .string()
+      .min(1)
+      .max(120)
+      .regex(/^[a-zA-Z0-9:_-]+$/u)
+      .default('dental-trust:rate-limit'),
+    RATE_LIMIT_NETWORK_PER_MINUTE: z.coerce.number().int().min(100).max(100_000).default(6_000),
     AUTH_SECRET: z.string().min(32).default('development-only-auth-secret-change-me'),
     AUTH_ISSUER: z.string().min(1).default('dental-trust'),
     AUTH_AUDIENCE: z.string().min(1).default('dental-trust-web'),
+    AUTH_HASH_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
+    AUTH_HASH_MAX_QUEUE: z.coerce.number().int().min(0).max(1_000).default(32),
+    BFF_CLIENT_CONTEXT_SECRET: z
+      .string()
+      .min(32)
+      .default('development-only-bff-context-secret-change-me'),
+    BFF_TRUSTED_CLIENT_IP_HEADER: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[a-z0-9-]+$/u)
+      .default('x-real-ip'),
+    INTERNAL_HEALTH_TOKEN: optionalSecret,
     FIELD_ENCRYPTION_KEY: z.string().min(32).default('development-only-field-key-change-me'),
     OPENAI_API_KEY: optionalString,
     OPENAI_BASE_URL: z.url().default('https://api.openai.com/v1'),
@@ -79,6 +108,8 @@ export const serverEnvironmentSchema = z
     PASSPORT_PDF_SERVICE_TOKEN: optionalString,
     OTEL_EXPORTER_OTLP_ENDPOINT: optionalUrl,
     ERROR_TRACKING_DSN: optionalUrl,
+    TRACE_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
+    TRACE_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(256).default(16),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   })
   .superRefine((environment, context) => {
@@ -142,6 +173,20 @@ export const serverEnvironmentSchema = z
       });
     }
     if (environment.NODE_ENV === 'production') {
+      if (environment.TRUST_PROXY_HOPS === 0) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Production must explicitly trust at least one controlled reverse-proxy hop',
+          path: ['TRUST_PROXY_HOPS'],
+        });
+      }
+      if (!environment.INTERNAL_HEALTH_TOKEN) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Production readiness and metrics endpoints require an internal health token',
+          path: ['INTERNAL_HEALTH_TOKEN'],
+        });
+      }
       if (!environment.OPENAI_API_KEY) {
         context.addIssue({
           code: 'custom',
@@ -158,6 +203,7 @@ export const serverEnvironmentSchema = z
       }
       for (const [field, value] of [
         ['AUTH_SECRET', environment.AUTH_SECRET],
+        ['BFF_CLIENT_CONTEXT_SECRET', environment.BFF_CLIENT_CONTEXT_SECRET],
         ['FIELD_ENCRYPTION_KEY', environment.FIELD_ENCRYPTION_KEY],
       ] as const) {
         const result = productionSecret.safeParse(value);

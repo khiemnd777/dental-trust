@@ -20,6 +20,17 @@ describe('server environment', () => {
     expect(environment.OPENAI_TRANSCRIPTION_MODEL).toBe('gpt-4o-mini-transcribe');
     expect(environment.OPENAI_TTS_MODEL).toBe('gpt-4o-mini-tts');
     expect(environment.OPENAI_TTS_VOICE).toBe('marin');
+    expect(environment.TRUST_PROXY_HOPS).toBe(0);
+    expect(environment.RATE_LIMIT_REDIS_PREFIX).toBe('dental-trust:rate-limit');
+    expect(environment.RATE_LIMIT_NETWORK_PER_MINUTE).toBe(6_000);
+    expect(environment.AUTH_HASH_CONCURRENCY).toBe(2);
+    expect(environment.AUTH_HASH_MAX_QUEUE).toBe(32);
+    expect(environment.TRACE_SAMPLE_RATE).toBe(1);
+    expect(environment.TRACE_MAX_CONCURRENCY).toBe(16);
+    expect(environment.HTTP_HEADERS_TIMEOUT_MS).toBe(15_000);
+    expect(environment.HTTP_REQUEST_TIMEOUT_MS).toBe(45_000);
+    expect(environment.HTTP_KEEP_ALIVE_TIMEOUT_MS).toBe(5_000);
+    expect(environment.HTTP_MAX_REQUESTS_PER_SOCKET).toBe(1_000);
   });
 
   it('fails closed when an external passport renderer is incomplete', () => {
@@ -55,10 +66,12 @@ describe('server environment', () => {
     const environment = parseServerEnvironment({
       NODE_ENV: 'production',
       AUTH_SECRET: 'a-production-auth-secret-with-ample-entropy',
+      BFF_CLIENT_CONTEXT_SECRET: 'a-production-bff-context-secret-with-entropy',
       FIELD_ENCRYPTION_KEY: 'a-production-field-key-with-ample-entropy',
       APP_URL: 'https://dentaltrust.example',
       API_URL: 'https://api.dentaltrust.example',
       CORS_ORIGINS: 'https://dentaltrust.example',
+      TRUST_PROXY_HOPS: '1',
       DATABASE_URL: 'postgresql://app:secret@postgres.internal:5432/dental_trust',
       REDIS_URL: 'rediss://redis.internal:6379',
       S3_ENDPOINT: 'https://objects.example',
@@ -78,12 +91,36 @@ describe('server environment', () => {
       CALENDAR_PROVIDER_URL: 'https://calendar-sync.dentaltrust.example',
       CALENDAR_PROVIDER_TOKEN: 'calendar-provider-production-token',
       OPENAI_API_KEY: 'sk-proj-production-configured',
+      INTERNAL_HEALTH_TOKEN: 'production-internal-health-token-with-entropy',
     });
 
     expect(environment.PAYMENT_ADAPTER).toBe('stripe');
     expect(environment.MEETING_ADAPTER).toBe('manual');
     expect(environment.CALENDAR_ADAPTER).toBe('external');
     expect(environment.SMTP_SECURE).toBe(true);
+    expect(environment.TRUST_PROXY_HOPS).toBe(1);
+    expect(environment.INTERNAL_HEALTH_TOKEN).toBe('production-internal-health-token-with-entropy');
+  });
+
+  it('requires trusted proxy and internal health configuration in production', () => {
+    expect(() =>
+      parseServerEnvironment({
+        NODE_ENV: 'production',
+        TRUST_PROXY_HOPS: '0',
+        INTERNAL_HEALTH_TOKEN: '',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects invalid protection limits', () => {
+    expect(() =>
+      parseServerEnvironment({
+        NODE_ENV: 'development',
+        AUTH_HASH_CONCURRENCY: '0',
+        TRACE_SAMPLE_RATE: '1.1',
+        HTTP_HEADERS_TIMEOUT_MS: '100',
+      }),
+    ).toThrow();
   });
 
   it('requires an AI provider credential in production', () => {
@@ -109,6 +146,7 @@ describe('server environment', () => {
       parseServerEnvironment({
         NODE_ENV: 'production',
         AUTH_SECRET: 'a-production-auth-secret-with-ample-entropy',
+        BFF_CLIENT_CONTEXT_SECRET: 'a-production-bff-context-secret-with-entropy',
         FIELD_ENCRYPTION_KEY: 'a-production-field-key-with-ample-entropy',
         PAYMENT_ADAPTER: 'stripe',
         STRIPE_SECRET_KEY: 'sk_live_configured-externally',
@@ -122,6 +160,7 @@ describe('server environment', () => {
       parseServerEnvironment({
         NODE_ENV: 'production',
         AUTH_SECRET: 'a-production-auth-secret-with-ample-entropy',
+        BFF_CLIENT_CONTEXT_SECRET: 'a-production-bff-context-secret-with-entropy',
         FIELD_ENCRYPTION_KEY: 'a-production-field-key-with-ample-entropy',
         APP_URL: 'https://dentaltrust.example',
         API_URL: 'https://api.dentaltrust.example',

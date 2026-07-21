@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { bffClientContextHeaders } from '@/lib/bff-client-context';
 
 export async function logoutProviderAction(): Promise<never> {
   const jar = await cookies();
@@ -11,11 +12,13 @@ export async function logoutProviderAction(): Promise<never> {
 
   if (token) {
     try {
+      const clientContext = await bffClientContextHeaders();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1'}/auth/logout`,
         {
           method: 'POST',
           headers: {
+            ...clientContext,
             authorization: `Bearer ${token}`,
             ...(organizationId ? { 'x-organization-id': organizationId } : {}),
           },

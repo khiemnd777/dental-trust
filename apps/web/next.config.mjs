@@ -27,6 +27,8 @@ const nextConfig = {
   transpilePackages: ['@dental-trust/ui', '@dental-trust/i18n'],
   experimental: {
     optimizePackageImports: ['@dental-trust/ui'],
+    proxyClientMaxBodySize: '256kb',
+    serverActions: { bodySizeLimit: '256kb' },
   },
   async headers() {
     return [

@@ -12,6 +12,7 @@ import { Queue, Worker, type ConnectionOptions, type Job } from 'bullmq';
 import type { Logger } from 'pino';
 
 import { queueNames } from '../jobs/queues.js';
+import { attachOutboxDeliveryLifecycle } from '../jobs/outbox-delivery.js';
 import { MultipartPrivateObjectStorage } from './multipart-object-storage.js';
 import { createZipArchive, type ZipArchiveEntry } from './zip-archive.js';
 
@@ -82,6 +83,7 @@ export async function createPrivacyExecutionRuntime(
       'privacy execution job failed',
     );
   });
+  attachOutboxDeliveryLifecycle(worker, db, logger);
   return {
     worker,
     async close() {
@@ -113,6 +115,7 @@ export function createPrivacyExecutionWorker(
       'privacy execution job failed',
     );
   });
+  attachOutboxDeliveryLifecycle(worker, db, logger);
   return worker;
 }
 

@@ -2,14 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/telemetry/client-error/route';
 
 function request(body: unknown, origin = 'http://localhost:3000') {
+  const serialized = JSON.stringify(body);
   return new Request('http://localhost:3000/api/telemetry/client-error', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      'content-length': String(Buffer.byteLength(serialized)),
       origin,
       'sec-fetch-site': 'same-origin',
     },
-    body: JSON.stringify(body),
+    body: serialized,
   });
 }
 
@@ -73,5 +75,16 @@ describe('client error telemetry route', () => {
         )
       ).status,
     ).toBe(400);
+  });
+
+  it('rejects an unbounded body before parsing it', async () => {
+    const unbounded = request({
+      code: 'route_render_failure',
+      digest: 'digest_123',
+      routeFamily: '/en/app',
+    });
+    unbounded.headers.delete('content-length');
+
+    expect((await POST(unbounded)).status).toBe(411);
   });
 });

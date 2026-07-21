@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const nextMocks = vi.hoisted(() => ({
   cookies: vi.fn(),
+  headers: vi.fn(),
   redirect: vi.fn((url: string): never => {
     throw new Error(`NEXT_REDIRECT:${url}`);
   }),
 }));
 
-vi.mock('next/headers', () => ({ cookies: nextMocks.cookies }));
+vi.mock('next/headers', () => ({ cookies: nextMocks.cookies, headers: nextMocks.headers }));
 vi.mock('next/navigation', () => ({ redirect: nextMocks.redirect }));
 vi.mock('react', () => ({
   cache: <T extends (...args: never[]) => unknown>(callback: T) => callback,
@@ -28,6 +29,8 @@ describe('Provider session policy', () => {
     vi.clearAllMocks();
     vi.stubEnv('NEXT_PUBLIC_API_URL', 'https://api.example.test/api/v1');
     vi.stubEnv('PUBLIC_APP_URL', 'https://app.example.test');
+    vi.stubEnv('BFF_CLIENT_CONTEXT_SECRET', 'test-bff-context-secret-that-is-long-enough');
+    nextMocks.headers.mockResolvedValue(new Headers({ 'x-real-ip': '203.0.113.10' }));
   });
 
   afterEach(() => {
@@ -74,10 +77,11 @@ describe('Provider session policy', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.example.test/api/v1/auth/me',
       expect.objectContaining({
-        headers: {
+        headers: expect.objectContaining({
           authorization: 'Bearer token',
           'x-organization-id': organizationId,
-        },
+          'x-dental-trust-client-context': expect.stringMatching(/^v1\./u),
+        }),
         cache: 'no-store',
         signal: expect.any(AbortSignal),
       }),

@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import type { NextFunction, Request, Response } from 'express';
@@ -16,8 +17,17 @@ loadWorkspaceEnvironment();
 async function bootstrap(): Promise<void> {
   const environment = parseServerEnvironment(process.env);
   const { AppModule } = await import('./app.module.js');
-  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
   app.useLogger(new PinoNestLogger(app.get<Logger>(LOGGER)));
+  app.set('trust proxy', environment.TRUST_PROXY_HOPS);
+  const server = app.getHttpServer();
+  server.headersTimeout = environment.HTTP_HEADERS_TIMEOUT_MS;
+  server.requestTimeout = environment.HTTP_REQUEST_TIMEOUT_MS;
+  server.keepAliveTimeout = environment.HTTP_KEEP_ALIVE_TIMEOUT_MS;
+  server.maxRequestsPerSocket = environment.HTTP_MAX_REQUESTS_PER_SOCKET;
   app.setGlobalPrefix('api/v1');
   const apiHeaders = helmet({
     contentSecurityPolicy: {
@@ -65,6 +75,10 @@ async function bootstrap(): Promise<void> {
       'ratelimit-limit',
       'ratelimit-remaining',
       'ratelimit-reset',
+      'x-ratelimit-limit',
+      'x-ratelimit-remaining',
+      'x-ratelimit-reset',
+      'retry-after',
     ],
   });
   app.enableShutdownHooks();

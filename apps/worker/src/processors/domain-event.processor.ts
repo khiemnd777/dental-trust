@@ -1,30 +1,35 @@
 import type { Prisma, PrismaClient } from '@dental-trust/database';
-import type { ServerEnvironment } from '@dental-trust/config/server';
-import { Worker, type ConnectionOptions, type Job } from 'bullmq';
+import { Queue, Worker, type ConnectionOptions, type Job } from 'bullmq';
 import type { Logger } from 'pino';
 
-import { queueNames } from '../jobs/queues.js';
-import { FileScanProcessor } from './file-scan.processor.js';
+import { outboxJobId, type OutboxJobData } from '../jobs/outbox-routing.js';
+import { attachOutboxDeliveryLifecycle } from '../jobs/outbox-delivery.js';
+import { fileProcessingJobOptions, queueNames } from '../jobs/queues.js';
 
-interface DomainEventJob {
-  readonly outboxEventId: string;
-  readonly eventType: string;
-  readonly aggregateType: string;
-  readonly aggregateId: string;
-  readonly payload: unknown;
-  readonly correlationId: string;
+export interface DomainEventRuntime {
+  readonly worker: Worker<OutboxJobData>;
+  close(): Promise<void>;
 }
 
 export function createDomainEventWorker(
   db: PrismaClient,
   connection: ConnectionOptions,
   logger: Logger,
-  environment: ServerEnvironment,
-): Worker<DomainEventJob> {
-  const fileScanner = new FileScanProcessor(db, environment);
-  const worker = new Worker<DomainEventJob>(
+): DomainEventRuntime {
+  const fileProcessingQueue = new Queue<OutboxJobData>(queueNames.fileProcessing, {
+    connection,
+    defaultJobOptions: fileProcessingJobOptions,
+  });
+  const worker = new Worker<OutboxJobData>(
     queueNames.domainEvents,
-    async (job) => processDomainEvent(db, fileScanner, job),
+    async (job) => {
+      if (job.data.eventType === 'file.scan-requested') {
+        await fileProcessingQueue.add(job.name, job.data, { jobId: outboxJobId(job.data) });
+        logger.warn({ jobId: job.id }, 'forwarded legacy file scan job to dedicated queue');
+        return;
+      }
+      await processDomainEvent(db, job);
+    },
     { connection, concurrency: 10 },
   );
   worker.on('failed', (job, error) => {
@@ -33,18 +38,19 @@ export function createDomainEventWorker(
       'domain event job failed',
     );
   });
-  return worker;
+  attachOutboxDeliveryLifecycle(worker, db, logger, {
+    shouldMarkCompleted: (job) => job.data.eventType !== 'file.scan-requested',
+  });
+  return {
+    worker,
+    close: async () => {
+      await worker.close();
+      await fileProcessingQueue.close();
+    },
+  };
 }
 
-async function processDomainEvent(
-  db: PrismaClient,
-  fileScanner: FileScanProcessor,
-  job: Job<DomainEventJob>,
-): Promise<void> {
-  if (job.data.eventType === 'file.scan-requested') {
-    await fileScanner.process(job.data.aggregateId);
-    return;
-  }
+async function processDomainEvent(db: PrismaClient, job: Job<OutboxJobData>): Promise<void> {
   if (
     job.data.eventType === 'account.email-verification-requested' ||
     job.data.eventType === 'account.password-reset-requested' ||

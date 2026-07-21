@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
+import { bffClientContextHeaders } from './bff-client-context';
 
 const providerRoles = new Set(['DENTIST', 'CLINIC_STAFF', 'CLINIC_ADMIN']);
 
@@ -20,10 +21,15 @@ export const readProviderSession = cache(
     const organizationId = jar.get('dt_organization')?.value;
     if (!token || !organizationId) return null;
     try {
+      const clientContext = await bffClientContextHeaders();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1'}/auth/me`,
         {
-          headers: { authorization: `Bearer ${token}`, 'x-organization-id': organizationId },
+          headers: {
+            ...clientContext,
+            authorization: `Bearer ${token}`,
+            'x-organization-id': organizationId,
+          },
           cache: 'no-store',
           signal: AbortSignal.timeout(4_000),
         },

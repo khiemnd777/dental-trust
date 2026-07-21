@@ -31,4 +31,30 @@ describe('web security proxy', () => {
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
     );
   });
+
+  it.each([
+    { contentLength: null, status: 411, code: 'LENGTH_REQUIRED' },
+    { contentLength: 'invalid', status: 400, code: 'INVALID_CONTENT_LENGTH' },
+    { contentLength: String(256 * 1024 + 1), status: 413, code: 'PAYLOAD_TOO_LARGE' },
+  ])('rejects unsafe mutation body metadata: $code', async ({ contentLength, status, code }) => {
+    const headers = new Headers();
+    if (contentLength !== null) headers.set('content-length', contentLength);
+    const response = proxy(
+      new NextRequest('http://localhost:3000/api/portal/commands', {
+        method: 'POST',
+        headers,
+      }),
+    );
+
+    expect(response.status).toBe(status);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    await expect(response.json()).resolves.toMatchObject({ error: { code } });
+  });
+
+  it('does not impose body headers on safe methods', () => {
+    const response = proxy(new NextRequest('http://localhost:3000/api/portal/data'));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+  });
 });

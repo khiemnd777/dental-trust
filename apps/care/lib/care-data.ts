@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cookies } from 'next/headers';
+import { bffClientContextHeaders } from './bff-client-context';
 
 export interface CareProfile {
   readonly id: string;
@@ -170,8 +171,9 @@ async function careApi<T>(path: string, authenticated = true): Promise<T> {
   if (authenticated && !token) throw new CareDataError(401, 'AUTHENTICATION_REQUIRED', false);
   let response: Response;
   try {
+    const clientContext = await bffClientContextHeaders();
     response = await fetch(`${apiBase()}${path}`, {
-      ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}),
+      headers: { ...clientContext, ...(token ? { authorization: `Bearer ${token}` } : {}) },
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
     });

@@ -39,5 +39,5 @@ USER node
 EXPOSE 4000
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:4000/api/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:4000/api/v1/health/ready',{headers:{'x-internal-health-token':process.env.INTERNAL_HEALTH_TOKEN??''}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["node", "apps/api/dist/main.js"]

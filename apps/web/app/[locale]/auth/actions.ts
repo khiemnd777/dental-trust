@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { apiErrorSchema, registerRequestSchema } from '@dental-trust/contracts';
 import type { Locale } from '@dental-trust/i18n';
 import type { PortalArea } from '@/lib/routing';
+import { bffClientContextHeaders, bffSessionContextHeaders } from '@/lib/bff-client-context';
 import {
   authContinuationFromForm,
   authUrl,
@@ -81,25 +82,33 @@ function areaFromRoles(roles: readonly SystemRole[]): PortalArea | null {
   return null;
 }
 
-async function productionLogin(email: string, password: string) {
+type ProductionLoginResult =
+  | { readonly status: 'success'; readonly accessToken: string; readonly roles: SystemRole[] }
+  | { readonly status: 'invalid' | 'unavailable' };
+
+async function productionLogin(email: string, password: string): Promise<ProductionLoginResult> {
   const api = process.env.NEXT_PUBLIC_API_URL;
-  if (!api) return null;
+  if (!api) return { status: 'unavailable' };
   try {
+    const clientContext = await bffClientContextHeaders();
     const response = await fetch(`${api}/auth/login`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { ...clientContext, 'content-type': 'application/json' },
       body: JSON.stringify({ email, password }),
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
     });
-    if (!response.ok) return null;
+    if (response.status === 400 || response.status === 401) return { status: 'invalid' };
+    if (!response.ok) return { status: 'unavailable' };
     const envelope = (await response.json()) as {
       data?: { accessToken?: string; user?: { roles?: SystemRole[] } };
     };
     const body = envelope.data;
-    return body?.accessToken && Array.isArray(body.user?.roles) ? body : null;
+    return body?.accessToken && Array.isArray(body.user?.roles)
+      ? { status: 'success', accessToken: body.accessToken, roles: body.user.roles }
+      : { status: 'unavailable' };
   } catch {
-    return null;
+    return { status: 'unavailable' };
   }
 }
 
@@ -120,7 +129,9 @@ export async function loginAction(locale: Locale, formData: FormData) {
     await setSessionToken(await createDevelopmentToken(demoSessionFor(resolvedArea)));
   } else {
     const result = await productionLogin(email, password);
-    if (!result?.accessToken)
+    if (result.status === 'invalid')
+      redirect(authUrl(`/${locale}/auth/login`, continuation, { error: 'invalid' }));
+    if (result.status !== 'success')
       redirect(authUrl(`/${locale}/auth/login`, continuation, { error: 'unavailable' }));
     await setSessionToken(result.accessToken);
     const session = await getSession();
@@ -200,9 +211,11 @@ export async function createClinicOrganizationAction(locale: Locale, formData: F
   if (!api || !token) redirect(`/${locale}/auth/organization?error=unavailable`);
   let organizationId: string | undefined;
   try {
+    const clientContext = bffSessionContextHeaders(session.id);
     const response = await fetch(`${api}/clinic-operations/organizations`, {
       method: 'POST',
       headers: {
+        ...clientContext,
         authorization: `Bearer ${token}`,
         'content-type': 'application/json',
         'x-idempotency-key': idempotencyKey,
@@ -264,9 +277,10 @@ export async function registerAction(locale: Locale, formData: FormData) {
   if (!useDevelopmentAuthAdapter()) {
     const api = process.env.NEXT_PUBLIC_API_URL;
     if (!api) fail('unavailable');
+    const clientContext = await bffClientContextHeaders();
     const response = await fetch(`${api}/auth/register`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { ...clientContext, 'content-type': 'application/json' },
       body: JSON.stringify({
         ...registration.data,
       }),
@@ -308,9 +322,10 @@ export async function verifyEmailAction(locale: Locale, formData: FormData) {
       redirect(authUrl(`/${locale}/auth/verify-email`, continuation, { error: 'unavailable' }));
     let response: Response;
     try {
+      const clientContext = await bffClientContextHeaders();
       response = await fetch(`${api}/auth/email-verification/consume`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { ...clientContext, 'content-type': 'application/json' },
         body: JSON.stringify({ token }),
         cache: 'no-store',
         signal: AbortSignal.timeout(5_000),

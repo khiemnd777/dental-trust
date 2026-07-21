@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { getMessages, type Locale } from '@dental-trust/i18n';
+import { bffClientContextHeaders } from './bff-client-context';
 
 export interface PublicClinic {
   slug: string;
@@ -101,9 +102,11 @@ export async function loadPublicClinics(locale: Locale): Promise<PublicClinic[]>
   const api = process.env.NEXT_PUBLIC_API_URL;
   if (!api) return [];
   try {
+    const clientContext = await bffClientContextHeaders();
     const response = await fetch(
       `${api}/public/clinics?verificationStatus=ACTIVE&locale=${locale}`,
       {
+        headers: clientContext,
         next: { revalidate: 300, tags: ['public-clinics', `public-clinics-${locale}`] },
         signal: AbortSignal.timeout(5_000),
       },
@@ -125,9 +128,11 @@ export async function loadPublicClinic(locale: Locale, slug: string) {
   const api = process.env.NEXT_PUBLIC_API_URL;
   if (!api) return null;
   try {
+    const clientContext = await bffClientContextHeaders();
     const response = await fetch(
       `${api}/public/clinics/${encodeURIComponent(slug)}?locale=${locale}`,
       {
+        headers: clientContext,
         next: { revalidate: 300, tags: [`public-clinic-${slug}`] },
         signal: AbortSignal.timeout(5_000),
       },
@@ -203,7 +208,9 @@ export async function loadPublicDentists(locale: Locale): Promise<PublicDentist[
   const api = process.env.NEXT_PUBLIC_API_URL;
   if (!api) return [];
   try {
+    const clientContext = await bffClientContextHeaders();
     const response = await fetch(`${api}/public/dentists?locale=${locale}`, {
+      headers: clientContext,
       next: { revalidate: 300, tags: ['public-dentists', `public-dentists-${locale}`] },
       signal: AbortSignal.timeout(5_000),
     });
@@ -225,9 +232,11 @@ export async function loadPublicDentist(
   const api = process.env.NEXT_PUBLIC_API_URL;
   if (!api) return null;
   try {
+    const clientContext = await bffClientContextHeaders();
     const response = await fetch(
       `${api}/public/dentists/${encodeURIComponent(slug)}?locale=${locale}`,
       {
+        headers: clientContext,
         next: { revalidate: 300, tags: [`public-dentist-${slug}`] },
         signal: AbortSignal.timeout(5_000),
       },

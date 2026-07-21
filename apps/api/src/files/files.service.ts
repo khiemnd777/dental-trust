@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { PrismaClient } from '@dental-trust/database';
+import type { Prisma, PrismaClient } from '@dental-trust/database';
 
 import {
   authorizeCaseAction,
@@ -18,12 +18,19 @@ import type { ServerEnvironment } from '@dental-trust/config/server';
 import { CaseRepository } from '@dental-trust/database';
 
 import { PRISMA, SERVER_ENV } from '../common/tokens.js';
+import { RateLimitExceededException } from '../common/rate-limit.exception.js';
 import { PrivateObjectStorageProvider } from '../infrastructure/providers/private-object-storage.provider.js';
+import {
+  readUploadQuotaPolicy,
+  uploadQuotaViolation,
+  type UploadQuotaPolicy,
+} from './upload-quota.policy.js';
 
 @Injectable()
 export class FilesService {
   private readonly cases: CaseRepository;
   private readonly storage: PrivateObjectStorageProvider;
+  private readonly uploadQuotaPolicy: UploadQuotaPolicy;
 
   constructor(
     @Inject(PRISMA) private readonly db: PrismaClient,
@@ -31,6 +38,7 @@ export class FilesService {
   ) {
     this.cases = new CaseRepository(db);
     this.storage = new PrivateObjectStorageProvider(environment);
+    this.uploadQuotaPolicy = readUploadQuotaPolicy();
   }
 
   async initiate(access: AccessContext, input: SignedUploadRequest) {
@@ -43,6 +51,7 @@ export class FilesService {
       sizeBytes: input.sizeBytes,
     });
     const asset = await this.db.$transaction(async (transaction) => {
+      await this.assertUploadQuota(transaction, access.userId, input.sizeBytes);
       const created = await transaction.fileAsset.create({
         data: {
           ownerUserId: access.userId,
@@ -75,7 +84,10 @@ export class FilesService {
       fileAssetId: asset.id,
       uploadUrl: upload.signedUrl,
       expiresAt: upload.expiresAt.toISOString(),
-      requiredHeaders: { 'content-type': input.declaredMediaType },
+      requiredHeaders: {
+        'content-type': input.declaredMediaType,
+        'x-amz-tagging': 'state=quarantined',
+      },
     };
   }
 
@@ -89,6 +101,7 @@ export class FilesService {
       sizeBytes: input.sizeBytes,
     });
     const asset = await this.db.$transaction(async (transaction) => {
+      await this.assertUploadQuota(transaction, access.userId, input.sizeBytes);
       const created = await transaction.fileAsset.create({
         data: {
           ownerUserId: access.userId,
@@ -121,7 +134,10 @@ export class FilesService {
       fileAssetId: asset.id,
       uploadUrl: upload.signedUrl,
       expiresAt: upload.expiresAt.toISOString(),
-      requiredHeaders: { 'content-type': input.declaredMediaType },
+      requiredHeaders: {
+        'content-type': input.declaredMediaType,
+        'x-amz-tagging': 'state=quarantined',
+      },
     };
   }
 
@@ -384,5 +400,54 @@ export class FilesService {
     });
     if (!clinic) throw new NotFoundException();
     return clinic;
+  }
+
+  private async assertUploadQuota(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+    requestedBytes: number,
+  ): Promise<void> {
+    await transaction.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId}::uuid FOR UPDATE`;
+    const now = Date.now();
+    const objectKeyPrefix = `quarantine/${userId}/`;
+    const activeQuarantineCutoff = new Date(
+      now - this.uploadQuotaPolicy.activeQuarantineSeconds * 1_000,
+    );
+    const recentCutoff = new Date(now - this.uploadQuotaPolicy.windowSeconds * 1_000);
+    const activeUploads = await transaction.fileAsset.count({
+      where: {
+        ownerUserId: userId,
+        objectKey: { startsWith: objectKeyPrefix },
+        deletedAt: null,
+        OR: [
+          { status: 'SCANNING' },
+          { status: 'QUARANTINED', createdAt: { gte: activeQuarantineCutoff } },
+        ],
+      },
+    });
+    const recent = await transaction.fileAsset.aggregate({
+      where: {
+        ownerUserId: userId,
+        objectKey: { startsWith: objectKeyPrefix },
+        createdAt: { gte: recentCutoff },
+      },
+      _sum: { sizeBytes: true },
+    });
+    const violation = uploadQuotaViolation(
+      {
+        activeUploads,
+        recentBytes: recent._sum.sizeBytes ?? 0n,
+        requestedBytes,
+      },
+      this.uploadQuotaPolicy,
+    );
+    if (!violation) return;
+    throw new RateLimitExceededException(
+      'UPLOAD_QUOTA_EXCEEDED',
+      violation === 'ACTIVE_UPLOADS'
+        ? this.uploadQuotaPolicy.activeQuarantineSeconds
+        : this.uploadQuotaPolicy.windowSeconds,
+      violation,
+    );
   }
 }

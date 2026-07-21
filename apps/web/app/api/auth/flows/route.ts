@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { bffClientContextHeaders } from '@/lib/bff-client-context';
 import { getSession, useDevelopmentAuthAdapter } from '@/lib/session';
 
 type FlowKind = 'reset' | 'mfa' | 'sessions';
@@ -56,11 +57,13 @@ export async function POST(request: Request) {
   if (!api) return NextResponse.json({ error: 'service_unavailable' }, { status: 503 });
   const token = (await cookies()).get('dt_session')?.value;
   try {
+    const clientContext = await bffClientContextHeaders(request.headers);
     const endpoint =
       body.kind === 'reset' && body.token ? 'auth/password-reset/consume' : endpoints[body.kind];
     const upstream = await fetch(`${api}/${endpoint}`, {
       method: 'POST',
       headers: {
+        ...clientContext,
         'content-type': 'application/json',
         ...(token ? { authorization: `Bearer ${token}` } : {}),
       },

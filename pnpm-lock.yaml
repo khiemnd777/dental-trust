@@ -135,6 +135,9 @@ importers:
       '@dental-trust/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@dental-trust/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@dental-trust/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -184,6 +187,9 @@ importers:
       '@dental-trust/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@dental-trust/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@dental-trust/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -221,6 +227,9 @@ importers:
       '@dental-trust/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@dental-trust/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@dental-trust/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -267,6 +276,9 @@ importers:
       '@dental-trust/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@dental-trust/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@dental-trust/ui':
         specifier: workspace:*
         version: link:../../packages/ui

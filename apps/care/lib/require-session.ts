@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
+import { bffClientContextHeaders } from './bff-client-context';
 
 export const requireCareSession = cache(async function requireCareSession() {
   const token = (await cookies()).get('dt_session')?.value;
@@ -19,10 +20,11 @@ export const requireCareSession = cache(async function requireCareSession() {
 async function loadIdentity(token: string) {
   let response: Response;
   try {
+    const clientContext = await bffClientContextHeaders();
     response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1'}/auth/me`,
       {
-        headers: { authorization: `Bearer ${token}` },
+        headers: { ...clientContext, authorization: `Bearer ${token}` },
         cache: 'no-store',
         signal: AbortSignal.timeout(4_000),
       },

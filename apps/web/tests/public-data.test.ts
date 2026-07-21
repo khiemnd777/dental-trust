@@ -1,4 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/headers', () => ({
+  headers: vi.fn(async () => new Headers({ 'x-real-ip': '203.0.113.9' })),
+}));
 
 import {
   loadPublicClinic,
@@ -46,6 +50,10 @@ const validDentist = {
   affiliations: ['Verified Clinic'],
   updatedAt: '2026-07-12T00:00:00.000Z',
 };
+
+beforeEach(() => {
+  vi.stubEnv('BFF_CLIENT_CONTEXT_SECRET', 'test-bff-context-secret-that-is-long-enough');
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();

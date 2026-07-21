@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@dental-trust/contracts": "workspace:*",
+    "@dental-trust/security": "workspace:*",
     "@dental-trust/ui": "workspace:*",
     "next": "16.2.10",
     "react": "19.2.7",

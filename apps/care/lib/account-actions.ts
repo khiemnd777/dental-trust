@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { bffClientContextHeaders } from './bff-client-context';
 
 export async function logoutCareAction() {
   const jar = await cookies();
@@ -12,9 +13,10 @@ export async function logoutCareAction() {
         process.env.API_INTERNAL_URL ??
         process.env.NEXT_PUBLIC_API_URL ??
         'http://localhost:4000/api/v1';
+      const clientContext = await bffClientContextHeaders();
       await fetch(`${api}/auth/logout`, {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}` },
+        headers: { ...clientContext, authorization: `Bearer ${token}` },
         cache: 'no-store',
         signal: AbortSignal.timeout(5_000),
       });

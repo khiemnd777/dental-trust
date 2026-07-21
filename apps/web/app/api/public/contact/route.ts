@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { bffClientContextHeaders } from '@/lib/bff-client-context';
 import { useDevelopmentAuthAdapter } from '@/lib/session';
 
 function sameOrigin(origin: string | null) {
@@ -44,9 +45,14 @@ export async function POST(request: Request) {
   const api = process.env.NEXT_PUBLIC_API_URL;
   if (!api) return NextResponse.json({ error: 'service_unavailable' }, { status: 503 });
   try {
+    const clientContext = await bffClientContextHeaders(request.headers);
     const upstream = await fetch(`${api}/contact`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
+      headers: {
+        ...clientContext,
+        'content-type': 'application/json',
+        'x-idempotency-key': crypto.randomUUID(),
+      },
       body: JSON.stringify(body),
       cache: 'no-store',
       signal: AbortSignal.timeout(8_000),

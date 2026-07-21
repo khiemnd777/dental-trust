@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dental-trust/domain": "workspace:*",
+    "@dental-trust/security": "workspace:*",
     "@dental-trust/ui": "workspace:*",
     "leaflet": "^1.9.4",
     "mapbox-gl": "^3.26.0",

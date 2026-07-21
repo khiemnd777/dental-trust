@@ -43,10 +43,15 @@ import { RequestValidationError } from '@dental-trust/validation';
 
 import type { AuthenticatedRequest } from './http.js';
 import { requestIdOf } from './http.js';
+import { RateLimitExceededException } from './rate-limit.exception.js';
+import { RateLimitStorageUnavailableException } from './redis-throttler.storage.js';
+import { isOperationalHealthRoute } from './request-context.middleware.js';
 import { ERROR_REPORTER, LOGGER, METRICS } from './tokens.js';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private lastRateLimitStorageWarningAt = 0;
+
   constructor(
     @Inject(LOGGER) private readonly logger: Logger,
     @Inject(METRICS) private readonly metrics: MetricsRegistry,
@@ -59,8 +64,25 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const response = http.getResponse<Response>();
     const requestId = requestIdOf(request);
     const normalized = normalizeException(exception);
+    const quietHealthPath = isOperationalHealthRoute(request.path);
 
-    if (normalized.status >= 500) {
+    if (normalized.retryAfterSeconds !== undefined) {
+      response.setHeader('Retry-After', normalized.retryAfterSeconds.toString());
+    }
+
+    if (quietHealthPath) {
+      // Health endpoints are monitored by status and their dedicated bounded
+      // guard. Per-request rejection logs would turn probe floods into log I/O.
+    } else if (exception instanceof RateLimitStorageUnavailableException) {
+      this.metrics.increment('rate_limit_storage_unavailable_total', {
+        route: request.route?.path?.toString() ?? 'unknown',
+      });
+      const now = Date.now();
+      if (now - this.lastRateLimitStorageWarningAt >= 10_000) {
+        this.lastRateLimitStorageWarningAt = now;
+        this.logger.warn({ requestId }, 'rate-limit storage unavailable; requests fail closed');
+      }
+    } else if (normalized.status >= 500) {
       this.logger.error(
         {
           errorType: exception instanceof Error ? exception.name : 'UnknownError',
@@ -95,7 +117,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
         requestId,
         retryable: normalized.retryable,
         ...(normalized.domainCode ? { domainCode: normalized.domainCode } : {}),
+        ...(normalized.reason ? { reason: normalized.reason } : {}),
         ...(normalized.fieldErrors ? { fieldErrors: normalized.fieldErrors } : {}),
+        ...(normalized.retryAfterSeconds !== undefined
+          ? { retryAfterSeconds: normalized.retryAfterSeconds }
+          : {}),
       },
     });
   }
@@ -108,9 +134,29 @@ interface NormalizedError {
   readonly retryable: boolean;
   readonly fieldErrors?: Readonly<Record<string, readonly string[]>>;
   readonly domainCode?: string;
+  readonly retryAfterSeconds?: number;
+  readonly reason?: string;
 }
 
 export function normalizeException(exception: unknown): NormalizedError {
+  if (exception instanceof RateLimitStorageUnavailableException) {
+    return {
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      code: 'RATE_LIMIT_STORAGE_UNAVAILABLE',
+      message: 'Request protection is temporarily unavailable.',
+      retryable: true,
+    };
+  }
+  if (exception instanceof RateLimitExceededException) {
+    return {
+      status: HttpStatus.TOO_MANY_REQUESTS,
+      code: exception.errorCode,
+      message: exception.message,
+      retryable: true,
+      retryAfterSeconds: exception.retryAfterSeconds,
+      ...(exception.reason ? { reason: exception.reason } : {}),
+    };
+  }
   if (exception instanceof RequestValidationError) {
     return {
       status: HttpStatus.BAD_REQUEST,

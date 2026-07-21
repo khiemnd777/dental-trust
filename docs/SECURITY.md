@@ -22,6 +22,8 @@ This document distinguishes implemented controls from controls required before p
 - Case and file access checks combine role, permission, active membership, selected tenant, ownership/assignment, and caregiver grants at request time.
 - Repository queries scope tenant resources; out-of-scope resource reads are concealed.
 - Helmet, restrictive CORS, CSP, request IDs, throttling, structured errors, `private, no-store` responses, and safe logging are enabled.
+- BFF readiness is locally evaluated and does not fan out into deep dependency probes. Client telemetry checks a bounded declared body and a fixed-size, per-process emergency budget before session I/O. Audio multipart requests require a declared bounded length, pass through a bounded whole-flow concurrency gate, and verify the session and Care role before parsing; the API retains its 10 MiB file limit.
+- BFFs create short-lived HMAC client-context assertions from a single edge-overwritten IP header. The API never trusts raw client identity headers, rejects stale/tampered assertions, uses per-client route budgets for fairness, and enforces a second Redis-backed global ingress-IP ceiling across routes.
 - Case mutations use state policies, optimistic versions, transactions, and stored-response idempotency.
 - Audit, history, acceptance, consent, and selected snapshot records have database append-only/immutability enforcement.
 - Public directory queries require current verified evidence and licenses at read time. Contact PII is encrypted before persistence and excluded from outbox metadata.
@@ -56,7 +58,8 @@ The following controls are designed or partially scaffolded but not complete:
 - provider-backed meeting provisioning plus external-calendar busy-window ingestion, webhook verification, and reconciliation;
 - audit coverage for every sensitive view/export, verification decision, payment/refund, privacy action, and administrative change;
 - production telemetry exporters, alerting, secret redaction verification, encrypted backup/PITR, and restore exercises;
-- complete rate/body limits and abuse controls for every future endpoint.
+- complete rate/body limits and abuse controls for every future endpoint;
+- an approved CDN/WAF and managed DDoS service, origin firewall lockdown, trusted forwarding-header contract, and shared distributed limits validated against production-like load;
 
 ## Security verification
 

@@ -64,6 +64,18 @@ test.describe('real API boundary', () => {
     });
   });
 
+  test('provider login crosses the BFF and preserves organization selection', async ({ page }) => {
+    await page.goto('/en/auth/login?product=provider');
+    await page.getByLabel('Email').fill('clinic.admin@saigon-smiles.local');
+    await page.getByLabel('Password').fill(seedPassword);
+    await page.getByRole('button', { name: 'Sign in securely' }).click();
+
+    await expect(page).toHaveURL(/\/en\/auth\/organization\?product=provider$/u);
+    await page.getByRole('button', { name: 'Continue with this organization' }).click();
+    await expect(page).toHaveURL('http://localhost:3001/');
+    await expect(page.getByRole('heading', { name: 'Trung tâm công việc hôm nay' })).toBeVisible();
+  });
+
   test('registration Save reaches the real API and preserves Care context', async ({ page }) => {
     const credential = createValidRegistrationInput();
     await page.goto(

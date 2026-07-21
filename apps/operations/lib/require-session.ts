@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
+import { bffClientContextHeaders } from './bff-client-context';
 
 const operationsRoles = new Set([
   'CONCIERGE_AGENT',
@@ -34,10 +35,12 @@ export const readOperationsSession = cache(
     const organizationId = jar.get('dt_organization')?.value;
     if (!token) return null;
     try {
+      const clientContext = await bffClientContextHeaders();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1'}/auth/me`,
         {
           headers: {
+            ...clientContext,
             authorization: `Bearer ${token}`,
             ...(organizationId ? { 'x-organization-id': organizationId } : {}),
           },

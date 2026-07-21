@@ -44,6 +44,7 @@ export class PrivateObjectStorageProvider {
       ContentType: input.contentType,
       ContentLength: input.sizeBytes,
       ServerSideEncryption: 'AES256',
+      Tagging: 'state=quarantined',
       Metadata: { owner: input.ownerUserId, state: 'quarantined' },
     });
     return {

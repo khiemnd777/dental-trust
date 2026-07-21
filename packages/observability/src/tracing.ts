@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 
 const traceparentPattern = /^00-([a-f0-9]{32})-([a-f0-9]{16})-([a-f0-9]{2})$/iu;
 
@@ -17,6 +17,11 @@ export interface TraceSpanRecord {
 
 export interface TraceExporter {
   export(span: TraceSpanRecord): Promise<void>;
+}
+
+export interface TraceExporterOptions {
+  readonly sampleRate?: number;
+  readonly maxConcurrency?: number;
 }
 
 export interface ActiveTraceSpan {
@@ -66,23 +71,49 @@ export function startTraceSpan(input: {
   };
 }
 
-export function createTraceExporter(endpoint?: string): TraceExporter {
+export function createTraceExporter(
+  endpoint?: string,
+  options: TraceExporterOptions = {},
+): TraceExporter {
   if (!endpoint) return { export: async () => undefined };
   const url = new URL(endpoint);
+  const sampleRate = boundedSampleRate(options.sampleRate ?? 1);
+  const maxConcurrency = Math.max(1, Math.floor(options.maxConcurrency ?? 16));
+  const samplingKey = randomBytes(32);
+  let inFlight = 0;
   if (!url.pathname.endsWith('/v1/traces')) {
     url.pathname = `${url.pathname.replace(/\/$/u, '')}/v1/traces`;
   }
   return {
     async export(span) {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(otlpEnvelope(span)),
-        signal: AbortSignal.timeout(2_000),
-      });
-      if (!response.ok) throw new Error(`TRACE_EXPORT_FAILED_${response.status}`);
+      if (!isSampled(span.traceId, sampleRate, samplingKey) || inFlight >= maxConcurrency) return;
+      inFlight += 1;
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(otlpEnvelope(span)),
+          signal: AbortSignal.timeout(2_000),
+        });
+        if (!response.ok) throw new Error(`TRACE_EXPORT_FAILED_${response.status}`);
+      } finally {
+        inFlight -= 1;
+      }
     },
   };
+}
+
+function boundedSampleRate(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+function isSampled(traceId: string, sampleRate: number, samplingKey: Buffer): boolean {
+  if (sampleRate <= 0) return false;
+  if (sampleRate >= 1) return true;
+  // A public traceparent must not let callers choose whether expensive export work runs.
+  const prefix = createHmac('sha256', samplingKey).update(traceId).digest().readUInt32BE(0);
+  return prefix / 0xffffffff <= sampleRate;
 }
 
 function parseTraceparent(value?: string) {

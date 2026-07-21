@@ -7,7 +7,7 @@ import {
   startTraceSpan,
 } from '@dental-trust/observability';
 
-import { normalizedRoute } from './request-context.middleware.js';
+import { isOperationalHealthRoute, normalizedRoute } from './request-context.middleware.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -67,6 +67,31 @@ describe('W3C-compatible tracing adapter', () => {
     };
     expect(body.resourceSpans).toHaveLength(1);
   });
+
+  it('samples deterministically and caps concurrent trace exports', async () => {
+    let release: (() => void) | undefined;
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () => resolve(new Response(null, { status: 202 }));
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const exporter = createTraceExporter('https://telemetry.example', {
+      sampleRate: 1,
+      maxConcurrency: 1,
+    });
+    const first = exporter.export(startTraceSpan({ name: 'first', kind: 'SERVER' }).end('OK'));
+    await exporter.export(startTraceSpan({ name: 'dropped', kind: 'SERVER' }).end('OK'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    release?.();
+    await first;
+
+    fetchMock.mockClear();
+    const disabled = createTraceExporter('https://telemetry.example', { sampleRate: 0 });
+    await disabled.export(startTraceSpan({ name: 'unsampled', kind: 'SERVER' }).end('OK'));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('external error reporting adapter', () => {
@@ -82,6 +107,32 @@ describe('external error reporting adapter', () => {
     expect(body).not.toContain('abcdefghijklmnopqrstuvwxyz012345');
     expect(body).toContain('Application error details are available only in redacted local logs.');
   });
+
+  it('drops reports when the reporter concurrency budget is exhausted', async () => {
+    let release: (() => void) | undefined;
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () => resolve(new Response(null, { status: 202 }));
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const reporter = createErrorReporter('https://errors.example/events', {
+      maxConcurrency: 1,
+      maxReportsPerMinute: 10,
+    });
+    const first = reporter.capture(new Error('INTERNAL_ERROR'), {
+      requestId: 'request-12345678',
+      errorCode: 'INTERNAL_ERROR',
+    });
+    await reporter.capture(new Error('DROPPED_ERROR'), {
+      requestId: 'request-87654321',
+      errorCode: 'INTERNAL_ERROR',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    release?.();
+    await first;
+  });
 });
 
 describe('metric route cardinality', () => {
@@ -89,5 +140,11 @@ describe('metric route cardinality', () => {
     expect(
       normalizedRoute('/api/v1/cases/018f0c6a-7b2d-7d50-9a11-2f4b7c8d9e01/plans/42?token=secret'),
     ).toBe('/api/v1/cases/:id/plans/:number');
+  });
+
+  it('recognizes only the bounded operational health hot paths', () => {
+    expect(isOperationalHealthRoute('/api/v1/health/live')).toBe(true);
+    expect(isOperationalHealthRoute('/health/metrics')).toBe(true);
+    expect(isOperationalHealthRoute('/api/v1/health/other')).toBe(false);
   });
 });

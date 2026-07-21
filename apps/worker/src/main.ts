@@ -7,6 +7,10 @@ import { createLogger } from '@dental-trust/observability';
 import { OutboxRelay } from './jobs/outbox-relay.js';
 import { redisConnectionOptions } from './jobs/redis.js';
 import { createDomainEventWorker } from './processors/domain-event.processor.js';
+import {
+  createFileProcessingWorker,
+  readFileScanWorkerPolicy,
+} from './processors/file-scan.processor.js';
 import { startHealthServer, stopHealthServer } from './health/server.js';
 import { NotificationRelay } from './notifications/notification-relay.js';
 import { createNotificationWorker } from './notifications/notification.processor.js';
@@ -19,6 +23,7 @@ let activeDatabase: PrismaClient | undefined;
 async function main(): Promise<void> {
   loadWorkspaceEnvironment();
   const environment = parseServerEnvironment(process.env);
+  const fileScanWorkerPolicy = readFileScanWorkerPolicy(process.env);
   const { prisma } = await import('@dental-trust/database');
   activeDatabase = prisma;
   const logger = createLogger({
@@ -28,9 +33,16 @@ async function main(): Promise<void> {
     level: environment.LOG_LEVEL,
   });
   const redis = redisConnectionOptions(environment.REDIS_URL);
-  const relay = new OutboxRelay(prisma, redis, logger);
+  const relay = new OutboxRelay(prisma, redis, logger, fileScanWorkerPolicy.maxQueuedJobs);
   const notificationRelay = new NotificationRelay(prisma, redis, logger);
-  const domainEventWorker = createDomainEventWorker(prisma, redis, logger, environment);
+  const domainEvents = createDomainEventWorker(prisma, redis, logger);
+  const fileProcessingWorker = await createFileProcessingWorker(
+    prisma,
+    redis,
+    logger,
+    environment,
+    fileScanWorkerPolicy,
+  );
   const notificationWorker = createNotificationWorker(prisma, redis, logger, environment);
   const privacyExecution = await createPrivacyExecutionRuntime(prisma, redis, logger, environment);
   const verificationMaintenance = await createVerificationMaintenanceRuntime(prisma, redis, logger);
@@ -38,7 +50,8 @@ async function main(): Promise<void> {
   const healthServer = await startHealthServer(
     prisma,
     [
-      domainEventWorker,
+      domainEvents.worker,
+      fileProcessingWorker,
       notificationWorker,
       privacyExecution.worker,
       verificationMaintenance.worker,
@@ -56,7 +69,8 @@ async function main(): Promise<void> {
     await relay.stop();
     await notificationRelay.stop();
     await Promise.all([
-      domainEventWorker.close(),
+      domainEvents.close(),
+      fileProcessingWorker.close(),
       notificationWorker.close(),
       privacyExecution.close(),
       verificationMaintenance.close(),

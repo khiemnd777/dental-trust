@@ -14,6 +14,10 @@ const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   transpilePackages: ['@dental-trust/ui'],
+  experimental: {
+    proxyClientMaxBodySize: '11mb',
+    serverActions: { bodySizeLimit: '256kb' },
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
