@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22.23.1-bookworm-slim AS base
+FROM node:26.5.0-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -25,7 +25,7 @@ ENV NEXT_PUBLIC_BUILD_VERSION=$NEXT_PUBLIC_BUILD_VERSION
 COPY . .
 RUN pnpm exec turbo run build --filter=@dental-trust/web...
 
-FROM node:22.23.1-bookworm-slim AS runtime
+FROM node:26.5.0-bookworm-slim AS runtime
 ARG BUILD_DATE=unknown
 ARG VCS_REF=unknown
 ARG VERSION=development

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22.23.1-bookworm-slim AS base
+FROM node:26.5.0-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN corepack enable
 WORKDIR /workspace
@@ -14,7 +14,7 @@ ARG PUBLIC_APP_URL=http://localhost:3003
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL PUBLIC_APP_URL=$PUBLIC_APP_URL
 COPY . .
 RUN pnpm exec turbo run build --filter=@dental-trust/operations...
-FROM node:22.23.1-bookworm-slim AS runtime
+FROM node:26.5.0-bookworm-slim AS runtime
 ARG VERSION=development
 LABEL org.opencontainers.image.title="DENTAL TRUST Operations" org.opencontainers.image.version=$VERSION
 ENV NODE_ENV=production PORT=3002 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
