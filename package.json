@@ -33,9 +33,9 @@
   },
   "devDependencies": {
     "@dental-trust/eslint-config": "workspace:*",
-    "eslint": "10.7.0",
-    "prettier": "3.9.5",
-    "turbo": "2.10.4",
+    "eslint": "10.8.1",
+    "prettier": "3.9.6",
+    "turbo": "2.10.11",
     "typescript": "6.0.3"
   }
 }
